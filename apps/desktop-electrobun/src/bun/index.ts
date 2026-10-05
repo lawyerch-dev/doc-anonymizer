@@ -1,5 +1,5 @@
 // Electrobun 主进程: 拉起本地 Python 服务(docanon web) → 打开窗口加载它(系统 WebView)。
-import { BrowserWindow } from "electrobun/main";
+import { ApplicationMenu, BrowserWindow } from "electrobun/main";
 import { spawn } from "bun";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -46,6 +46,43 @@ const mainWindow = new BrowserWindow({
 	url: URL,
 	frame: { width: 1280, height: 860, x: 200, y: 120 },
 });
+
+// Electrobun 不会自动创建应用菜单; 不设菜单则 ⌘Q 无效。这里给出最小可用菜单(含 Quit)。
+ApplicationMenu.setApplicationMenu([
+	{
+		label: "文档脱敏工具",
+		submenu: [
+			{ role: "about" },
+			{ type: "separator" },
+			{ role: "hide" },
+			{ role: "hideOthers" },
+			{ role: "unhide" },
+			{ type: "separator" },
+			{ role: "quit" }, // ⌘Q
+		],
+	},
+	{
+		label: "编辑",
+		submenu: [
+			{ role: "undo" },
+			{ role: "redo" },
+			{ type: "separator" },
+			{ role: "cut" },
+			{ role: "copy" },
+			{ role: "paste" },
+			{ role: "selectAll" },
+		],
+	},
+	{
+		label: "窗口",
+		submenu: [
+			{ role: "minimize" },
+			{ role: "zoom" },
+			{ type: "separator" },
+			{ role: "close" }, // ⌘W
+		],
+	},
+]);
 
 process.on("exit", () => child.kill());
 console.log("doc-anonymizer (electrobun) 已启动:", URL);
