@@ -21,20 +21,23 @@
   a.linkbtn{display:inline-flex;text-decoration:none}
   a.linkbtn.hidden{display:none}
 
-  /* 顶部操作栏: 按钮 + 同一行的操作细节 + 展开日志 */
-  .toolbar{display:flex;align-items:center;gap:8px;padding:10px 24px;background:#fff;border-bottom:1px solid var(--line);flex:0 0 auto;flex-wrap:wrap}
-  .opinfo{margin-left:auto;display:flex;align-items:center;gap:10px;min-width:0;max-width:60%}
-  .opinfo #opDetails{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* 顶部: 操作细节(一行) + 运行日志入口 */
+  .toolbar{display:flex;align-items:center;gap:10px;padding:8px 24px;background:#fff;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .toolbar #opDetails{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .toolbar #toggleLog{margin-left:auto}
 
-  /* 运行日志面板 */
-  #logPanel{background:#0f172a;color:#e2e8f0;max-height:40vh;overflow:auto;padding:12px 24px;font-size:12px;flex:0 0 auto;border-bottom:1px solid var(--line);line-height:1.7}
-  #logPanel.hidden{display:none}
-  #logPanel .meta{color:#94a3b8;margin-bottom:8px}
-  #logPanel code{background:#1e293b;padding:1px 6px;border-radius:4px;color:#e2e8f0}
-  #logPanel table{color:#e2e8f0}
-  #logPanel th,#logPanel td{border-color:#334155;padding:5px 8px;vertical-align:top}
-  #logPanel th{color:#94a3b8}
-  #logPanel .arrow{color:#64748b}
+  /* 运行日志弹窗(不影响原布局) */
+  .modal{position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;z-index:50}
+  .modal.hidden{display:none}
+  .modal-box{background:#0f172a;color:#e2e8f0;width:min(1000px,92vw);max-height:82vh;border-radius:12px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 44px rgba(0,0,0,.45)}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #334155;background:#111827;font-size:14px}
+  .modal-body{overflow:auto;padding:12px 16px;font-size:12px;line-height:1.7}
+  .modal-body .meta{color:#94a3b8;margin-bottom:8px}
+  .modal-body code{background:#1e293b;padding:1px 6px;border-radius:4px;color:#e2e8f0}
+  .modal-body table{color:#e2e8f0}
+  .modal-body th,.modal-body td{border-color:#334155;padding:5px 8px;vertical-align:top}
+  .modal-body th{color:#94a3b8}
+  .modal-body .arrow{color:#64748b}
 
   .layout{display:grid;grid-template-columns:270px 1fr;gap:16px;padding:16px 24px;max-width:1500px;margin:0 auto;flex:1;min-height:0;width:100%}
   .side{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto;padding-right:2px}
@@ -76,18 +79,20 @@
   <span class="sub">选文档 → 预览 → 一键脱敏 → 原格式前后对比</span>
 </header>
 
-<!-- 顶部操作栏: 开始脱敏 + 同行操作细节 + 展开日志 -->
+<!-- 顶部: 操作细节(一行) + 运行日志入口 -->
 <div class="toolbar">
-  <button id="run" disabled>开始脱敏</button>
+  <span id="opDetails">未选择文档</span>
   <span id="err" class="err hidden" style="margin:0"></span>
-  <div class="opinfo">
-    <span id="opDetails">未选择文档</span>
-    <button class="mini" id="toggleLog" disabled>▸ 运行日志</button>
-  </div>
+  <button class="mini" id="toggleLog" disabled>运行日志</button>
 </div>
 
-<!-- 可展开运行日志 -->
-<div id="logPanel" class="hidden"></div>
+<!-- 运行日志弹窗 -->
+<div id="logModal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head"><b>运行日志</b><button class="mini" id="logClose">关闭 ✕</button></div>
+    <div class="modal-body" id="logBody"></div>
+  </div>
+</div>
 
 <div class="layout">
   <aside class="side">
@@ -95,6 +100,7 @@
       <div class="card-head"><h3>选择文档</h3><button class="mini" id="refresh" title="重新加载 samples/ 里的示例">↻ 刷新示例</button></div>
       <div id="presets"></div>
       <button class="ghost" id="upload" style="width:100%;margin-top:6px">上传本地文件…</button>
+      <button id="run" style="width:100%;margin-top:8px" disabled>开始脱敏</button>
       <input type="file" id="file" class="hidden" />
     </div>
     <div class="card hidden" id="statsCard">
@@ -164,14 +170,13 @@ async function showText(el, url) {
 }
 
 function resetOutput() {
-  state.trace = null; state.logOpen = false;
+  state.trace = null;
   $('outName').textContent = '';
   $('dlOut').classList.add('hidden');
   $('paneOut').innerHTML = '<div class="placeholder">点击「开始脱敏」查看结果</div>';
   $('statsCard').classList.add('hidden');
-  $('logPanel').classList.add('hidden');
+  $('logModal').classList.add('hidden');
   $('toggleLog').disabled = true;
-  $('toggleLog').textContent = '▸ 运行日志';
 }
 
 function selectDoc({ preset, token, filename, url }) {
@@ -250,9 +255,7 @@ $('run').onclick = async () => {
     state.trace = resp.trace || null;
     renderOpDetails(resp);
     $('toggleLog').disabled = !state.trace;
-    $('logPanel').classList.add('hidden');
-    state.logOpen = false;
-    $('toggleLog').textContent = '▸ 运行日志';
+    $('logModal').classList.add('hidden');
   } catch (e) {
     showErr('脱敏失败: ' + e.message);
   } finally { btn.disabled = false; btn.textContent = '开始脱敏'; }
@@ -260,11 +263,11 @@ $('run').onclick = async () => {
 
 $('toggleLog').onclick = () => {
   if (!state.trace) return;
-  state.logOpen = !state.logOpen;
-  if (state.logOpen) { renderLog(state.trace); $('logPanel').classList.remove('hidden'); }
-  else { $('logPanel').classList.add('hidden'); }
-  $('toggleLog').textContent = (state.logOpen ? '▾ ' : '▸ ') + '运行日志';
+  renderLog(state.trace);
+  $('logModal').classList.remove('hidden');
 };
+$('logClose').onclick = () => $('logModal').classList.add('hidden');
+$('logModal').onclick = (e) => { if (e.target === $('logModal')) $('logModal').classList.add('hidden'); };
 
 function totalCounts(counts) { return Object.values(counts || {}).reduce((a, b) => a + b, 0); }
 
@@ -295,7 +298,7 @@ function renderLog(tr) {
   const table = (tr.detections || []).length
     ? '<table><tr><th>类型</th><th>来源</th><th>策略</th><th>原文</th><th></th><th>替换为</th><th>位置</th></tr>' + rows + '</table>'
     : '<div class="meta">本次未命中任何敏感信息。</div>';
-  $('logPanel').innerHTML = meta + table;
+  $('logBody').innerHTML = meta + table;
 }
 
 function locText(loc) {
