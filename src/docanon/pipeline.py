@@ -1,6 +1,7 @@
 """编排: 抽取 → 检测 → 合并 → 策略替换 → 回写。"""
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -21,6 +22,11 @@ class ProcessResult:
     entity_counts: dict[str, int] = field(default_factory=dict)
     # 实际写盘的文件(扫描 PDF 每页一张, 故为列表)
     outputs: list[str] = field(default_factory=list)
+    # 溯源信息
+    extractor: str = ""
+    detectors: list[str] = field(default_factory=list)
+    detections: list[dict] = field(default_factory=list)
+    timing: dict[str, float] = field(default_factory=dict)
 
 
 def _detect_block(block: Block, detectors) -> list[Detection]:
@@ -28,21 +34,6 @@ def _detect_block(block: Block, detectors) -> list[Detection]:
     for detector in detectors:
         found.extend(detector.detect(block))
     return resolve_overlaps(found)
-
-
-def _redact_block(block: Block, config: Config, store: MappingStore) -> tuple[str, dict[str, int]]:
-    counts: dict[str, int] = {}
-    replacements: list[tuple[int, int, str]] = []
-    for det in _detect_block(block, config._detectors):  # type: ignore[attr-defined]
-        strategy = config.strategy_for(det.entity_type)
-        repl = replacement_for(store, det.entity_type, det.span.text, strategy)
-        replacements.append((det.span.start, det.span.end, repl))
-        counts[det.entity_type] = counts.get(det.entity_type, 0) + 1
-    return apply_spans(block.text, replacements), counts
-
-
-def _write_text_output(doc: ExtractedDoc, out_path: Path, texts: list[str]) -> None:
-    out_path.write_text("\n".join(texts), encoding="utf-8")
 
 
 def _output_path(path: Path, out_dir: Path, rel: Path | None, ext: str) -> Path:
@@ -74,13 +65,16 @@ def process_file(
     path: Path, out_dir: Path, config: Config, store: MappingStore,
     rel: Path | None = None,
 ) -> ProcessResult:
+    t0 = time.perf_counter()
     extractor = build_extractor(path)
     doc = extractor.extract(path)
+    t_extract = time.perf_counter()
     detectors = build_detectors(config)
     config._detectors = detectors  # type: ignore[attr-defined]
 
     counts: dict[str, int] = {}
     reds: list[BlockRedaction] = []
+    detections: list[dict] = []
     for block in doc.blocks:
         repls: list[tuple[int, int, str]] = []
         for det in _detect_block(block, detectors):
@@ -88,8 +82,35 @@ def process_file(
             repl = replacement_for(store, det.entity_type, det.span.text, strategy)
             repls.append((det.span.start, det.span.end, repl))
             counts[det.entity_type] = counts.get(det.entity_type, 0) + 1
+            detections.append({
+                "entity_type": det.entity_type,
+                "source": det.source,
+                "strategy": strategy,
+                "original": det.span.text,
+                "replacement": repl,
+                "locator": block.locator,
+            })
         reds.append(BlockRedaction(block, repls, apply_spans(block.text, repls)))
+    t_detect = time.perf_counter()
+
+    det_names: list[str] = []
+    for d in detectors:
+        if d.name not in det_names:
+            det_names.append(d.name)
 
     out_path = _output_path(path, out_dir, rel, _out_ext(doc, path))
     written = write_output(doc, reds, out_path)
-    return ProcessResult(str(path), written[0] if written else str(out_path), counts, written)
+    t_write = time.perf_counter()
+
+    return ProcessResult(
+        str(path), written[0] if written else str(out_path), counts, written,
+        extractor=extractor.name,
+        detectors=det_names,
+        detections=detections,
+        timing={
+            "extract_ms": round((t_extract - t0) * 1000, 1),
+            "detect_ms": round((t_detect - t_extract) * 1000, 1),
+            "write_ms": round((t_write - t_detect) * 1000, 1),
+            "total_ms": round((t_write - t0) * 1000, 1),
+        },
+    )

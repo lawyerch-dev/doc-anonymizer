@@ -192,6 +192,13 @@ class Handler(BaseHTTPRequestHandler):
             "output_url": f"/outputs/{token}/{out_name}",
             "counts": res.entity_counts,
             "kind": Path(out_name).suffix.lower().lstrip("."),
+            "trace": {
+                "source": src.name,
+                "extractor": res.extractor,
+                "detectors": res.detectors,
+                "timing": res.timing,
+                "detections": res.detections,
+            },
         })
 
     def log_message(self, fmt: str, *args) -> None:  # 静默默认日志
