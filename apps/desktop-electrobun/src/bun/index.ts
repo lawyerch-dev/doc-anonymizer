@@ -47,7 +47,13 @@ const mainWindow = new BrowserWindow({
 	frame: { width: 1280, height: 860, x: 200, y: 120 },
 });
 
-// Electrobun 不会自动创建应用菜单; 不设菜单则 ⌘Q 无效。这里给出最小可用菜单(含 Quit)。
+// 关窗即退出(单窗口工具) —— 关闭时回收 Python sidecar
+mainWindow.on("close", () => {
+	child.kill();
+	process.exit(0);
+});
+
+// Electrobun 无默认应用菜单; ⌘Q 需自己绑。用显式 action 保证可控(而非依赖 role)。
 ApplicationMenu.setApplicationMenu([
 	{
 		label: "文档脱敏工具",
@@ -58,7 +64,7 @@ ApplicationMenu.setApplicationMenu([
 			{ role: "hideOthers" },
 			{ role: "unhide" },
 			{ type: "separator" },
-			{ role: "quit" }, // ⌘Q
+			{ label: "退出 文档脱敏工具", action: "quit-app", accelerator: "q" }, // ⌘Q
 		],
 	},
 	{
@@ -83,6 +89,16 @@ ApplicationMenu.setApplicationMenu([
 		],
 	},
 ]);
+
+// 处理自定义菜单动作(退出)
+ApplicationMenu.on("application-menu-clicked", (event: unknown) => {
+	console.log("[menu] event:", JSON.stringify(event));
+	const action = (event as any)?.data?.action ?? (event as any)?.action;
+	if (action === "quit-app") {
+		child.kill();
+		process.exit(0);
+	}
+});
 
 process.on("exit", () => child.kill());
 console.log("doc-anonymizer (electrobun) 已启动:", URL);
