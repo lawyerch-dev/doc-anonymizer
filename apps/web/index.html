@@ -93,45 +93,6 @@ const state = { preset: null, token: null, filename: null, url: null };
 const $ = id => document.getElementById(id);
 const TEXT_EXT = ['txt','md','markdown','csv'];
 
-function findShadow(node) {
-  if (node.shadowRoot) return node.shadowRoot;
-  for (const c of node.children) { const s = findShadow(c); if (s) return s; }
-  return null;
-}
-
-// 隐藏 file-viewer 自带工具栏, 并强制浅色主题(用 MutationObserver 持续纠正)
-function hideChrome(host) {
-  let tries = 0, obs = null, styled = false;
-  const apply = (sr) => {
-    const shell = sr.querySelector('.file-viewer-web-shell');
-    if (shell && shell.getAttribute('data-viewer-theme') !== 'light') {
-      shell.setAttribute('data-viewer-theme', 'light');
-    }
-    if (!styled) {
-      const st = document.createElement('style');
-      st.setAttribute('data-docanon', '1');
-      st.textContent = ':host{color-scheme:light!important}' +
-        '.file-viewer-web-toolbar{display:none!important}' +
-        '.file-viewer-web-shell{gap:0!important;height:100%!important;--file-viewer-bg:#fff;color-scheme:light!important}';
-      sr.appendChild(st);
-      styled = true;
-    }
-  };
-  const timer = setInterval(() => {
-    const sr = findShadow(host);
-    if (sr) {
-      apply(sr);
-      if (!obs) {
-        obs = new MutationObserver(() => apply(sr));
-        obs.observe(sr, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-viewer-theme'] });
-        clearInterval(timer);
-      }
-    } else if (++tries > 100) {
-      clearInterval(timer);
-    }
-  }, 150);
-}
-
 function mount(containerId, url, filename) {
   const el = $(containerId);
   el.innerHTML = '';
@@ -141,8 +102,16 @@ function mount(containerId, url, filename) {
   const ext = (filename.split('.').pop() || '').toLowerCase();
   if (TEXT_EXT.includes(ext)) { return showText(inner, url); }
   if (FV && FV.mountViewer) {
-    try { FV.mountViewer(inner, { url: new URL(url, location.href).href, filename, theme: 'light' }); hideChrome(inner); return; }
-    catch (e) { console.warn('file-viewer mount failed', e); }
+    try {
+      FV.mountViewer(inner, {
+        url: new URL(url, location.href).href,
+        filename,
+        // theme 必须放 options 里(顶层会被忽略); toolbar:false 是官方开关, 用于隐藏自带控件。
+        // 不再用 MutationObserver 去改 data-viewer-theme —— 那会和 file-viewer 抢主题导致抖动。
+        options: { theme: 'light', toolbar: false },
+      });
+      return;
+    } catch (e) { console.warn('file-viewer mount failed', e); }
   }
   showText(inner, url);
 }
