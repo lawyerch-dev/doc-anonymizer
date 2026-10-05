@@ -99,20 +99,36 @@ function findShadow(node) {
   return null;
 }
 
-// 隐藏 file-viewer 自带工具栏(搜索/缩放/下载/打印…), 让预览窗格干净、不溢出
+// 隐藏 file-viewer 自带工具栏, 并强制浅色主题(用 MutationObserver 持续纠正)
 function hideChrome(host) {
-  let tries = 0;
-  const timer = setInterval(() => {
-    const sr = findShadow(host);
-    if (sr && !sr.querySelector('style[data-docanon]')) {
+  let tries = 0, obs = null, styled = false;
+  const apply = (sr) => {
+    const shell = sr.querySelector('.file-viewer-web-shell');
+    if (shell && shell.getAttribute('data-viewer-theme') !== 'light') {
+      shell.setAttribute('data-viewer-theme', 'light');
+    }
+    if (!styled) {
       const st = document.createElement('style');
       st.setAttribute('data-docanon', '1');
-      st.textContent = '.file-viewer-web-toolbar{display:none!important}' +
-        '.file-viewer-web-shell{gap:0!important;height:100%!important}';
+      st.textContent = ':host{color-scheme:light!important}' +
+        '.file-viewer-web-toolbar{display:none!important}' +
+        '.file-viewer-web-shell{gap:0!important;height:100%!important;--file-viewer-bg:#fff;color-scheme:light!important}';
       sr.appendChild(st);
+      styled = true;
+    }
+  };
+  const timer = setInterval(() => {
+    const sr = findShadow(host);
+    if (sr) {
+      apply(sr);
+      if (!obs) {
+        obs = new MutationObserver(() => apply(sr));
+        obs.observe(sr, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-viewer-theme'] });
+        clearInterval(timer);
+      }
+    } else if (++tries > 100) {
       clearInterval(timer);
     }
-    if (++tries > 80) clearInterval(timer);
   }, 150);
 }
 
@@ -125,7 +141,7 @@ function mount(containerId, url, filename) {
   const ext = (filename.split('.').pop() || '').toLowerCase();
   if (TEXT_EXT.includes(ext)) { return showText(inner, url); }
   if (FV && FV.mountViewer) {
-    try { FV.mountViewer(inner, { url: new URL(url, location.href).href, filename }); hideChrome(inner); return; }
+    try { FV.mountViewer(inner, { url: new URL(url, location.href).href, filename, theme: 'light' }); hideChrome(inner); return; }
     catch (e) { console.warn('file-viewer mount failed', e); }
   }
   showText(inner, url);

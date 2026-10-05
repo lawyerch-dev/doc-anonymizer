@@ -158,15 +158,25 @@ def _text_page_boxes(pdf, pno: int, repls, scale: float) -> list[tuple]:
     return boxes
 
 
-def _sub_boxes(bbox, text_len: int, repls) -> list[tuple]:
-    """OCR 只给整行 bbox; 按字符比例估出敏感片段在行内的子矩形, 避免整行涂黑。"""
+def _char_width(ch: str) -> float:
+    # CJK/全角约 2 个宽度单位, ASCII 约 1 个
+    return 2.0 if ord(ch) > 0x2E7F else 1.0
+
+
+def _frac(text: str, idx: int) -> float:
+    total = sum(_char_width(c) for c in text) or 1.0
+    pre = sum(_char_width(c) for c in text[:idx])
+    return max(0.0, min(1.0, pre / total))
+
+
+def _sub_boxes(bbox, text: str, repls) -> list[tuple]:
+    """OCR 只给整行 bbox; 按**字符宽度比例**(CJK=2, ASCII=1)估子矩形, 只涂敏感片段。"""
     x0, y0, x1, y1 = bbox
     width = x1 - x0
-    n = max(text_len, 1)
     boxes = []
     for s, e, _rep in repls:
-        f0 = max(0.0, min(1.0, s / n))
-        f1 = max(0.0, min(1.0, e / n))
+        f0 = _frac(text, s)
+        f1 = _frac(text, e)
         if f1 <= f0:
             f1 = min(1.0, f0 + 0.02)
         boxes.append((x0 + width * f0, y0, x0 + width * f1, y1))
@@ -188,7 +198,7 @@ def _pdf(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list[
         pno = loc.get("page", 0)
         if "bbox" in loc:
             img_boxes.setdefault(pno, []).extend(
-                _sub_boxes(loc["bbox"], len(r.block.text), r.replacements)
+                _sub_boxes(loc["bbox"], r.block.text, r.replacements)
             )
         else:
             text_repls.setdefault(pno, []).extend(r.replacements)
@@ -222,7 +232,7 @@ def _image(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> lis
     draw = ImageDraw.Draw(img)
     for r in reds:
         if r.changed and "bbox" in r.block.locator:
-            for box in _sub_boxes(r.block.locator["bbox"], len(r.block.text), r.replacements):
+            for box in _sub_boxes(r.block.locator["bbox"], r.block.text, r.replacements):
                 draw.rectangle(box, fill="black")
     img.save(out_path)
     return [str(out_path)]

@@ -82,8 +82,8 @@ docanon web --port 8000 -c config/onnx.yaml   # 浏览器打开 http://127.0.0.1
 - 预览基于 [file-viewer](https://github.com/flyfish-dev/file-viewer)（浏览器端只读预览，Apache-2.0）
 - 脱敏**保持原格式**：docx→docx、xlsx→xlsx、pdf→pdf、图片→图片，便于左右对比
 - 零构建：直接引用 file-viewer 预构建包，无 node 构建链
-- 预览窗格铺满高度；已隐藏 file-viewer 自带工具栏（搜索/缩放/下载…），避免控件溢出
-- 图片/扫描件按**字符比例只涂黑敏感片段**，不再整行涂黑
+- 预览窗格铺满高度；默认**浅色模式**；已隐藏 file-viewer 自带工具栏（搜索/缩放/下载…），避免控件溢出
+- 图片/扫描件按**字符宽度比例（CJK=2/ASCII=1）只涂黑敏感片段**，不再整行涂黑
 
 ## 多模型对比
 
