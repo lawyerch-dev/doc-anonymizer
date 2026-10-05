@@ -4,7 +4,8 @@ import { spawn } from "bun";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-const ROOT = join(import.meta.dir, "..", "..", "..", ".."); // apps/desktop-electrobun/src/bun -> 项目根
+// 项目根: 优先用环境变量(打包后路径会变), 退回源码树推断。
+const ROOT = process.env.DOCANON_ROOT || join(import.meta.dir, "..", "..", "..", "..");
 const PORT = Number(process.env.DOCANON_PORT || 8771);
 const CONFIG = process.env.DOCANON_CONFIG || "configs/onnx.yaml";
 const URL = `http://127.0.0.1:${PORT}`;
@@ -12,7 +13,9 @@ const URL = `http://127.0.0.1:${PORT}`;
 function python(): string {
 	if (process.env.DOCANON_PYTHON) return process.env.DOCANON_PYTHON;
 	const venv = join(ROOT, ".venv", "bin", "python");
-	return existsSync(venv) ? venv : "python3";
+	if (existsSync(venv)) return venv;
+	console.error(`[docanon] 未找到 .venv 的 Python(${venv})，请设置 DOCANON_PYTHON 或 DOCANON_ROOT`);
+	return "python3";
 }
 
 // 拉起 Python 后端(sidecar)
