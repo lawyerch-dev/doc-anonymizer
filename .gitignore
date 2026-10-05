@@ -1,11 +1,35 @@
+# ---- Python ----
 .venv/
+venv/
 __pycache__/
-*.pyc
+*.py[cod]
 *.egg-info/
+.eggs/
 build/
 dist/
-out*/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---- 模型权重 / OCR 模型(体积大, 不入库) ----
 models/
 *.gguf
-.pytest_cache/
+*.onnx
+*.safetensors
+
+# ---- 运行产物(脱敏输出等) ----
+out*/
+*.log
+
+# ---- 本地环境变量 ----
+.env
+.env.*
+
+# ---- 编辑器 / 系统 ----
+.idea/
+.vscode/
+*.swp
+*.swo
 .DS_Store
