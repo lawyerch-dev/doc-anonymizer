@@ -29,7 +29,9 @@
   button.ghost{background:#eef2ff;color:var(--accent)}
   .panes{display:grid;grid-template-columns:1fr 1fr;gap:16px;height:100%;min-height:0}
   .pane{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;min-height:0;height:100%}
-  .pane .bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:13px}
+  .pane .bar{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);font-size:13px;min-height:44px}
+  .pane .bar button{padding:4px 10px;font-size:12px;line-height:1.2}
+  .pane .bar a{display:inline-flex;text-decoration:none}
   .pane .bar b{font-weight:600}
   .pane .bar .right{margin-left:auto;display:flex;gap:8px}
   .pane .body{flex:1;position:relative;min-height:0;overflow:hidden}
