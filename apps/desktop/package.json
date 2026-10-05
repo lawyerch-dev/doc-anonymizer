@@ -9,6 +9,6 @@
     "start:dev": "DOCANON_DEV=1 electron ."
   },
   "devDependencies": {
-    "electron": "^33.0.0"
+    "electron": "^33.4.11"
   }
 }
