@@ -109,7 +109,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 def cmd_web(args: argparse.Namespace) -> int:
-    from .web.server import serve
+    from .server import serve
 
     serve(args.port, args.config, not args.no_browser)
     return 0

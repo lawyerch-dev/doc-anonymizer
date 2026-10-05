@@ -91,7 +91,7 @@
 - 两模型**取并集** + 规则(补金额): 实测 **召回 100%, 34ms, 无 server**
 - 对比: LLM Qwen3.8-4B 100% 但 1190ms、需 3G 模型 + llama.cpp
 - 代价: 标签集固定, 不如 LLM 灵活(不能听指令/生成自然假名)
-- 配置: `config/onnx.yaml`; `docanon run ... -c config/onnx.yaml`
+- 配置: `configs/onnx.yaml`; `docanon run ... -c configs/onnx.yaml`
 
 ### 3.5 原位回写 + 友好 Web
 
@@ -121,7 +121,7 @@
 | `mask` | 部分打码保留格式 | 138****0000 |
 | `remove` | 整段删除 | 密钥直接抹去 |
 
-按类型在 `config/default.yaml` 的 `strategies` 中配置，缺省走 `DEFAULT`。
+按类型在 `configs/default.yaml` 的 `strategies` 中配置，缺省走 `DEFAULT`。
 
 ## 6. 非目标(YAGNI)
 

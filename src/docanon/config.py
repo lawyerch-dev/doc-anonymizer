@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-DEFAULT_CONFIG = Path(__file__).resolve().parents[2] / "config" / "default.yaml"
+DEFAULT_CONFIG = Path(__file__).resolve().parents[2] / "configs" / "default.yaml"
 
 
 @dataclass

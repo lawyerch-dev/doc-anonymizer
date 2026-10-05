@@ -28,7 +28,7 @@ pip install -e '.[ocr,dev]'
 ```bash
 ./scripts/download_model.sh Q4_K_M     # 从 ModelScope 下载 (~6 分钟)
 ./scripts/serve_llm.sh                 # 启动 llama-server :8080
-# 另开一个终端, 打开 config/default.yaml 里 detectors.llm_ner: true
+# 另开一个终端, 打开 configs/default.yaml 里 detectors.llm_ner: true
 ```
 
 ## 快速开始
@@ -74,7 +74,7 @@ docs/债权人/明细.txt    ->   out/债权人/明细.txt.redacted.txt
 
 ```bash
 ./scripts/fetch_file_viewer.sh                # 首次: 拉取 file-viewer 预览资源(约 232MB, 已 gitignore)
-docanon web --port 8000 -c config/onnx.yaml   # 浏览器打开 http://127.0.0.1:8000
+docanon web --port 8000 -c configs/onnx.yaml   # 浏览器打开 http://127.0.0.1:8000
 ```
 
 流程：**左侧选内置示例(或上传) → 中间 file-viewer 预览原文 → 点「开始脱敏」→ 右侧同一查看器预览保留原格式的脱敏件**，并给出命中统计与下载。
@@ -113,7 +113,7 @@ docanon web --port 8000 -c config/onnx.yaml   # 浏览器打开 http://127.0.0.1
 
 ```bash
 # 模型已下载到 models/onnx/ (gyr66 通用中文NER + pii-engineer 中文PII)
-docanon run ./samples -o out_onnx -c config/onnx.yaml
+docanon run ./samples -o out_onnx -c configs/onnx.yaml
 ```
 
 | 后端 | 召回 | 均耗时 | 依赖 |
@@ -127,21 +127,30 @@ docanon run ./samples -o out_onnx -c config/onnx.yaml
 
 ## 配置
 
-见 [config/default.yaml](config/default.yaml)：敏感词表、各类型脱敏策略、LLM 地址。
+见 [configs/default.yaml](configs/default.yaml)：敏感词表、各类型脱敏策略、LLM 地址。
 
 ## 目录结构
 
 ```
-src/docanon/
-├── extractors/   抽取器(按文件类型可插拔, 含 RapidOCR)
-├── detectors/    检测器(规则/词典/LLM)
-├── strategies.py 脱敏策略
-├── resolve.py    重叠合并
-├── mapping.py    全局映射表(一致 + 可还原)
-├── pipeline.py   编排
-├── cli.py        命令行
-└── web/          轻量 Web
+doc-anonymizer/
+├── src/docanon/            # Python 引擎包(web 与桌面壳共用)
+│   ├── extractors/         抽取器(按类型可插拔, 含 RapidOCR)
+│   ├── detectors/          检测器(规则/词典/ONNX NER/LLM)
+│   ├── writers.py          原位回写(原格式)
+│   ├── strategies.py       脱敏策略
+│   ├── resolve.py          重叠合并
+│   ├── mapping.py          全局映射表(一致 + 可还原)
+│   ├── pipeline.py         编排
+│   ├── server.py           本地 HTTP 服务(前端/壳共用)
+│   └── cli.py              命令行
+├── apps/
+│   ├── web/                前端静态资源(index.html + vendor/file-viewer)
+│   └── desktop/            Electron 桌面壳(拉起 server + 打开窗口)
+├── configs/                配置(default/onnx/with_llm)
+├── scripts/  samples/  tests/  docs/
+└── models/                 模型权重(gitignore)
 ```
+
 
 ## 非目标
 

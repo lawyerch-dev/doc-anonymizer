@@ -2,7 +2,7 @@
 # 获取 file-viewer 预构建资源(零构建 Web 预览用)
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
-DEST="$DIR/src/docanon/web/vendor/file-viewer"
+DEST="$DIR/apps/web/vendor/file-viewer"
 TMP="$(mktemp -d)"
 cd "$TMP"
 echo "下载 @file-viewer/web-full ..."

@@ -16,14 +16,15 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from ..config import load_config
-from ..mapping import MappingStore
-from ..pipeline import process_file
+from .config import load_config
+from .mapping import MappingStore
+from .pipeline import process_file
 
 _HERE = Path(__file__).resolve().parent
-_INDEX = _HERE / "index.html"
-_VENDOR = _HERE / "vendor" / "file-viewer"
-_ROOT = _HERE.parents[2]  # 项目根
+_ROOT = _HERE.parents[1]  # 项目根
+_WEB = _ROOT / "apps" / "web"
+_INDEX = _WEB / "index.html"
+_VENDOR = _WEB / "vendor" / "file-viewer"
 _SAMPLES = _ROOT / "samples"
 _MAX_BYTES = 50 * 1024 * 1024
 

@@ -24,9 +24,6 @@ docanon = "docanon.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.setuptools.package-data]
-docanon = ["web/*.html", "../../config/*.yaml"]
-
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
