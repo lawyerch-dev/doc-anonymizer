@@ -1,0 +1,34 @@
+# 与 default.yaml 相同, 但打开 LLM NER 检测器(需先启动 llama-server)
+strategies:
+  PHONE: mask
+  ID_CARD: mask
+  BANK_CARD: mask
+  EMAIL: mask
+  IP: placeholder
+  USCC: mask
+  PERSON: pseudonym
+  ORG: pseudonym
+  LOCATION: placeholder
+  AMOUNT: placeholder
+  SECRET: remove
+  CUSTOM: placeholder
+  DEFAULT: placeholder
+
+dictionary:
+  - 内部项目代号
+  - 某客户名
+
+detectors:
+  rule: true
+  dictionary: true
+  llm_ner: true
+
+llm:
+  base_url: http://127.0.0.1:8080/v1
+  model: qwen3.8-4b
+  timeout: 180
+  chunk_size: 1000
+  disable_thinking: true
+
+ocr:
+  enabled: true

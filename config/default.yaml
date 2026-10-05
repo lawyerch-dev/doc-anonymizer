@@ -1,0 +1,40 @@
+# doc-anonymizer 默认配置
+# 各实体类型的脱敏策略: pseudonym | placeholder | mask | remove
+strategies:
+  PHONE: mask          # 138****0000
+  ID_CARD: mask        # 保留前6后4
+  BANK_CARD: mask      # 保留后4
+  EMAIL: mask          # a***@example.com
+  IP: placeholder
+  USCC: mask           # 统一社会信用代码
+  PERSON: pseudonym    # 张三 -> 林芳 (全文一致)
+  ORG: pseudonym       # XX公司 -> 华信集团
+  LOCATION: placeholder
+  AMOUNT: placeholder
+  SECRET: remove       # key/token/密码 直接删除
+  CUSTOM: placeholder
+  DEFAULT: placeholder
+
+# 自定义业务敏感词(词典检测器)。命中即标为 CUSTOM
+dictionary:
+  - 内部项目代号
+  - 某客户名
+  # - 加更多
+
+detectors:
+  rule: true
+  dictionary: true
+  llm_ner: false       # 需先启动 llama-server
+
+llm:
+  base_url: http://127.0.0.1:8080/v1
+  model: qwen3.8-4b
+  timeout: 120
+  # 分块送模型的最大字符数
+  chunk_size: 1000
+  # 关闭 Qwen3.x thinking 模式, 直接出 JSON
+  disable_thinking: true
+
+ocr:
+  # rapidocr 自动选择，无需额外配置；保留占位
+  enabled: true
