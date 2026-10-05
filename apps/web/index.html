@@ -54,6 +54,8 @@
   .pane .bar{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);font-size:13px;min-height:44px}
   .pane .bar b{font-weight:600}
   .pane .bar span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pane .bar .right{margin-left:auto;display:flex;gap:8px}
+  .pane .bar button{padding:4px 10px;font-size:12px;line-height:1.2}
   .pane .body{flex:1;position:relative;min-height:0;overflow:hidden}
   .pane .body>div{position:absolute;inset:0}
   .placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;flex-direction:column;gap:8px}
@@ -74,19 +76,14 @@
   <span class="sub">选文档 → 预览 → 一键脱敏 → 原格式前后对比</span>
 </header>
 
-<!-- 顶部操作栏: 按钮 + 同行操作细节 + 展开日志 -->
+<!-- 顶部操作栏: 开始脱敏 + 同行操作细节 + 展开日志 -->
 <div class="toolbar">
-  <button class="ghost" id="upload">上传本地文件…</button>
   <button id="run" disabled>开始脱敏</button>
-  <a class="linkbtn hidden" id="dlSrc"><button class="ghost">下载原件</button></a>
-  <a class="linkbtn hidden" id="dlOut"><button class="ghost">下载脱敏件</button></a>
-  <button class="mini" id="refresh" title="重新加载 samples/ 里的示例">↻ 刷新示例</button>
   <span id="err" class="err hidden" style="margin:0"></span>
   <div class="opinfo">
     <span id="opDetails">未选择文档</span>
     <button class="mini" id="toggleLog" disabled>▸ 运行日志</button>
   </div>
-  <input type="file" id="file" class="hidden" />
 </div>
 
 <!-- 可展开运行日志 -->
@@ -95,8 +92,10 @@
 <div class="layout">
   <aside class="side">
     <div class="card">
-      <div class="card-head"><h3>选择文档</h3></div>
+      <div class="card-head"><h3>选择文档</h3><button class="mini" id="refresh" title="重新加载 samples/ 里的示例">↻ 刷新示例</button></div>
       <div id="presets"></div>
+      <button class="ghost" id="upload" style="width:100%;margin-top:6px">上传本地文件…</button>
+      <input type="file" id="file" class="hidden" />
     </div>
     <div class="card hidden" id="statsCard">
       <h3>命中统计</h3>
@@ -107,11 +106,13 @@
   <main>
     <div class="panes">
       <section class="pane">
-        <div class="bar"><b>原文</b><span id="srcName"></span></div>
+        <div class="bar"><b>原文</b><span id="srcName"></span>
+          <span class="right"><a class="linkbtn hidden" id="dlSrc"><button class="ghost">下载原件</button></a></span></div>
         <div class="body" id="paneSrc"><div class="placeholder">左侧选择或上传一个文档</div></div>
       </section>
       <section class="pane">
-        <div class="bar"><b>脱敏后</b><span id="outName"></span></div>
+        <div class="bar"><b>脱敏后</b><span id="outName"></span>
+          <span class="right"><a class="linkbtn hidden" id="dlOut"><button class="ghost">下载脱敏件</button></a></span></div>
         <div class="body" id="paneOut"><div class="placeholder">点击「开始脱敏」查看结果</div></div>
       </section>
     </div>
