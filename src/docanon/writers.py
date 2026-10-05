@@ -158,6 +158,21 @@ def _text_page_boxes(pdf, pno: int, repls, scale: float) -> list[tuple]:
     return boxes
 
 
+def _sub_boxes(bbox, text_len: int, repls) -> list[tuple]:
+    """OCR 只给整行 bbox; 按字符比例估出敏感片段在行内的子矩形, 避免整行涂黑。"""
+    x0, y0, x1, y1 = bbox
+    width = x1 - x0
+    n = max(text_len, 1)
+    boxes = []
+    for s, e, _rep in repls:
+        f0 = max(0.0, min(1.0, s / n))
+        f1 = max(0.0, min(1.0, e / n))
+        if f1 <= f0:
+            f1 = min(1.0, f0 + 0.02)
+        boxes.append((x0 + width * f0, y0, x0 + width * f1, y1))
+    return boxes
+
+
 def _pdf(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list[str]:
     import pypdfium2 as pdfium
     from PIL import ImageDraw
@@ -172,7 +187,9 @@ def _pdf(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list[
         loc = r.block.locator
         pno = loc.get("page", 0)
         if "bbox" in loc:
-            img_boxes.setdefault(pno, []).append(tuple(loc["bbox"]))
+            img_boxes.setdefault(pno, []).extend(
+                _sub_boxes(loc["bbox"], len(r.block.text), r.replacements)
+            )
         else:
             text_repls.setdefault(pno, []).extend(r.replacements)
 
@@ -205,6 +222,7 @@ def _image(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> lis
     draw = ImageDraw.Draw(img)
     for r in reds:
         if r.changed and "bbox" in r.block.locator:
-            draw.rectangle(tuple(r.block.locator["bbox"]), fill="black")
+            for box in _sub_boxes(r.block.locator["bbox"], len(r.block.text), r.replacements):
+                draw.rectangle(box, fill="black")
     img.save(out_path)
     return [str(out_path)]

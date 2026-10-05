@@ -7,12 +7,13 @@
 <style>
   :root{--bg:#f5f6f8;--card:#fff;--fg:#1b1f24;--muted:#6b7280;--accent:#2563eb;--line:#e5e7eb;--ok:#059669;}
   *{box-sizing:border-box}
-  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--fg)}
-  header{padding:18px 24px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:12px}
+  html,body{height:100%}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--fg);display:flex;flex-direction:column;height:100vh;overflow:hidden}
+  header{padding:14px 24px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:12px;flex:0 0 auto}
   header h1{font-size:18px;margin:0}
   header .sub{color:var(--muted);font-size:13px}
-  .layout{display:grid;grid-template-columns:270px 1fr;gap:16px;padding:16px 24px 40px;max-width:1500px;margin:0 auto}
-  .side{display:flex;flex-direction:column;gap:12px}
+  .layout{display:grid;grid-template-columns:270px 1fr;gap:16px;padding:16px 24px;max-width:1500px;margin:0 auto;flex:1;min-height:0;width:100%}
+  .side{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto;padding-right:2px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
   .card h3{margin:0 0 10px;font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.02em}
   .preset{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;cursor:pointer;font-size:13px;transition:.12s}
@@ -22,12 +23,12 @@
   button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer}
   button:disabled{background:#c7ccd4;cursor:not-allowed}
   button.ghost{background:#eef2ff;color:var(--accent)}
-  .panes{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  .pane{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;min-height:520px}
+  .panes{display:grid;grid-template-columns:1fr 1fr;gap:16px;height:100%;min-height:0}
+  .pane{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;min-height:0;height:100%}
   .pane .bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:13px}
   .pane .bar b{font-weight:600}
   .pane .bar .right{margin-left:auto;display:flex;gap:8px}
-  .pane .body{flex:1;position:relative;min-height:480px}
+  .pane .body{flex:1;position:relative;min-height:0;overflow:hidden}
   .pane .body>div{position:absolute;inset:0}
   .placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;flex-direction:column;gap:8px}
   pre.raw{margin:0;padding:14px;overflow:auto;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-all;position:absolute;inset:0;background:#fff}
@@ -92,6 +93,29 @@ const state = { preset: null, token: null, filename: null, url: null };
 const $ = id => document.getElementById(id);
 const TEXT_EXT = ['txt','md','markdown','csv'];
 
+function findShadow(node) {
+  if (node.shadowRoot) return node.shadowRoot;
+  for (const c of node.children) { const s = findShadow(c); if (s) return s; }
+  return null;
+}
+
+// 隐藏 file-viewer 自带工具栏(搜索/缩放/下载/打印…), 让预览窗格干净、不溢出
+function hideChrome(host) {
+  let tries = 0;
+  const timer = setInterval(() => {
+    const sr = findShadow(host);
+    if (sr && !sr.querySelector('style[data-docanon]')) {
+      const st = document.createElement('style');
+      st.setAttribute('data-docanon', '1');
+      st.textContent = '.file-viewer-web-toolbar{display:none!important}' +
+        '.file-viewer-web-shell{gap:0!important;height:100%!important}';
+      sr.appendChild(st);
+      clearInterval(timer);
+    }
+    if (++tries > 80) clearInterval(timer);
+  }, 150);
+}
+
 function mount(containerId, url, filename) {
   const el = $(containerId);
   el.innerHTML = '';
@@ -101,7 +125,7 @@ function mount(containerId, url, filename) {
   const ext = (filename.split('.').pop() || '').toLowerCase();
   if (TEXT_EXT.includes(ext)) { return showText(inner, url); }
   if (FV && FV.mountViewer) {
-    try { FV.mountViewer(inner, { url: new URL(url, location.href).href, filename }); return; }
+    try { FV.mountViewer(inner, { url: new URL(url, location.href).href, filename }); hideChrome(inner); return; }
     catch (e) { console.warn('file-viewer mount failed', e); }
   }
   showText(inner, url);
