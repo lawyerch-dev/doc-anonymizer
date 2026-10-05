@@ -108,7 +108,8 @@ function mount(containerId, url, filename) {
         filename,
         // theme 必须放 options 里(顶层会被忽略); toolbar:false 是官方开关, 用于隐藏自带控件。
         // 不再用 MutationObserver 去改 data-viewer-theme —— 那会和 file-viewer 抢主题导致抖动。
-        options: { theme: 'light', toolbar: false },
+        // pdf.toolbar/navigation 关掉 PDF 渲染器"内部"的工具栏与缩略图栏, 否则窄窗格里会横向溢出、来回 re-fit 抖动。
+        options: { theme: 'light', toolbar: false, pdf: { toolbar: false, navigation: false } },
       });
       return;
     } catch (e) { console.warn('file-viewer mount failed', e); }
