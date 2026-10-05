@@ -39,3 +39,4 @@ apps/web/vendor/
 node_modules/
 .webout/
 apps/desktop-electrobun/.hutch/
+apps/desktop-electrobun/.cottontail-tmp/
