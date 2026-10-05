@@ -98,6 +98,50 @@ def make_scanned_pdf() -> None:
     img.convert("RGB").save(str(SAMPLES / "sample_scanned.pdf"), "PDF", resolution=150)
 
 
+# ---- 多页样例 ----
+PAGES = [
+    "第 1 页 / 共 3 页\n汇报人：张三，联系电话 13812340000，邮箱 zhangsan@example.com。\n身份证号 110101199003071234。",
+    "第 2 页 / 共 3 页\n客户「某客户名」合同金额 860000 元，对接人李四，电话 13998765432。\n银行卡 6222020200112233445。",
+    "第 3 页 / 共 3 页\n服务器 IP 192.168.1.100，内部项目代号X 请勿外传。\naccess_token = sk-abcdef1234567890ABCDEF",
+]
+
+
+def make_multipage_text_pdf() -> None:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    from reportlab.pdfgen import canvas
+
+    pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
+    c = canvas.Canvas(str(SAMPLES / "sample_multipage_text.pdf"), pagesize=A4)
+    c.setFont("STSong-Light", 12)
+    for page in PAGES:
+        y = 800
+        for line in page.splitlines():
+            c.drawString(50, y, line)
+            y -= 22
+        c.showPage()
+    c.save()
+
+
+def make_multipage_scanned_pdf() -> None:
+    imgs = [_render_image(p).convert("RGB") for p in PAGES]
+    imgs[0].save(str(SAMPLES / "sample_multipage_scanned.pdf"), save_all=True,
+                 append_images=imgs[1:], resolution=150)
+
+
+def make_multipage_docx() -> None:
+    from docx import Document
+
+    doc = Document()
+    for i, page in enumerate(PAGES):
+        for line in page.splitlines():
+            doc.add_paragraph(line)
+        if i < len(PAGES) - 1:
+            doc.add_page_break()
+    doc.save(str(SAMPLES / "sample_multipage.docx"))
+
+
 def main() -> None:
     make_md()
     make_docx()
@@ -106,7 +150,10 @@ def main() -> None:
     make_text_pdf()
     make_scan_png()
     make_scanned_pdf()
-    for p in sorted(SAMPLES.glob("sample.*")):
+    make_multipage_text_pdf()
+    make_multipage_scanned_pdf()
+    make_multipage_docx()
+    for p in sorted(SAMPLES.glob("sample*")):
         print(f"生成 {p.name}  ({p.stat().st_size} bytes)")
 
 
