@@ -16,6 +16,10 @@
   .side{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto;padding-right:2px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
   .card h3{margin:0 0 10px;font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.02em}
+  .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .card-head h3{margin:0}
+  .mini{background:#eef2ff;color:var(--accent);border:0;border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer}
+  .mini:disabled{opacity:.6;cursor:default}
   .preset{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;cursor:pointer;font-size:13px;transition:.12s}
   .preset:hover{border-color:var(--accent);background:#eff6ff}
   .preset.active{border-color:var(--accent);background:#eff6ff;color:var(--accent);font-weight:600}
@@ -51,7 +55,7 @@
 <div class="layout">
   <aside class="side">
     <div class="card">
-      <h3>选择文档</h3>
+      <div class="card-head"><h3>选择文档</h3><button class="mini" id="refresh" title="重新加载 samples/ 里的示例">↻ 刷新示例</button></div>
       <div id="presets"></div>
       <button class="ghost" id="upload" style="width:100%;margin-top:6px">上传本地文件…</button>
       <input type="file" id="file" class="hidden" />
@@ -145,17 +149,29 @@ function selectPreset(p, node) {
 
 async function loadPresets() {
   const box = $('presets');
-  const { presets } = await (await fetch('/api/presets')).json();
-  if (!presets.length) { box.innerHTML = '<div class="hint">samples/ 无可预览示例</div>'; return; }
-  presets.forEach(p => {
-    const n = document.createElement('div');
-    n.className = 'preset';
-    n.innerHTML = '<span>📄</span><span>' + p.name + '</span><span class="tag">' +
-      (p.name.split('.').pop()) + '</span>';
-    n.onclick = () => selectPreset(p, n);
-    box.appendChild(n);
-  });
+  const btn = $('refresh');
+  if (btn) { btn.disabled = true; }
+  box.innerHTML = '<div class="hint">加载中…</div>';
+  try {
+    const { presets } = await (await fetch('/api/presets', { cache: 'no-store' })).json();
+    box.innerHTML = '';
+    if (!presets.length) { box.innerHTML = '<div class="hint">samples/ 无可预览示例</div>'; return; }
+    presets.forEach(p => {
+      const n = document.createElement('div');
+      n.className = 'preset';
+      n.innerHTML = '<span>📄</span><span>' + p.name + '</span><span class="tag">' +
+        (p.name.split('.').pop()) + '</span>';
+      n.onclick = () => selectPreset(p, n);
+      box.appendChild(n);
+    });
+  } catch (e) {
+    box.innerHTML = '<div class="hint">加载失败: ' + e.message + '</div>';
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
 }
+
+$('refresh').onclick = loadPresets;
 
 $('upload').onclick = () => $('file').click();
 $('file').onchange = async () => {
