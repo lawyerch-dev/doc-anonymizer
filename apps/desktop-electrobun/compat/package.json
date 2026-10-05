@@ -1,0 +1,13 @@
+{
+  "name": "docanon-webkit-compat",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "用 WebKit(Safari/WKWebView 内核) 验证 file-viewer/Web UI 兼容性",
+  "scripts": {
+    "check": "node webkit-check.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}

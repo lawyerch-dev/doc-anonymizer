@@ -1,0 +1,9 @@
+{
+	"name": "docanon-desktop-electrobun",
+	"version": "0.1.0",
+	"private": true,
+	"description": "doc-anonymizer 桌面壳 (Electrobun 原型): 系统 WebView + Python sidecar",
+	"devDependencies": {
+		"@types/bun": "latest"
+	}
+}

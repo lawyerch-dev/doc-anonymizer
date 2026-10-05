@@ -36,5 +36,5 @@ out*/
 
 # file-viewer 预构建资源(体积大, 用 scripts/fetch_file_viewer.sh 获取)
 apps/web/vendor/
-apps/desktop/node_modules/
+node_modules/
 .webout/
