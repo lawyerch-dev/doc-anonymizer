@@ -42,9 +42,9 @@ def test_manifest_output_paths_exist_for_scanned_pdf(tmp_path):
     assert entry["status"] == "ok"
     for produced in entry["outputs"]:
         assert Path(produced).exists(), f"清单里的产物不存在: {produced}"
-    # 确实做了涂黑: 命中行的像素被改成黑色
-    png = out / "扫描件.pdf.redacted.p0.png"
-    assert png.exists()
+    # 扫描件现在保持原格式, 输出单个 PDF
+    pdf = out / "扫描件.pdf.redacted.pdf"
+    assert pdf.exists()
 
 
 def test_result_exposes_all_written_files(tmp_path):

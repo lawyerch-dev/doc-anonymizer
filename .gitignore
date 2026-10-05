@@ -33,3 +33,7 @@ out*/
 *.swp
 *.swo
 .DS_Store
+
+# file-viewer 预构建资源(体积大, 用 scripts/fetch_file_viewer.sh 获取)
+src/docanon/web/vendor/
+.webout/

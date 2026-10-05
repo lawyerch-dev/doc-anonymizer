@@ -25,13 +25,14 @@ class PDFExtractor(Extractor):
         for pno in range(len(pdf)):
             page = pdf[pno]
             textpage = page.get_textpage()
-            text = (textpage.get_text_range() or "").strip()
+            raw = textpage.get_text_range() or ""
 
-            if len(text) >= _MIN_TEXT_CHARS:
+            if len(raw.strip()) >= _MIN_TEXT_CHARS:
+                # 保留原始文本(不 strip), 使字符偏移与 get_charbox 对齐, 便于 PDF 涂黑
                 blocks.append(
                     Block(
                         block_id=f"page{pno}",
-                        text=text,
+                        text=raw,
                         kind="page",
                         locator={"page": pno},
                     )

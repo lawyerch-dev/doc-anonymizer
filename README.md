@@ -70,6 +70,19 @@ docs/债权人/明细.txt    ->   out/债权人/明细.txt.redacted.txt
 - `restore` 在 `remove` 策略命中后不可用, 两个号码打码后相同时会还原成错的原文。
 - 输出目录不要放在输入目录里面, 否则下一次 run 会把上一次的 `.redacted.txt` 当成新文档再脱敏一遍。
 
+## 友好 Web 界面(推荐给非技术同事)
+
+```bash
+./scripts/fetch_file_viewer.sh                # 首次: 拉取 file-viewer 预览资源(约 232MB, 已 gitignore)
+docanon web --port 8000 -c config/onnx.yaml   # 浏览器打开 http://127.0.0.1:8000
+```
+
+流程：**左侧选内置示例(或上传) → 中间 file-viewer 预览原文 → 点「开始脱敏」→ 右侧同一查看器预览保留原格式的脱敏件**，并给出命中统计与下载。
+
+- 预览基于 [file-viewer](https://github.com/flyfish-dev/file-viewer)（浏览器端只读预览，Apache-2.0）
+- 脱敏**保持原格式**：docx→docx、xlsx→xlsx、pdf→pdf、图片→图片，便于左右对比
+- 零构建：直接引用 file-viewer 预构建包，无 node 构建链
+
 ## 多模型对比
 
 ```bash

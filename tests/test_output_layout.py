@@ -24,8 +24,8 @@ def test_same_stem_different_extension_do_not_overwrite(tmp_path):
 
     assert code == 0
     produced = sorted(p.name for p in out.iterdir() if SUPPORTED_HINT in p.name)
-    assert produced == ["名单.csv.redacted.txt", "名单.txt.redacted.txt"]
-    assert "乙文件" in (out / "名单.csv.redacted.txt").read_text(encoding="utf-8")
+    assert produced == ["名单.csv.redacted.csv", "名单.txt.redacted.txt"]
+    assert "乙文件" in (out / "名单.csv.redacted.csv").read_text(encoding="utf-8")
     assert "甲文件" in (out / "名单.txt.redacted.txt").read_text(encoding="utf-8")
 
 

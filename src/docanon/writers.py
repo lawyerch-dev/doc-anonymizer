@@ -1,0 +1,210 @@
+"""原位回写: 把脱敏结果写回**原格式**(docx/xlsx/csv/pdf/图片), 供 before/after 对比预览。"""
+from __future__ import annotations
+
+import csv
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from .models import Block, ExtractedDoc
+
+
+@dataclass
+class BlockRedaction:
+    block: Block
+    replacements: list[tuple[int, int, str]] = field(default_factory=list)
+    new_text: str = ""
+
+    @property
+    def changed(self) -> bool:
+        return bool(self.replacements)
+
+
+def write_output(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list[str]:
+    fmt = doc.meta.get("format")
+    if fmt == "docx":
+        return _docx(doc, reds, out_path)
+    if fmt == "table":
+        return _table(doc, reds, out_path)
+    if fmt == "pdf":
+        return _pdf(doc, reds, out_path)
+    if fmt == "image":
+        return _image(doc, reds, out_path)
+    return _text(doc, reds, out_path)
+
+
+# ---------------- 纯文本 / Markdown ----------------
+def _text(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list[str]:
+    src = Path(doc.source_path)
+    lines = src.read_text(encoding="utf-8", errors="replace").split("\n")
+    for r in reds:
+        if r.changed:
+            i = r.block.locator.get("line")
+            if i is not None and 0 <= i < len(lines):
+                lines[i] = r.new_text
+    out_path.write_text("\n".join(lines), encoding="utf-8")
+    return [str(out_path)]
+
+
+# ---------------- DOCX ----------------
+def _redact_paragraph(paragraph, repls: list[tuple[int, int, str]]) -> None:
+    runs = paragraph.runs
+    if not runs:
+        return
+    ranges: list[tuple[int, int]] = []
+    pos = 0
+    for run in runs:
+        ranges.append((pos, pos + len(run.text)))
+        pos += len(run.text)
+    ordered = sorted(repls)
+    for i, (a, b) in enumerate(ranges):
+        rt = runs[i].text
+        out: list[str] = []
+        cursor = 0
+        for s, e, rep in ordered:
+            if e <= a or s >= b:
+                continue
+            ls = max(s, a) - a
+            le = min(e, b) - a
+            if ls > cursor:
+                out.append(rt[cursor:ls])
+            if a <= s < b:  # 替换文本落在本 run 起点
+                out.append(rep)
+            cursor = max(cursor, le)
+        out.append(rt[cursor:])
+        new = "".join(out)
+        if new != rt:
+            runs[i].text = new
+
+
+def _docx(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list[str]:
+    from docx import Document
+
+    d = Document(doc.source_path)
+    wanted = {id(r.block): r for r in reds}
+    for r in reds:
+        if not r.changed:
+            continue
+        loc = r.block.locator
+        try:
+            if "paragraph" in loc:
+                para = d.paragraphs[loc["paragraph"]]
+            elif "t" in loc:
+                para = d.tables[loc["t"]].rows[loc["r"]].cells[loc["c"]].paragraphs[loc["p"]]
+            else:
+                continue
+            _redact_paragraph(para, r.replacements)
+        except (IndexError, KeyError):
+            continue
+    d.save(str(out_path))
+    return [str(out_path)]
+
+
+# ---------------- 表格 ----------------
+def _table(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list[str]:
+    by_cell: dict[tuple, str] = {}
+    for r in reds:
+        if not r.changed:
+            continue
+        loc = r.block.locator
+        if "row" in loc:
+            by_cell[("csv", loc["row"], loc["col"])] = r.new_text
+        elif "cell" in loc:
+            by_cell[(loc.get("sheet"), loc["cell"])] = r.new_text
+
+    if out_path.suffix.lower() == ".csv":
+        src = Path(doc.source_path)
+        with src.open("r", encoding="utf-8-sig", errors="replace", newline="") as fh:
+            rows = list(csv.reader(fh))
+        for (kind, r, c), text in by_cell.items():
+            if kind == "csv" and 1 <= r <= len(rows) and 1 <= c <= len(rows[r - 1]):
+                rows[r - 1][c - 1] = text
+        with out_path.open("w", encoding="utf-8-sig", newline="") as fh:
+            csv.writer(fh).writerows(rows)
+        return [str(out_path)]
+
+    from openpyxl import load_workbook
+
+    wb = load_workbook(doc.source_path)
+    for (sheet, coord), text in by_cell.items():
+        ws = wb[sheet] if sheet in wb.sheetnames else wb.active
+        ws[coord] = text
+    wb.save(str(out_path))
+    return [str(out_path)]
+
+
+# ---------------- PDF(文字层 + 扫描页) ----------------
+_SCALE = 2.0
+
+
+def _text_page_boxes(pdf, pno: int, repls, scale: float) -> list[tuple]:
+    page = pdf[pno]
+    width_pt, height_pt = page.get_size()
+    textpage = page.get_textpage()
+    boxes: list[tuple] = []
+    for s, e, _rep in repls:
+        char_boxes = []
+        for ci in range(s, e):
+            try:
+                left, bottom, right, top = textpage.get_charbox(ci)
+            except Exception:
+                continue
+            char_boxes.append((left, bottom, right, top))
+        if char_boxes:
+            x0 = min(b[0] for b in char_boxes) * scale
+            x1 = max(b[2] for b in char_boxes) * scale
+            y0 = (height_pt - max(b[3] for b in char_boxes)) * scale
+            y1 = (height_pt - min(b[1] for b in char_boxes)) * scale
+            boxes.append((x0, y0, x1, y1))
+    return boxes
+
+
+def _pdf(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list[str]:
+    import pypdfium2 as pdfium
+    from PIL import ImageDraw
+
+    scanned = {p["page"]: p["image"] for p in doc.meta.get("_scanned_images", [])}
+    # 收集每页要涂黑的框
+    text_repls: dict[int, list] = {}
+    img_boxes: dict[int, list] = {}
+    for r in reds:
+        if not r.changed:
+            continue
+        loc = r.block.locator
+        pno = loc.get("page", 0)
+        if "bbox" in loc:
+            img_boxes.setdefault(pno, []).append(tuple(loc["bbox"]))
+        else:
+            text_repls.setdefault(pno, []).extend(r.replacements)
+
+    pdf = pdfium.PdfDocument(doc.source_path)
+    n = len(pdf)
+    pages_img = []
+    for pno in range(n):
+        if pno in scanned:
+            img = scanned[pno]
+        else:
+            img = pdf[pno].render(scale=_SCALE).to_pil()
+        draw = ImageDraw.Draw(img)
+        for box in img_boxes.get(pno, []):
+            draw.rectangle(box, fill="black")
+        for box in _text_page_boxes(pdf, pno, text_repls.get(pno, []), _SCALE):
+            draw.rectangle(box, fill="black")
+        pages_img.append(img.convert("RGB"))
+
+    if not pages_img:
+        return []
+    pages_img[0].save(str(out_path), save_all=True, append_images=pages_img[1:])
+    return [str(out_path)]
+
+
+# ---------------- 图片 ----------------
+def _image(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list[str]:
+    from PIL import Image, ImageDraw
+
+    img = Image.open(doc.image_path).convert("RGB")
+    draw = ImageDraw.Draw(img)
+    for r in reds:
+        if r.changed and "bbox" in r.block.locator:
+            draw.rectangle(tuple(r.block.locator["bbox"]), fill="black")
+    img.save(out_path)
+    return [str(out_path)]

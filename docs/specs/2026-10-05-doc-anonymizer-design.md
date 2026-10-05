@@ -93,6 +93,18 @@
 - 代价: 标签集固定, 不如 LLM 灵活(不能听指令/生成自然假名)
 - 配置: `config/onnx.yaml`; `docanon run ... -c config/onnx.yaml`
 
+### 3.5 原位回写 + 友好 Web
+
+- **原位回写**(`writers.py`): 脱敏结果写回**原格式**, 供前后对比
+  - docx: python-docx 按 run 回写(保留格式) + 表格单元格
+  - xlsx/csv: 回写单元格
+  - pdf: 文字层按 `get_charbox` 涂黑; 扫描页按 OCR bbox 涂黑; 合并为 PDF
+  - 图片: 涂黑 bbox
+- **友好 Web**(零构建): 基于 [file-viewer](https://github.com/flyfish-dev/file-viewer) 预构建包
+  - 流程: 选示例/上传 → 预览原文 → 脱敏 → **同查看器预览原件与脱敏件**
+  - 资源: `scripts/fetch_file_viewer.sh` 拉取到 `web/vendor/file-viewer`(gitignore)
+  - 后端: `GET /api/presets`、`POST /api/upload`、`POST /api/anonymize`、`/file-viewer/*`
+
 ## 4. 数据模型
 
 - `Block`: `block_id`, `text`, `locator(page/bbox/paragraph/cell)`, `kind`
