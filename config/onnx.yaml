@@ -1,0 +1,41 @@
+# ONNX 路线: 规则 + 词典 + ONNX 中文 NER, 不依赖 llama.cpp
+strategies:
+  PHONE: mask
+  ID_CARD: mask
+  BANK_CARD: mask
+  EMAIL: mask
+  IP: placeholder
+  USCC: mask
+  PERSON: pseudonym
+  ORG: pseudonym
+  LOCATION: placeholder
+  AMOUNT: placeholder
+  DOB: placeholder
+  SECRET: remove
+  CUSTOM: placeholder
+  DEFAULT: placeholder
+
+dictionary:
+  - 内部项目代号
+  - 某客户名
+
+detectors:
+  rule: true
+  dictionary: true
+  onnx_ner: true
+  llm_ner: false
+
+onnx:
+  # 多个模型取并集: gyr66(机构/人名) + pii-engineer(人名/手机/地址/身份证)
+  model_dirs:
+    - models/onnx/gyr66
+    - models/onnx/pii-engineer
+
+llm:
+  base_url: http://127.0.0.1:8080/v1
+  model: qwen3.8-4b
+  timeout: 180
+  disable_thinking: true
+
+ocr:
+  enabled: true

@@ -92,6 +92,24 @@ docs/债权人/明细.txt    ->   out/债权人/明细.txt.redacted.txt
 > 6 例样本量小, 差距(100% vs 91.7%)仅 1 个未召回, 仅供参考; 扩大 `CASES` 可提高置信度。
 > 专用脱敏模型 Anonymizer(英文训练)在中文上**未超过通用小模型**, 印证了"中文脱敏仍靠中文 LLM"。
 
+## ONNX 路线(可选, 完全不依赖 llama.cpp)
+
+用**编码器式中文 NER 模型**（ONNXRuntime 跑）替代生成式 LLM 做"理解"，更轻、更快、无需 server：
+
+```bash
+# 模型已下载到 models/onnx/ (gyr66 通用中文NER + pii-engineer 中文PII)
+docanon run ./samples -o out_onnx -c config/onnx.yaml
+```
+
+| 后端 | 召回 | 均耗时 | 依赖 |
+|---|---|---|---|
+| **ONNX 联合**(gyr66 + pii-engineer) + 规则 | **100%** | **34ms** | onnxruntime, 无 server |
+| LLM Qwen3.8-4B | 100% | 1190ms | llama.cpp + 3G 模型 |
+
+- 两个模型取并集：`gyr66` 出机构/人名，`pii-engineer` 出人名/手机/地址/身份证
+- 金额由规则补（两个 NER 都无 AMOUNT 标签）
+- 代价：标签集固定，不如 LLM 灵活（不能听指令、不能生成自然假名）
+
 ## 配置
 
 见 [config/default.yaml](config/default.yaml)：敏感词表、各类型脱敏策略、LLM 地址。

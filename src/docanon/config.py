@@ -19,11 +19,20 @@ class LLMConfig:
 
 
 @dataclass
+class OnnxConfig:
+    model_dirs: list[str] = field(
+        default_factory=lambda: ["models/onnx/gyr66", "models/onnx/pii-engineer"]
+    )
+    entity_map: dict[str, str] | None = None
+
+
+@dataclass
 class Config:
     strategies: dict[str, str] = field(default_factory=dict)
     dictionary: list[str] = field(default_factory=list)
     detectors: dict[str, bool] = field(default_factory=dict)
     llm: LLMConfig = field(default_factory=LLMConfig)
+    onnx: OnnxConfig = field(default_factory=OnnxConfig)
     raw: dict = field(default_factory=dict)
 
     def strategy_for(self, entity_type: str) -> str:
@@ -38,6 +47,7 @@ def load_config(path: str | Path | None = None) -> Config:
     if cfg_path.exists():
         data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
     llm_raw = data.get("llm", {}) or {}
+    onnx_raw = data.get("onnx", {}) or {}
     return Config(
         strategies=data.get("strategies", {}) or {},
         dictionary=data.get("dictionary", []) or [],
@@ -48,6 +58,10 @@ def load_config(path: str | Path | None = None) -> Config:
             timeout=llm_raw.get("timeout", LLMConfig.timeout),
             chunk_size=llm_raw.get("chunk_size", LLMConfig.chunk_size),
             disable_thinking=llm_raw.get("disable_thinking", True),
+        ),
+        onnx=OnnxConfig(
+            model_dirs=onnx_raw.get("model_dirs") or OnnxConfig().model_dirs,
+            entity_map=onnx_raw.get("entity_map"),
         ),
         raw=data,
     )

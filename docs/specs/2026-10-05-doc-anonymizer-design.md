@@ -81,6 +81,18 @@
 | vLLM | 服务器级高吞吐推理引擎 | ❌ 面向 NVIDIA/AMD 数据中心，不支持 Metal |
 | laya-mlx | 类型化判定(分类/打分/护栏)专用 | ⏸ 暂不加，可作为"检测判断器/护栏"二期接入 |
 
+### 3.4 ONNX 检测后端(可选, 不依赖 llama.cpp)
+
+用 ONNXRuntime 跑**编码器式中文 NER**替代生成式 LLM 做"理解", 更轻更快、无需 server。
+
+- 候选(现成 `model.onnx`, 免 torch 导出):
+  - `protectai/gyr66-bert-base-chinese-finetuned-ner-onnx` — 通用中文 NER(CLUENER 系)
+  - `pii-engineer/PII-Engineer-Chinese-NER-v1.0` — 中文 PII(人名/手机/身份证/地址)
+- 两模型**取并集** + 规则(补金额): 实测 **召回 100%, 34ms, 无 server**
+- 对比: LLM Qwen3.8-4B 100% 但 1190ms、需 3G 模型 + llama.cpp
+- 代价: 标签集固定, 不如 LLM 灵活(不能听指令/生成自然假名)
+- 配置: `config/onnx.yaml`; `docanon run ... -c config/onnx.yaml`
+
 ## 4. 数据模型
 
 - `Block`: `block_id`, `text`, `locator(page/bbox/paragraph/cell)`, `kind`
@@ -121,8 +133,6 @@
   - 假名一致性: 张三→崔禾、李四→苏舟, 全文一致
 - Web: `/health`、首页、`/api/anonymize`(文本与图片)均通过
 
-## 9. 风险
-
-- Python 3.14 尚无 onnxruntime 轮子 → 用 3.11/3.12 虚拟环境
+## 9. 风险- Python 3.14 尚无 onnxruntime 轮子 → 用 3.11/3.12 虚拟环境
 - 扫描件 OCR 错误会传导到脱敏 → 召回优先 + 可评测
 - 大模型判断有幻觉 → 规则保底 + 后置护栏

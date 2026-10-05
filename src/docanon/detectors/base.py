@@ -19,6 +19,7 @@ def build_detectors(config) -> list[Detector]:
     """按配置构建启用的检测器。"""
     from .dictionary import DictionaryDetector
     from .llm_ner import LLMNERDetector
+    from .onnx_ner import OnnxNERDetector
     from .rule import RuleDetector
 
     enabled = config.detectors or {}
@@ -27,6 +28,9 @@ def build_detectors(config) -> list[Detector]:
         detectors.append(RuleDetector())
     if enabled.get("dictionary", True):
         detectors.append(DictionaryDetector(config.dictionary))
+    if enabled.get("onnx_ner", False):
+        for model_dir in config.onnx.model_dirs:
+            detectors.append(OnnxNERDetector(model_dir, config.onnx.entity_map))
     if enabled.get("llm_ner", False):
         detectors.append(LLMNERDetector(config.llm))
     return detectors

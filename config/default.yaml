@@ -24,7 +24,15 @@ dictionary:
 detectors:
   rule: true
   dictionary: true
+  onnx_ner: false      # ONNX 中文 NER(需 models/onnx/*)
   llm_ner: false       # 需先启动 llama-server
+
+onnx:
+  # 可多个, 结果取并集(如 gyr66 出机构, pii-engineer 出地址)
+  model_dirs:
+    - models/onnx/gyr66
+    - models/onnx/pii-engineer
+  # entity_map: {标签: 实体类型}  # 可选, 覆盖默认映射
 
 llm:
   base_url: http://127.0.0.1:8080/v1
