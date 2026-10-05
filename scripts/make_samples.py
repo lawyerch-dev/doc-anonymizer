@@ -59,15 +59,22 @@ def make_xlsx() -> None:
     wb.save(str(SAMPLES / "sample.xlsx"))
 
 
+def _cjk_font_name() -> str:
+    """注册并返回一个**内嵌**的中文 TTF 字体名(避免依赖查看器的 cMap)。"""
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    pdfmetrics.registerFont(TTFont("CJKEmbed", CJK_FONT))
+    return "CJKEmbed"
+
+
 def make_text_pdf() -> None:
     from reportlab.lib.pagesizes import A4
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
     from reportlab.pdfgen import canvas
 
-    pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
+    font = _cjk_font_name()
     c = canvas.Canvas(str(SAMPLES / "sample_text.pdf"), pagesize=A4)
-    c.setFont("STSong-Light", 12)
+    c.setFont(font, 12)
     y = 800
     for line in TEXT.splitlines():
         c.drawString(50, y, line)
@@ -108,13 +115,11 @@ PAGES = [
 
 def make_multipage_text_pdf() -> None:
     from reportlab.lib.pagesizes import A4
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
     from reportlab.pdfgen import canvas
 
-    pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
+    font = _cjk_font_name()
     c = canvas.Canvas(str(SAMPLES / "sample_multipage_text.pdf"), pagesize=A4)
-    c.setFont("STSong-Light", 12)
+    c.setFont(font, 12)
     for page in PAGES:
         y = 800
         for line in page.splitlines():
