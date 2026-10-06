@@ -1,13 +1,15 @@
-"""LLM 检测器: 用本地大模型识别人名/公司/地名等实体。"""
+"""LLM 检测器: 用本地大模型(OpenAI 兼容端点)识别实体。
+
+与 `docanon/llm/` 合起来就是"本地大模型引擎", 只依赖 `docanon.contract`,
+可以整块搬到别的项目里。
+"""
 from __future__ import annotations
 
 import json
 import re
 
-from ..config import LLMConfig
-from ..models import Block, Detection, Span
-from ..llm.client import LLMClient
-from .base import Detector
+from ..contract import Block, Detection, Detector, Span
+from ..llm.client import LLMClient, LLMConfig, LLMError
 
 _SYSTEM = (
     "你是文档脱敏助手。从给定文本中找出所有敏感实体, 只返回 JSON 数组, "
@@ -18,15 +20,16 @@ _SYSTEM = (
 _VALID_TYPES = {"PERSON", "ORG", "LOCATION", "AMOUNT", "SECRET", "CUSTOM"}
 
 
-def _extract_json(text: str) -> list[dict]:
+def _extract_json(text: str) -> list[dict] | None:
+    """返回实体数组; 回答里根本没有 JSON 数组时返回 None(调用处按失败处理)。"""
     match = re.search(r"\[.*\]", text, re.S)
     if not match:
-        return []
+        return None
     try:
         data = json.loads(match.group())
-        return data if isinstance(data, list) else []
     except json.JSONDecodeError:
-        return []
+        return None
+    return data if isinstance(data, list) else None
 
 
 class LLMNERDetector(Detector):
@@ -35,6 +38,17 @@ class LLMNERDetector(Detector):
     def __init__(self, config: LLMConfig) -> None:
         self.config = config
         self.client = LLMClient(config)
+
+    def ready(self) -> str | None:
+        if self.client.health():
+            return None
+        return (
+            f"{self.config.base_url} 上没有 llama-server 应答"
+            "（先跑 ./scripts/serve_llm.sh，或把 detectors.llm_ner 关掉）"
+        )
+
+    def capabilities(self) -> list[str]:
+        return sorted(_VALID_TYPES)
 
     def detect(self, block: Block) -> list[Detection]:
         out: list[Detection] = []
@@ -58,11 +72,12 @@ class LLMNERDetector(Detector):
         return out
 
     def _ask(self, chunk: str) -> list[dict]:
-        try:
-            reply = self.client.chat(_SYSTEM, chunk)
-        except Exception:
-            return []
-        return _extract_json(reply)
+        # chat() 的 LLMError 直接向上抛: 把"没答上"当成"没检出实体"是最坏的失败形态
+        reply = self.client.chat(_SYSTEM, chunk)
+        data = _extract_json(reply)
+        if data is None:
+            raise LLMError(f"模型回答里解析不出实体数组: {reply[:80]!r}")
+        return data
 
     @staticmethod
     def _chunks(text: str, size: int) -> list[str]:

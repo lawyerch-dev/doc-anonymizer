@@ -1,11 +1,32 @@
-"""极简 OpenAI 兼容客户端(标准库, 适配 llama.cpp 的 llama-server)。"""
+"""极简 OpenAI 兼容客户端(标准库, 适配 llama.cpp 的 llama-server)。
+
+这个子包 + `detectors/llm_ner.py` 就是"本地大模型引擎", 只依赖 `docanon.contract`,
+所以可以整块搬到别的项目里。
+"""
 from __future__ import annotations
 
 import json
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 
-from ..config import LLMConfig
+
+@dataclass
+class LLMConfig:
+    """引擎自己的参数, 不是 app 的配置类。"""
+
+    base_url: str = "http://127.0.0.1:8080/v1"
+    model: str = "qwen3.8-4b"
+    timeout: int = 120
+    chunk_size: int = 1000
+    disable_thinking: bool = True
+
+
+class LLMError(RuntimeError):
+    """LLM 引擎没答上来(服务没起、超时、返回不像样)。
+
+    这类失败不能吞掉: 一次没答上来就返回空, 等于一份"零命中"的文档被当成已脱敏。
+    """
 
 
 class LLMClient:
@@ -31,9 +52,14 @@ class LLMClient:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=self.config.timeout) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        return data["choices"][0]["message"]["content"]
+        try:
+            with urllib.request.urlopen(req, timeout=self.config.timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            return data["choices"][0]["message"]["content"]
+        except OSError as exc:
+            raise LLMError(f"{url} 调不通: {exc}") from exc
+        except (KeyError, IndexError, ValueError, TypeError) as exc:
+            raise LLMError(f"{url} 返回的不是预期的 JSON: {exc}") from exc
 
     def health(self) -> bool:
         try:

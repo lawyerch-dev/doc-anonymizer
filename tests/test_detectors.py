@@ -1,5 +1,5 @@
 from docanon.detectors.rule import RuleDetector
-from docanon.models import Block, Detection, Span
+from docanon.contract import Block, Detection, Span
 from docanon.resolve import resolve_overlaps
 
 

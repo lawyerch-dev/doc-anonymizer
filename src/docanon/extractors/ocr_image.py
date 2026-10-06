@@ -1,11 +1,13 @@
-"""图片抽取: 用 RapidOCR 识别文字行, 保留 bbox 供涂黑回写。"""
+"""图片抽取: 用 RapidOCR 识别文字行, 保留 bbox 供涂黑回写。
+
+`._ocr` 是 RapidOCR 引擎的封装, 零包内依赖, 可以整块搬到别的项目里。
+"""
 from __future__ import annotations
 
 from pathlib import Path
 
-from ..models import Block, ExtractedDoc
+from ..contract import Block, ExtractedDoc, Extractor
 from ._ocr import run_ocr
-from .base import Extractor
 
 
 class ImageExtractor(Extractor):

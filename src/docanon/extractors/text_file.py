@@ -3,8 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..models import Block, ExtractedDoc
-from .base import Extractor
+from ..contract import Block, ExtractedDoc, Extractor
 
 
 class TextFileExtractor(Extractor):

@@ -9,7 +9,7 @@ from .config import Config
 from .detectors import build_detectors
 from .extractors import build_extractor
 from .mapping import MappingStore
-from .models import Block, Detection, ExtractedDoc
+from .contract import Block, Detection, ExtractedDoc
 from .resolve import resolve_overlaps
 from .strategies import apply_spans, replacement_for
 from .writers import BlockRedaction, write_output
@@ -27,6 +27,26 @@ class ProcessResult:
     detectors: list[str] = field(default_factory=list)
     detections: list[dict] = field(default_factory=list)
     timing: dict[str, float] = field(default_factory=dict)
+
+
+class EngineError(RuntimeError):
+    """检测引擎装不起来或没在应答。"""
+
+
+def prepare_detectors(config) -> list:
+    """构建并体检启用的检测器; 任何一个不起来就整体失败, 一个文件都不写。
+
+    少一层检测器就等于少一类脱敏, 这种文档绝不能被报成「已处理」。
+    """
+    detectors = build_detectors(config)
+    broken = []
+    for d in detectors:
+        reason = d.ready()
+        if reason:
+            broken.append(f"{d.name}: {reason}")
+    if broken:
+        raise EngineError("；".join(broken))
+    return detectors
 
 
 def _detect_block(block: Block, detectors) -> list[Detection]:
@@ -70,7 +90,6 @@ def process_file(
     doc = extractor.extract(path)
     t_extract = time.perf_counter()
     detectors = build_detectors(config)
-    config._detectors = detectors  # type: ignore[attr-defined]
 
     counts: dict[str, int] = {}
     reds: list[BlockRedaction] = []

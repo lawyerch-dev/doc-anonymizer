@@ -125,3 +125,40 @@ def test_manifest_totals_match_entity_counts(tmp_path):
     m = _manifest(out)
     assert m["totals"]["PHONE"] == 3
     assert m["summary"] == {"processed": 2, "errors": 0, "unsupported": 0}
+
+
+def test_second_run_into_same_dir_accumulates(tmp_path):
+    """两次 run 进同一个 -o: 清单与映射表累加, 不能把上一次的记录覆盖掉。"""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "甲.txt").write_text("甲 13812340000\n", encoding="utf-8")
+    (src / "乙.txt").write_text("乙 13900001111\n", encoding="utf-8")
+    out = tmp_path / "out"
+
+    assert main(["run", str(src / "甲.txt"), "-o", str(out)]) == 0
+    assert main(["run", str(src / "乙.txt"), "-o", str(out)]) == 0
+
+    m = _manifest(out)
+    assert len(m["files"]) == 2
+    assert {e["source"] for e in m["files"]} == {"甲.txt", "乙.txt"}
+    assert m["summary"]["processed"] == 2
+    assert m["totals"]["PHONE"] == 2
+    originals = json.loads((out / "mapping.json").read_text(encoding="utf-8"))["reverse"].values()
+    assert {"13812340000", "13900001111"} <= set(originals), "上一次的原文不能被丢掉"
+
+
+def test_rerun_same_source_replaces_its_entry(tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    doc = src / "甲.txt"
+    doc.write_text("甲 13812340000\n", encoding="utf-8")
+    out = tmp_path / "out"
+
+    assert main(["run", str(doc), "-o", str(out)]) == 0
+    doc.write_text("甲 13812340000 乙 13900001111\n", encoding="utf-8")
+    assert main(["run", str(doc), "-o", str(out)]) == 0
+
+    m = _manifest(out)
+    assert [e["source"] for e in m["files"]] == ["甲.txt"]
+    assert m["summary"]["processed"] == 1
+    assert m["totals"]["PHONE"] == 2, "重跑同一文件要按最新一次计数, 不能累加成 3"

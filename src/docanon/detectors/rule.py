@@ -3,8 +3,7 @@ from __future__ import annotations
 
 import re
 
-from ..models import Block, Detection, Span
-from .base import Detector
+from ..contract import Block, Detection, Detector, Span
 
 # (实体类型, 正则)。顺序影响同类重叠时的取舍, 长的/更具体的放前面。
 _PATTERNS: list[tuple[str, re.Pattern]] = [
@@ -29,6 +28,9 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
 
 class RuleDetector(Detector):
     name = "rule"
+
+    def capabilities(self) -> list[str]:
+        return sorted({t for t, _ in _PATTERNS})
 
     def detect(self, block: Block) -> list[Detection]:
         out: list[Detection] = []

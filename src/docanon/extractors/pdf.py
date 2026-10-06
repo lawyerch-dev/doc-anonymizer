@@ -3,8 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..models import Block, ExtractedDoc
-from .base import Extractor
+from ..contract import Block, ExtractedDoc, Extractor
 
 _MIN_TEXT_CHARS = 8  # 少于此字符数视为该页无可用文字层
 

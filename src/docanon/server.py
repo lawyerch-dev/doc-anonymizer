@@ -10,23 +10,32 @@ import base64
 import io
 import json
 import mimetypes
+import sys
 import tempfile
 import uuid
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from . import resources
 from .config import load_config
 from .mapping import MappingStore
-from .pipeline import process_file
+from .pipeline import prepare_detectors, process_file
 
-_HERE = Path(__file__).resolve().parent
-_ROOT = _HERE.parents[1]  # 项目根
-_WEB = _ROOT / "apps" / "web"
-_INDEX = _WEB / "index.html"
-_VENDOR = _WEB / "vendor" / "file-viewer"
-_SAMPLES = _ROOT / "samples"
 _MAX_BYTES = 50 * 1024 * 1024
+
+
+# 资源位置都从 resources 取(调用者的 cwd 与安装布局都无关), 所以用函数而不是导入期常量
+def _index() -> Path:
+    return resources.web_index()
+
+
+def _vendor() -> Path:
+    return resources.vendor_dir()
+
+
+def _samples() -> Path:
+    return resources.samples_dir()
 
 _CTYPES = {
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -94,16 +103,16 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         p = self.path.split("?", 1)[0]
         if p in ("/", "/index.html"):
-            self._send(200, _INDEX.read_bytes(), "text/html; charset=utf-8")
+            self._send(200, _index().read_bytes(), "text/html; charset=utf-8")
         elif p == "/health":
             self._json(200, {"ok": True})
         elif p == "/api/presets":
             self._json(200, {"presets": self._presets()})
         elif p.startswith("/samples/"):
-            f = _safe_join(_SAMPLES, p[len("/samples/"):])
+            f = _safe_join(_samples(), p[len("/samples/"):])
             self._send_file(f) if f else self._send(404, b"bad path", "text/plain")
         elif p.startswith("/file-viewer/"):
-            f = _safe_join(_VENDOR, p[len("/file-viewer/"):])
+            f = _safe_join(_vendor(), p[len("/file-viewer/"):])
             self._send_file(f) if f else self._send(404, b"bad path", "text/plain")
         elif p.startswith("/uploads/") or p.startswith("/outputs/"):
             f = _safe_join(self.out_root, p[1:])
@@ -113,10 +122,10 @@ class Handler(BaseHTTPRequestHandler):
 
     @staticmethod
     def _presets() -> list[dict]:
-        if not _SAMPLES.is_dir():
+        if not _samples().is_dir():
             return []
         out = []
-        for f in sorted(_SAMPLES.iterdir()):
+        for f in sorted(_samples().iterdir()):
             if f.suffix.lower() in _PREVIEWABLE:
                 out.append({
                     "name": f.name,
@@ -161,7 +170,7 @@ class Handler(BaseHTTPRequestHandler):
     def _anonymize(self, payload: dict) -> None:
         # 输入来源: 预设文件名 或 已上传 token
         if payload.get("preset"):
-            src = _SAMPLES / Path(payload["preset"]).name
+            src = _samples() / Path(payload["preset"]).name
             if not src.is_file():
                 self._json(404, {"error": "预设不存在"})
                 return
@@ -206,7 +215,19 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def serve(port: int = 8000, config_path: str | None = None, open_browser: bool = True) -> None:
-    Handler.config = load_config(config_path)
+    try:
+        Handler.config = load_config(config_path)
+        # 预检: 引擎没准备好就别说"打开窗口点一下就知道失败了"
+        prepare_detectors(Handler.config)
+    except Exception as exc:  # noqa: BLE001
+        print(f"Web 未启动: {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
+    if not _vendor().is_dir():
+        print(
+            f"警告: 缺预览资源 {_vendor()} —— 页面能开但预览区全空白。"
+            "先跑 ./scripts/fetch_file_viewer.sh",
+            file=sys.stderr,
+        )
     httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     url = f"http://127.0.0.1:{port}"
     print(f"doc-anonymizer Web: {url}  (Ctrl+C 退出)")

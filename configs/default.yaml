@@ -32,7 +32,7 @@ onnx:
   model_dirs:
     - models/onnx/gyr66
     - models/onnx/pii-engineer
-  # entity_map: {标签: 实体类型}  # 可选, 覆盖默认映射
+  # entity_map: {标签: 实体类型}  # 写了就整表覆盖 app 侧默认映射(config.py 的 DEFAULT_ONNX_ENTITY_MAP)
 
 llm:
   base_url: http://127.0.0.1:8080/v1

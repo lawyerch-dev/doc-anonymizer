@@ -1,6 +1,8 @@
 """ONNX 中文 NER 检测器: 用编码器模型直接输出 span, 无需 llama.cpp。
 
 加载 HF 导出的 `model.onnx` + `tokenizer.json`, 跑 token 分类, 再按 BIO 聚合出实体。
+本文件只依赖 `docanon.contract`, 可以整块搬到别的项目里 —— 所以它不认识 PERSON/ORG
+这些实体名, 标签映射表必须由调用方传进来。
 """
 from __future__ import annotations
 
@@ -9,29 +11,7 @@ from pathlib import Path
 
 import numpy as np
 
-from ..models import Block, Detection, Span
-from .base import Detector
-
-# 各模型标签 -> 本项目实体类型。缺失的标签直接忽略。
-DEFAULT_ENTITY_MAP: dict[str, str] = {
-    # pii-engineer/PII-Engineer-Chinese-NER
-    "person": "PERSON",
-    "phone_number": "PHONE",
-    "nric": "ID_CARD",
-    "street_address": "LOCATION",
-    "date_of_birth": "DOB",
-    # protectai/gyr66 (CLUENER 系)
-    "name": "PERSON",
-    "organization": "ORG",
-    "company": "ORG",
-    "government": "ORG",
-    "address": "LOCATION",
-    "mobile": "PHONE",
-    "email": "EMAIL",
-    "position": "POSITION",
-    "qq": "CUSTOM",
-    "vx": "CUSTOM",
-}
+from ..contract import Block, Detection, Detector, Span
 
 
 class OnnxNERDetector(Detector):
@@ -40,11 +20,17 @@ class OnnxNERDetector(Detector):
     def __init__(
         self,
         model_dir: str | Path,
-        entity_map: dict[str, str] | None = None,
+        entity_map: dict[str, str],
         max_length: int = 510,
     ) -> None:
         import onnxruntime as ort
         from tokenizers import Tokenizer
+
+        if not entity_map:
+            raise ValueError(
+                f"{model_dir}: 必须给出 标签->实体类型 映射表; "
+                "空表等于这个模型白跑, 不该静默算作已检测"
+            )
 
         model_dir = Path(model_dir)
         onnx_path = model_dir / "model.onnx"
@@ -61,7 +47,11 @@ class OnnxNERDetector(Detector):
 
         cfg = json.loads((model_dir / "config.json").read_text(encoding="utf-8"))
         self.id2label = {int(k): v for k, v in (cfg.get("id2label") or {}).items()}
-        self.entity_map = entity_map or DEFAULT_ENTITY_MAP
+        self.entity_map = dict(entity_map)
+        self.model_dir = model_dir
+
+    def capabilities(self) -> list[str]:
+        return sorted(set(self.entity_map.values()))
 
     def _logits(self, enc) -> np.ndarray:
         ids = np.array([enc.ids], dtype=np.int64)

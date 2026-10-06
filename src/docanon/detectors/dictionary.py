@@ -1,12 +1,14 @@
 """自定义业务敏感词检测器。"""
 from __future__ import annotations
 
-from ..models import Block, Detection, Span
-from .base import Detector
+from ..contract import Block, Detection, Detector, Span
 
 
 class DictionaryDetector(Detector):
     name = "dictionary"
+
+    def capabilities(self) -> list[str]:
+        return ["CUSTOM"]
 
     def __init__(self, words: list[str]) -> None:
         # 去掉空词并长词优先, 保证较长敏感词先匹配

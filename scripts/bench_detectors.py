@@ -16,12 +16,13 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from bench_models import CASES, covered  # noqa: E402  复用样例与覆盖判定
-from docanon.config import LLMConfig, load_config  # noqa: E402
+from docanon.config import load_config  # noqa: E402
 from docanon.detectors.dictionary import DictionaryDetector  # noqa: E402
 from docanon.detectors.llm_ner import LLMNERDetector  # noqa: E402
 from docanon.detectors.onnx_ner import OnnxNERDetector  # noqa: E402
+from docanon.llm.client import LLMConfig, LLMError  # noqa: E402
 from docanon.detectors.rule import RuleDetector  # noqa: E402
-from docanon.models import Block  # noqa: E402
+from docanon.contract import Block  # noqa: E402
 from docanon.resolve import resolve_overlaps  # noqa: E402
 
 
@@ -40,7 +41,11 @@ def run_backend(name: str, detectors, dictionary: list[str]) -> dict:
         block = Block("b", text)
         found = []
         for d in dets:
-            found.extend(d.detect(block))
+            try:
+                found.extend(d.detect(block))
+            except LLMError:
+                # 基准把"没答上"按零识别计分即可; 产品路径由 cli 的引擎预检拦下
+                continue
         return [x.span.text for x in resolve_overlaps(found)]
 
     one(CASES[0][0])  # warmup
@@ -80,7 +85,7 @@ def main() -> int:
         p = ROOT / d
         if (p / "model.onnx").exists():
             try:
-                backends.append((label, [OnnxNERDetector(p)]))
+                backends.append((label, [OnnxNERDetector(p, cfg.onnx.entity_map)]))
             except Exception as exc:  # noqa: BLE001
                 print(f"加载失败 {label}: {exc}")
         else:

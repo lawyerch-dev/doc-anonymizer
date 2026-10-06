@@ -6,16 +6,31 @@ from pathlib import Path
 
 import yaml
 
-DEFAULT_CONFIG = Path(__file__).resolve().parents[2] / "configs" / "default.yaml"
+from . import resources
+from .llm.client import LLMConfig
 
-
-@dataclass
-class LLMConfig:
-    base_url: str = "http://127.0.0.1:8080/v1"
-    model: str = "qwen3.8-4b"
-    timeout: int = 120
-    chunk_size: int = 1000
-    disable_thinking: bool = True
+# 各模型自己的标签 -> 本项目的实体类型。这是 app 的词汇表, 所以放在 app 侧:
+# 引擎只收一张映射表进来, 它不认识 PERSON/ORG/CUSTOM 这些名字。
+# 没被映射到的标签会被该引擎直接忽略 —— 改这里之前先确认你不想让那个标签出结果。
+DEFAULT_ONNX_ENTITY_MAP: dict[str, str] = {
+    # pii-engineer/PII-Engineer-Chinese-NER
+    "person": "PERSON",
+    "phone_number": "PHONE",
+    "nric": "ID_CARD",
+    "street_address": "LOCATION",
+    "date_of_birth": "DOB",
+    # protectai/gyr66 (CLUENER 系)
+    "name": "PERSON",
+    "organization": "ORG",
+    "company": "ORG",
+    "government": "ORG",
+    "address": "LOCATION",
+    "mobile": "PHONE",
+    "email": "EMAIL",
+    "position": "POSITION",
+    "qq": "CUSTOM",
+    "vx": "CUSTOM",
+}
 
 
 @dataclass
@@ -23,7 +38,9 @@ class OnnxConfig:
     model_dirs: list[str] = field(
         default_factory=lambda: ["models/onnx/gyr66", "models/onnx/pii-engineer"]
     )
-    entity_map: dict[str, str] | None = None
+    entity_map: dict[str, str] = field(
+        default_factory=lambda: dict(DEFAULT_ONNX_ENTITY_MAP)
+    )
 
 
 @dataclass
@@ -42,7 +59,16 @@ class Config:
 
 
 def load_config(path: str | Path | None = None) -> Config:
-    cfg_path = Path(path) if path else DEFAULT_CONFIG
+    """读配置。相对路径按资源根解析, 与当前工作目录无关; 指定了却读不到就报错。
+
+    静默回退到内置默认值等于少一层检测还照样出文件, 所以这里不允许"读不到就算了"。
+    """
+    if path is None:
+        cfg_path = resources.config_path("default.yaml")
+    else:
+        cfg_path = resources.resolve(path)
+        if not cfg_path.exists():
+            raise FileNotFoundError(f"配置文件不存在: {cfg_path}")
     data: dict = {}
     if cfg_path.exists():
         data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
@@ -61,7 +87,11 @@ def load_config(path: str | Path | None = None) -> Config:
         ),
         onnx=OnnxConfig(
             model_dirs=onnx_raw.get("model_dirs") or OnnxConfig().model_dirs,
-            entity_map=onnx_raw.get("entity_map"),
+            entity_map=(
+                dict(DEFAULT_ONNX_ENTITY_MAP)
+                if "entity_map" not in onnx_raw
+                else dict(onnx_raw["entity_map"])
+            ),
         ),
         raw=data,
     )

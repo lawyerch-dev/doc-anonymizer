@@ -1,7 +1,16 @@
 """检测器包。"""
-from .base import Detector, build_detectors
-from .rule import RuleDetector
+from ..contract import Detector
+from .base import DETECTORS, build_detectors, clear_detector_cache
 from .dictionary import DictionaryDetector
 from .onnx_ner import OnnxNERDetector
+from .rule import RuleDetector
 
-__all__ = ["Detector", "build_detectors", "RuleDetector", "DictionaryDetector", "OnnxNERDetector"]
+__all__ = [
+    "DETECTORS",
+    "Detector",
+    "build_detectors",
+    "clear_detector_cache",
+    "RuleDetector",
+    "DictionaryDetector",
+    "OnnxNERDetector",
+]

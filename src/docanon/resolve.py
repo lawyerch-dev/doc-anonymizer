@@ -1,7 +1,7 @@
 """重叠检测结果合并: 保证最终 span 互不重叠, 召回优先。"""
 from __future__ import annotations
 
-from .models import Detection
+from .contract import Detection
 
 # 来源优先级: 规则/词典 > LLM (规则更精确, 类型更可信)
 _SOURCE_RANK = {"rule": 3, "dictionary": 2, "llm": 1}

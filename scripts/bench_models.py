@@ -19,11 +19,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from docanon.config import LLMConfig, load_config  # noqa: E402
+from docanon.config import load_config  # noqa: E402
 from docanon.detectors.dictionary import DictionaryDetector  # noqa: E402
 from docanon.detectors.llm_ner import LLMNERDetector  # noqa: E402
+from docanon.llm.client import LLMConfig, LLMError  # noqa: E402
 from docanon.detectors.rule import RuleDetector  # noqa: E402
-from docanon.models import Block  # noqa: E402
+from docanon.contract import Block  # noqa: E402
 from docanon.resolve import resolve_overlaps  # noqa: E402
 
 # (文本, 必须被识别出的敏感片段)
@@ -47,12 +48,12 @@ def detect_all(text: str, port: int, dictionary: list[str], timeout: int) -> lis
         LLMConfig(base_url=f"http://127.0.0.1:{port}/v1", model="bench",
                   timeout=timeout, disable_thinking=True)
     )
-    dets = (
-        RuleDetector().detect(block)
-        + DictionaryDetector(dictionary).detect(block)
-        + llm.detect(block)
-    )
-    return [d.span.text for d in resolve_overlaps(dets)]
+    found = RuleDetector().detect(block) + DictionaryDetector(dictionary).detect(block)
+    try:
+        found += llm.detect(block)
+    except LLMError:
+        pass  # 模型没答上就算零命中, 交给召回率体现
+    return [d.span.text for d in resolve_overlaps(found)]
 
 
 def _ready(port: int, timeout_s: int) -> bool:

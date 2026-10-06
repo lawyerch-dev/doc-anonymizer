@@ -5,7 +5,7 @@ import csv
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .models import Block, ExtractedDoc
+from .contract import Block, ExtractedDoc
 
 
 @dataclass
