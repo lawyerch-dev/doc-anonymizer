@@ -6,9 +6,10 @@
 ## 命令（一律在仓库根执行）
 
 - 首次准备：`python3.12 -m venv .venv && .venv/bin/pip install -e '.[ocr,dev]'`
-- 全量测试：`.venv/bin/python -m pytest -q`（38 项，约 3 秒）
+- 全量测试：`.venv/bin/python -m pytest -q`（44 项，约 2 秒）
 - 单个测试：`.venv/bin/python -m pytest tests/test_pipeline.py::test_pipeline_masks_pii`
 - CLI 脱敏：`.venv/bin/docanon run ./samples -o out -c configs/onnx.yaml`
+- 大卷宗续跑（跳过已脱敏且产物仍在的）：同一条命令加 `--resume`
 - 看这份配置实际加载了哪些引擎（含起不来的原因）：`.venv/bin/docanon engines -c configs/onnx.yaml`
 - Web：`.venv/bin/docanon web -p 8000 -c configs/onnx.yaml`
 - 仓库没有 lint、typecheck、CI、pre-commit。不要假定 `ruff`/`mypy`/`npm run lint` 存在，也不要顺手加。
@@ -42,6 +43,9 @@
 - 一个 `-o` 目录就是唯一真相：`manifest.json`/`mapping.json` 按源文件**累加**（同一 `source` 只更新它那一条）。
   分批跑就往同一个目录跑，不要新建 `out2/`、`out_mp2/` 这类平行目录，也不要预先清空它。
   `cmd_run` 退出码按合并后的清单算，所以历史 `error`/`unsupported` 记录会让它返回 `2` —— 那是提示，不是本次跑坏了。
+- 账本的写入纪律（`src/docanon/job.py`）：**每处理完一个文件就落盘**，先写 `.tmp` 再 `os.replace`。
+  改成"整批跑完再写"就等于让 Ctrl+C/崩溃丢掉已完成部分的原文与记录。`--resume` 判定"已脱敏"必须同时要求
+  产物文件仍在；账本读不出来就拒绝执行（退出码 1、一个文件都不碰），不许静默当成空目录重来。
 - 非目标：不接云端 API、不依赖 Ollama（`docs/specs/2026-10-05-doc-anonymizer-design.md` §6）。
 
 ## 改动前后
