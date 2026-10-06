@@ -10,8 +10,11 @@ import base64
 import io
 import json
 import mimetypes
+import os
 import sys
 import tempfile
+import threading
+import time
 import uuid
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -105,7 +108,8 @@ class Handler(BaseHTTPRequestHandler):
         if p in ("/", "/index.html"):
             self._send(200, _index().read_bytes(), "text/html; charset=utf-8")
         elif p == "/health":
-            self._json(200, {"ok": True})
+            # 带上 pid: 桌面壳用它确认"答话的是我自己拉起的那个后端", 而不是占着端口的旧孤儿
+            self._json(200, {"ok": True, "pid": os.getpid()})
         elif p == "/api/presets":
             self._json(200, {"presets": self._presets()})
         elif p.startswith("/samples/"):
@@ -214,7 +218,40 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
+ENV_EXIT_WITH_PARENT = "DOCANON_EXIT_WITH_PARENT"
+
+
+def _watch_parent(origin: int, interval: float = 1.0) -> None:
+    """父进程没了就自我了断(Ctrl+C / 正常退出都不走这里, 只有被强杀时才会触发)。
+
+    桌面壳把本服务当 sidecar 拉起。壳被 SIGKILL、崩溃或走 Electrobun 自己的 SIGTERM quit 序列时,
+    JS 侧的 child.kill() 根本没机会执行(实测会留下一个占着端口的孤儿后端)。POSIX 没有
+    "父死子亡"的通用机制, 但父进程消失后本进程会被 reparent, getppid() 随之改变 —— 盯住它就够了。
+    """
+    while True:
+        time.sleep(interval)
+        if os.getppid() != origin:
+            os._exit(0)
+
+
+def _start_parent_watch() -> bool:
+    """按环境变量决定是否开启父进程监视; 返回是否开启。默认关, 不影响交互式 `docanon web`。"""
+    if os.environ.get(ENV_EXIT_WITH_PARENT, "").strip().lower() not in {"1", "true", "yes"}:
+        return False
+    threading.Thread(
+        target=_watch_parent, args=(os.getppid(),), name="parent-watch", daemon=True
+    ).start()
+    return True
+
+
 def serve(port: int = 8000, config_path: str | None = None, open_browser: bool = True) -> None:
+    # 前端页面是资源根下的静态文件: 先确认它在, 否则起个只能返回 404 的服务等于骗人
+    if not _index().is_file():
+        print(
+            f"Web 未启动: 缺前端页面 {_index()}(资源根解析错了? 可用 DOCANON_ROOT 指定)",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
     try:
         Handler.config = load_config(config_path)
         # 预检: 引擎没准备好就别说"打开窗口点一下就知道失败了"
@@ -222,6 +259,7 @@ def serve(port: int = 8000, config_path: str | None = None, open_browser: bool =
     except Exception as exc:  # noqa: BLE001
         print(f"Web 未启动: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
+    _start_parent_watch()
     if not _vendor().is_dir():
         print(
             f"警告: 缺预览资源 {_vendor()} —— 页面能开但预览区全空白。"

@@ -59,19 +59,19 @@ class Config:
 
 
 def load_config(path: str | Path | None = None) -> Config:
-    """读配置。相对路径按资源根解析, 与当前工作目录无关; 指定了却读不到就报错。
+    """读配置。相对路径按资源根解析, 与当前工作目录无关; 读不到就报错(两种入口都一样)。
 
-    静默回退到内置默认值等于少一层检测还照样出文件, 所以这里不允许"读不到就算了"。
+    静默回退到内置默认值等于少一层检测还照样出文件, 所以这里不允许"读不到就算了"——
+    不带 `-c` 时默认配置读不到同样是错误, 不能退化成一份空配置(空配置 = 没有引擎被启用,
+    在 `docanon engines` 里会显示成"全都配置未启用", 那是误导而不是提示)。
     """
     if path is None:
         cfg_path = resources.config_path("default.yaml")
     else:
         cfg_path = resources.resolve(path)
-        if not cfg_path.exists():
-            raise FileNotFoundError(f"配置文件不存在: {cfg_path}")
-    data: dict = {}
-    if cfg_path.exists():
-        data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+    if not cfg_path.exists():
+        raise FileNotFoundError(f"配置文件不存在: {cfg_path}")
+    data: dict = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
     llm_raw = data.get("llm", {}) or {}
     onnx_raw = data.get("onnx", {}) or {}
     return Config(

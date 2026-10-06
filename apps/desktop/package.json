@@ -1,14 +1,14 @@
 {
-  "name": "docanon-desktop",
-  "version": "0.1.0",
-  "private": true,
-  "description": "doc-anonymizer 桌面壳 (Electron): 拉起本地 Python 服务并加载 Web UI",
-  "main": "main.js",
-  "scripts": {
-    "start": "electron .",
-    "start:dev": "DOCANON_DEV=1 electron ."
-  },
-  "devDependencies": {
-    "electron": "^33.4.11"
-  }
+	"name": "docanon-desktop",
+	"version": "0.1.0",
+	"private": true,
+	"description": "doc-anonymizer 桌面壳 (Electrobun): 系统 WebView + Python sidecar",
+	"scripts": {
+		"start": "hutch electrobun dev",
+		"dev": "hutch electrobun dev --watch",
+		"build": "hutch electrobun build --env=stable"
+	},
+	"devDependencies": {
+		"@types/bun": "latest"
+	}
 }

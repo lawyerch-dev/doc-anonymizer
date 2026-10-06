@@ -144,6 +144,10 @@ docanon run ./samples -o out_onnx -c configs/onnx.yaml
 
 - 配置里的相对路径(`onnx.model_dirs`、`-c` 的配置文件)按**仓库根/安装根**解析, 与你在哪个目录敲命令无关;
   打包成桌面应用后同一套规则成立(可用 `DOCANON_ROOT` 指定资源根)。命令行上的输入/输出路径仍按当前目录。
+- 资源根是**找出来的, 不是猜出来的**: 从 `resources.py` 逐级向上找含 `configs/default.yaml` 的目录。
+  找不到(例如 `pip install` 到了别处、不是 editable 安装)会直接报错并告诉你设 `DOCANON_ROOT`,
+  而不是退回一个不存在的路径 —— 那样只会读到空配置, 看起来却像"引擎都没启用"。同理, 默认配置读不到
+  (不带 `-c`)也报错, 不再静默退化。
 - 检测引擎在 `detectors/base.py` 的注册表里按名字启用。引擎装不起来或端点没应答时, `run` 与 `web` 都会在
   写任何文件之前报错退出(退出码 1), 不会带着少一层检测的产物报告成功。
 - 想确认"这份配置到底跑了几层检测", 别猜, 直接列出来:
@@ -174,7 +178,7 @@ doc-anonymizer/
 │   └── cli.py              命令行
 ├── apps/
 │   ├── web/                前端静态资源(index.html + vendor/file-viewer)
-│   └── desktop/            Electron 桌面壳(拉起 server + 打开窗口)
+│   └── desktop/            Electrobun 桌面壳(系统 WebView; 拉起 server + 开窗)
 ├── configs/                配置(default/onnx/with_llm)
 ├── scripts/  samples/  tests/  docs/
 └── models/                 模型权重(gitignore)

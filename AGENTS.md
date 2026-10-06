@@ -1,12 +1,13 @@
 # doc-anonymizer 操作契约
 
 日常开发只碰两处：`.venv` 里的 Python 引擎 `src/docanon/`，和零构建的单文件前端
-`apps/web/index.html`。两个桌面壳都不是日常路径（`apps/desktop/README.md` 明写「开发时不用它」）。
+`apps/web/index.html`。桌面壳只有一个（`apps/desktop/`，Electrobun + 系统 WebView），不是日常路径
+（`apps/desktop/README.md` 明写「开发时不用它」）。
 
 ## 命令（一律在仓库根执行）
 
 - 首次准备：`python3.12 -m venv .venv && .venv/bin/pip install -e '.[ocr,dev]'`
-- 全量测试：`.venv/bin/python -m pytest -q`（44 项，约 2 秒）
+- 全量测试：`.venv/bin/python -m pytest -q`（55 项，约 3 秒）
 - 单个测试：`.venv/bin/python -m pytest tests/test_pipeline.py::test_pipeline_masks_pii`
 - CLI 脱敏：`.venv/bin/docanon run ./samples -o out -c configs/onnx.yaml`
 - 大卷宗续跑（跳过已脱敏且产物仍在的）：同一条命令加 `--resume`
@@ -21,7 +22,11 @@
   `pyproject.toml` 已把 `requires-python` 限到 `<3.14`，`docanon` 同理只在 `.venv/bin/` 里。
 - 相对路径按**资源根**解析，不按 cwd：`-c` 的配置文件、`configs/*.yaml` 里的 `onnx.model_dirs` 都以仓库根
   为基准（打包后是 bundle 根，`DOCANON_ROOT` 可覆盖）—— 统一走 `src/docanon/resources.py`。
-  命令行上的输入/输出路径仍按调用者 cwd。`-c` 指向的文件读不到会直接报错，不会静默回退默认配置。
+  命令行上的输入/输出路径仍按调用者 cwd。
+  资源根是**逐级向上找**出来的（标记是 `configs/default.yaml`），不是用 `parents[N]` 猜的：找不到就抛
+  `ResourceRootError` 让你设 `DOCANON_ROOT`。同样，`-c` 指向的文件、以及不带 `-c` 时的 `default.yaml`
+  读不到都直接报错 —— 静默退化成空配置等于"一层引擎都没开"，而它看起来和"没启用"一模一样
+  （`tests/test_resources.py` 锁这两条）。
 - 不带 `-c` 走 `configs/default.yaml`，其中 `onnx_ner`/`llm_ner` 均为 `false`，只剩规则+词典：
   同一个 `samples/example.txt` 实测少掉 `PERSON` 与 `LOCATION`。Web 与桌面壳都用 `configs/onnx.yaml`。
   `configs/with_llm.yaml` 需先 `./scripts/serve_llm.sh` 把 llama-server 起到 :8080。
@@ -58,6 +63,10 @@
 - Web 后端关掉了 HTTP 访问日志（`server.py` 的 `log_message` 是空实现）。命中溯源看 `/api/anonymize`
   返回的 `trace`（`extractor`/`detectors`/`timing`/`detections`），前端「运行日志」弹窗消费的就是它。
 - `models/`、`out*/`、`apps/web/vendor/` 均已 gitignore，提交里不要带上。
+- 桌面壳（`apps/desktop/`，Electrobun）只在 `hutch electrobun dev` 里跑，日常不碰。它有三条实测出来的硬约束：
+  项目根靠标记文件向上找（不许数 `..`，dev 产物在 `.app` 里）、sidecar 由 `DOCANON_EXIT_WITH_PARENT`
+  父进程监视自尽（壳被强杀时 JS 收不了尸）、`/health` 带 pid 以免认错端口上的旧孤儿。
+  细节见 `apps/desktop/README.md`，行为由 `tests/test_server.py` 锁定。
 
 ## 引擎可移植边界（`tests/test_architecture.py` 用 AST 锁死，别绕过）
 

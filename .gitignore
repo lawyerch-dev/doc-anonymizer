@@ -38,5 +38,7 @@ out*/
 apps/web/vendor/
 node_modules/
 .webout/
-apps/desktop-electrobun/.hutch/
-apps/desktop-electrobun/.cottontail-tmp/
+
+# 桌面壳(Electrobun/Hutch)的下载缓存与运行期临时目录
+apps/desktop/.hutch/
+apps/desktop/.cottontail-tmp/
