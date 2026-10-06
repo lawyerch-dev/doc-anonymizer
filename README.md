@@ -55,12 +55,12 @@ docs/告知书/明细.docx   ->   out/告知书/明细.docx.redacted.txt
 docs/债权人/明细.txt    ->   out/债权人/明细.txt.redacted.txt
 ```
 
-每次 run 还会写两个文件:
+每次 run 还会更新两个文件(按源文件累加, 不覆盖上一次的记录 —— 同一个 `-o` 目录可以分批增量跑, 重复跑同一个文件只更新它那一条):
 
 - `manifest.json` —— 每个源文件一条记录: `ok`(含产物路径与命中数) / `error`(含原因) / `unsupported`(格式不支持)。**只有 manifest 里标 `ok` 的文件才是脱敏过的。**
 - `mapping.json` —— 原文↔脱敏值对照表, 含全部敏感信息原件, **切勿与脱敏文件一起外发**。
 
-退出码: `0` 全部处理; `2` 有文件未产出结果(格式不支持或抽取失败); `1` 输入路径不存在。
+退出码: `0` 全部处理; `2` 有文件未产出结果(格式不支持或抽取失败); `1` 输入路径不存在, 或 `-o` 目录里已有的清单/映射表读不出来(为不覆盖上次记录而拒绝执行)。
 
 ### 已知限制
 
@@ -129,13 +129,29 @@ docanon run ./samples -o out_onnx -c configs/onnx.yaml
 
 见 [configs/default.yaml](configs/default.yaml)：敏感词表、各类型脱敏策略、LLM 地址。
 
+- 配置里的相对路径(`onnx.model_dirs`、`-c` 的配置文件)按**仓库根/安装根**解析, 与你在哪个目录敲命令无关;
+  打包成桌面应用后同一套规则成立(可用 `DOCANON_ROOT` 指定资源根)。命令行上的输入/输出路径仍按当前目录。
+- 检测引擎在 `detectors/base.py` 的注册表里按名字启用。引擎装不起来或端点没应答时, `run` 与 `web` 都会在
+  写任何文件之前报错退出(退出码 1), 不会带着少一层检测的产物报告成功。
+- 想确认"这份配置到底跑了几层检测", 别猜, 直接列出来:
+
+  ```bash
+  docanon engines -c configs/onnx.yaml   # 每个引擎: 可用/不可用(带原因) + 实际能力(实体类型或扩展名)
+  ```
+- ONNX 各模型标签 → 本项目实体类型的映射表在 `config.py` 的 `DEFAULT_ONNX_ENTITY_MAP`(app 侧词汇表);
+  想在 yaml 里整表覆盖就写 `onnx.entity_map`。引擎本身不认识任何实体类型名, 映射表是它必填的构造参数。
+
 ## 目录结构
 
 ```
 doc-anonymizer/
-├── src/docanon/            # Python 引擎包(web 与桌面壳共用)
-│   ├── extractors/         抽取器(按类型可插拔, 含 RapidOCR)
-│   ├── detectors/          检测器(规则/词典/ONNX NER/LLM)
+├── src/docanon/            # Python 包(web 与桌面壳共用)
+│   ├── contract.py         引擎契约: Block/Span/Detection + 引擎 ABC(只依赖标准库)
+│   ├── extractors/         抽取器(按类型可插拔; `_ocr.py` 是 RapidOCR 引擎)
+│   ├── detectors/          检测器(规则/词典/ONNX NER/LLM), 注册表在 base.py
+│   ├── llm/                本地大模型引擎的传输层(OpenAI 兼容)
+│   ├── resources.py        资源根: 配置/模型/静态资源的相对路径基准
+│   ├── engines.py          引擎自检清单(`docanon engines`)
 │   ├── writers.py          原位回写(原格式)
 │   ├── strategies.py       脱敏策略
 │   ├── resolve.py          重叠合并
