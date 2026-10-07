@@ -171,8 +171,13 @@
   Electron 因体积被弃。壳侧三条实测约束（项目根按标记文件找、壳被强杀时 sidecar 自己了断、
   只认自己拉起的后端）见 `apps/desktop/README.md`。
 - **还原（`restore`）**：只支持文本产物；`remove` 策略的原文不可还原（替换值为空串，不是锚点）。
+- **目录细化**：引擎收进 `src/docanon/engines/`（目录即边界，并有"拷到别处导入一遍"的可搬运验证）；
+  `server.py` 拆成 `server/{__init__,routes,lifecycle}.py`；前端拆 `index.html + app.css + app.js`
+  （仍零构建）；WebKit 兼容检查归位 `tests/e2e/webkit/`。
+- **PDF 产物**：只栅格化**命中**的页，未命中页原样保留矢量文字；命中页整页栅格化是安全保证
+  （给文字层盖黑块 = 原文仍可复制）。由 `tests/test_pdf_output.py` 锁定。
 - **布局**：下载/构建得到的资产统一收进 `var/`（`var/models`、`var/vendor`），产物目录仍由 `-o` 决定；
   壳的 `apps/desktop/build/` 是唯一例外（Hutch 的 `buildFolder` 只接受项目相对路径）。
   所有布局路径集中在 `resources.LAYOUT` 一张表里，`tests/test_layout.py` 锁住。
-- **测试**：从设计期的 7 项长到 71 项；`samples/` 由 `scripts/make_samples.py` 生成（PDF 必须内嵌中文 TTF 子集）。
+- **测试**：从设计期的 7 项长到 76 项；`samples/` 由 `scripts/make_samples.py` 生成（PDF 必须内嵌中文 TTF 子集）。
 

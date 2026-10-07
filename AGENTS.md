@@ -8,7 +8,7 @@
 ## 命令（一律在仓库根执行）
 
 - 首次准备：`python3.12 -m venv .venv && .venv/bin/pip install -e '.[ocr,dev]'`
-- 全量测试：`.venv/bin/python -m pytest -q`（73 项，约 3 秒）
+- 全量测试：`.venv/bin/python -m pytest -q`（76 项，约 4 秒）
 - 单个测试：`.venv/bin/python -m pytest tests/test_pipeline.py::test_pipeline_masks_pii`
 - CLI 脱敏：`.venv/bin/docanon run ./samples -o out -c configs/onnx.yaml`
 - 大卷宗续跑（跳过已脱敏且产物仍在的）：同一条命令加 `--resume`
@@ -62,7 +62,11 @@
   它只进正向表，绝不进 `MappingStore._reverse`，还原走 `restorable_items()`（过滤空键）。
   谁把空串塞回反向表，`str.replace("")` 就会把原文插到每个字符之间——还原动作反而把敏感信息撒满全篇。
   回归测试：`tests/test_restore.py`。
-- 非目标：不接云端 API、不依赖 Ollama（`docs/specs/2026-10-05-doc-anonymizer-design.md` §6）。
+- **命中敏感信息的 PDF 页必须整页栅格化**（文字层消失）。给文字层盖黑块 = 原文仍可复制/搜索 =
+  没脱敏，这条是安全保证不是偷懒；没命中的页原样保留矢量文字与体积。`tests/test_pdf_output.py` 锁死，
+  README「已知限制」对用户解释同一件事。
+- 非目标：不接云端 API、不依赖 Ollama（`docs/specs/2026-10-05-doc-anonymizer-design.md` §6）；
+  也不引入 lint/typecheck/CI（单人本地工具，测试即门禁，理由见 `docs/architecture.md` §六）。
 
 ## 改动前后
 
