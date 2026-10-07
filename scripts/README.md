@@ -1,12 +1,12 @@
 # scripts/ 一览
 
-**日常只用一个**：`./scripts/dev.sh <命令>`（`setup` `web` `desktop` `test` `cli` `engines` `doctor`；
-`help` 看全部）。它包装下面这些脚本与命令，`setup` 会调用 `setup_dev.sh` 与（缺预览资源时）
+**日常只用一个**：仓库根的 npm scripts（`npm run setup` / `dev` / `dev:website` / `test` / `doctor` …）。
+`scripts/dev.sh` 是它们的**实现层**（也能直接用：`./scripts/dev.sh help`），它包装下面这些脚本与命令，`setup` 会调用 `setup_dev.sh` 与（缺预览资源时）
 `fetch_file_viewer.sh`；`web`/`desktop`/`website` 分别起 `docanon web`、壳里的 `npm start`、`website/` 的 `astro dev`。
 
 | 脚本 | 干什么 | 依赖 | 用法 |
 |---|---|---|---|
-| `dev.sh` | 开发入口：装环境、起 Web、起桌面壳、跑测试、调 CLI、自检 | 无（包装其余） | `./scripts/dev.sh help` |
+| `dev.sh` | **实现层**（npm scripts 调它）：装环境、起 Web/官网/桌面壳、跑测试、取模型、自检 | 无（包装其余） | `./scripts/dev.sh help` |
 | `setup_dev.sh` | 建 `.venv`、装五个包 editable + 测试依赖、字节码缓存重定向到 `var/pycache`（幂等） | python3.12 / pip | `./scripts/setup_dev.sh` |
 | `make_samples.py` | 生成 `samples/`（txt/md/docx/pdf 文字/扫描/png/xlsx/csv） | python-docx / openpyxl / pypdfium2 / Pillow | `.venv/bin/python scripts/make_samples.py` |
 | `download_model.sh` | 从 ModelScope 下载 GGUF 到 `var/models/` | curl | `./scripts/download_model.sh [Q4_K_M]` |

@@ -20,7 +20,7 @@
 **模型**：`configs/onnx.yaml` 需要 `var/models/onnx/{gyr66,pii-engineer}`（约 830MB）：
 
 ```bash
-./scripts/dev.sh models          # 默认走 hf-mirror(官方 HF 本机实测超时), HF_ENDPOINT 可换
+npm run models                   # 默认走 hf-mirror(官方 HF 本机实测超时), HF_ENDPOINT 可换
 ./scripts/download_onnx_models.sh --check   # 只探端点通不通
 ```
 

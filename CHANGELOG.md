@@ -7,6 +7,11 @@
 
 ### Changed
 
+- **命令入口统一成 npm scripts**（仓库根 `package.json`）：`npm run setup` / `dev` / `dev:website` /
+  `dev:desktop` / `test` / `build` / `cli` / `engines` / `models` / `doctor`。
+  `scripts/dev.sh` 退居**实现层**（被 npm scripts 调用，仍可直接用）。
+  根目录同时把 `SECURITY.md`、`CODE_OF_CONDUCT.md` 收进 `.github/`（GitHub 同样识别）。
+
 - **文档信息架构**：`AGENTS.md` 从 160 行的"什么都塞"改成 51 行的**入口与索引**
   （六条不可违反 + 按主题的表），细则按主题拆到 `.agent/rules/`（9 篇：命令 / 包 / 资源 / 产物 /
   安全 / 测试 / 前端 / 文档 / 环境）。守卫：`AGENTS.md` ≤ 80 行、每篇 rule ≤ 60 行、每篇都必须被

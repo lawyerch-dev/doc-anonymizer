@@ -61,8 +61,8 @@ COMMUNITY_FILES = [
     "README.md",
     "LICENSE",
     "CONTRIBUTING.md",
-    "SECURITY.md",
-    "CODE_OF_CONDUCT.md",
+    ".github/SECURITY.md",
+    ".github/CODE_OF_CONDUCT.md",
     "CHANGELOG.md",
     ".github/PULL_REQUEST_TEMPLATE.md",
     ".github/ISSUE_TEMPLATE/bug_report.yml",
@@ -155,19 +155,21 @@ def test_readme_has_the_product_sections():
     assert "[MIT](LICENSE)" in readme, "README 末尾的许可链接没了"
 
 
-def test_dev_sh_subcommands_are_documented():
-    """dev.sh 里能调的每个子命令, 文档里都得有 —— 加了命令忘了写, 这条会红。
+def test_npm_scripts_are_documented():
+    """npm scripts 是唯一命令入口 —— 加了脚本却没写进 README, 这条会红。
 
-    子命令清单以 dev.sh 的 `case "$cmd" in` 分支为准(那是真正会执行的东西)。
+    脚本清单以根 package.json 为准(那是真正会被执行的东西)。
     """
-    text = (REPO / "scripts" / "dev.sh").read_text(encoding="utf-8")
-    dispatch = text.split('case "$cmd" in', 1)[1].split("esac", 1)[0]
-    cmds = re.findall(r"^  ([a-z][a-z-]*)\)", dispatch, re.M)
-    assert cmds, "没解析出 dev.sh 的子命令(脚本结构变了?)"
-
+    pkg = json.loads((REPO / "package.json").read_text(encoding="utf-8"))
+    scripts = pkg.get("scripts", {})
+    assert scripts, "根 package.json 里没有 scripts"
     readme = (REPO / "README.md").read_text(encoding="utf-8")
-    missing = [c for c in cmds if f"`{c}`" not in readme]
-    assert not missing, f"README 里没提这些 dev.sh 子命令: {missing}"
+    missing = [
+        n
+        for n in scripts
+        if f"npm run {n}" not in readme and f"npm {n}" not in readme and f"`{n}`" not in readme
+    ]
+    assert not missing, f"README 里没写这些 npm scripts: {missing}"
 
 
 # 同一个主题只允许一个出处: 其余文档用链接指过来。冗余是文档互相矛盾的起点。
@@ -175,7 +177,7 @@ SINGLE_OWNER = [
     ("五包目录树", "├── docanon-contract/", "docs/architecture.md"),
     ("已知限制小节", "## 已知限制", "README.md"),
     ("硬边界表", "| 边界 | 锁在哪 |", "docs/architecture.md"),
-    ("dev.sh 子命令表", "| `website` | 起官网/文档站", ".agent/rules/01-commands.md"),
+    ("npm 命令表", "| `npm run dev:website` | 起官网/文档站", ".agent/rules/01-commands.md"),
 ]
 
 

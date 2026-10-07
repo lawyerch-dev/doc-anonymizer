@@ -1,13 +1,23 @@
 {
-  "name": "doc-anonymizer-web",
+  "name": "doc-anonymizer",
   "private": true,
-  "description": "前端工作区(Python 侧在 packages/, 用 requirements-dev.txt 装): apps/ui 共享组件, website 官网与文档站",
+  "description": "工作区根: Python 五个包(packages/, requirements-dev.txt) + 前端(website/ 官网, apps/ui 组件库, apps/web 产品界面)",
   "workspaces": [
     "apps/ui",
     "website"
   ],
   "scripts": {
-    "build": "npm run build --workspace @doc-anonymizer/website",
-    "dev": "npm run dev --workspace @doc-anonymizer/website"
+    "setup": "./scripts/dev.sh setup && npm install",
+    "dev": "./scripts/dev.sh web",
+    "dev:website": "./scripts/dev.sh website",
+    "dev:desktop": "./scripts/dev.sh desktop",
+    "test": "npm run test:py && npm run test:web",
+    "test:py": "./scripts/dev.sh test",
+    "test:web": "npm run check -w @doc-anonymizer/ui && npm run build -w @doc-anonymizer/website",
+    "build": "npm run build -w @doc-anonymizer/website",
+    "cli": "./scripts/dev.sh cli",
+    "engines": "./scripts/dev.sh engines",
+    "models": "./scripts/dev.sh models",
+    "doctor": "./scripts/dev.sh doctor"
   }
 }

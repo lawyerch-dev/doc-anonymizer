@@ -9,14 +9,15 @@
 ## 开发入口
 
 ```bash
-./scripts/dev.sh setup      # 幂等: venv + 五个包 + 预览资源 + 字节码缓存重定向
-./scripts/dev.sh web        # 产品界面 → :8000
-./scripts/dev.sh website    # 官网/文档站 → :4321
-./scripts/dev.sh desktop    # 桌面壳（需 Hutch）
-./scripts/dev.sh test       # 全量测试（114 项，约 5 秒）
+npm run setup          # 一键装齐: Python venv + 五个包 + 预览资源 + npm install
+npm run dev            # 产品界面 → :8000
+npm run dev:website    # 官网/文档站 → :4321
+npm test               # 一键全测: Python（114 项，约 5 秒）+ 组件库检查 + 文档站构建
+npm run doctor         # 环境自检: 缺什么、为什么起不来
 ```
 
-其余子命令：`cli` / `engines` / `models` / `doctor`（`./scripts/dev.sh help` 看全部）。
+其余：`npm run cli -- <参数>` / `engines` / `models` / `dev:desktop` / `build`。
+npm scripts 是入口，`scripts/dev.sh` 是实现层。
 命令与脚本细则 → [`01-commands.md`](.agent/rules/01-commands.md)。
 
 ## 六条不可违反（都有测试锁着）

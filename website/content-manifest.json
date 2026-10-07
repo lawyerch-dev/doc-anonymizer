@@ -62,7 +62,7 @@
       "slug": "security",
       "title": "安全策略",
       "description": "漏脱敏怎么报、设计上的边界",
-      "file": "SECURITY.md"
+      "file": ".github/SECURITY.md"
     },
     {
       "group": "other",

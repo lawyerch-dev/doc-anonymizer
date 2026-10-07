@@ -6,17 +6,17 @@
 ## 1. 装
 
 ```bash
-./scripts/dev.sh setup     # venv + 五个包 + 预览资源(缺才拉); 幂等
-./scripts/dev.sh doctor    # 确认: 工具链/预览资源/ONNX 模型 + 这份配置加载了哪些引擎
+npm run setup      # 一键装齐: Python venv + 五个包 + 预览资源 + npm install
+npm run doctor     # 确认: 工具链/预览资源/ONNX 模型 + 这份配置加载了哪些引擎
 ```
 
 `doctor` 里任何"不可用"都先解决它再往下走 —— 本项目宁可报错，也不产出少一层检测的文件。
-报 `onnx_ner` 缺模型就取一次：`./scripts/dev.sh models`（约 830MB，走 hf-mirror 镜像）。
+报 `onnx_ner` 缺模型就取一次：`npm run models`（约 830MB，走 hf-mirror 镜像）。
 
 ## 2. 跑一份文档
 
 ```bash
-./scripts/dev.sh cli run ./samples -o var/out -c configs/onnx.yaml
+npm run cli -- run ./samples -o var/out -c configs/onnx.yaml
 ls var/out          # sample.docx.redacted.docx  manifest.json  mapping.json  …
 ```
 
@@ -28,7 +28,7 @@ ls var/out          # sample.docx.redacted.docx  manifest.json  mapping.json  �
 ## 3. 界面
 
 ```bash
-./scripts/dev.sh web        # → http://127.0.0.1:8000
+npm run dev                 # → http://127.0.0.1:8000（官网/文档站: npm run dev:website）
 ```
 
 选示例或上传 → 看原文 → 脱敏 → 对照；「运行日志」是逐条命中溯源。
@@ -36,8 +36,8 @@ ls var/out          # sample.docx.redacted.docx  manifest.json  mapping.json  �
 ## 4. 断了接着跑 / 还原
 
 ```bash
-./scripts/dev.sh cli run ./案件 -o var/out -c configs/onnx.yaml --resume
-./scripts/dev.sh cli restore var/out/sample.md.redacted.md --mapping var/out/mapping.json -o restored.md
+npm run cli -- run ./案件 -o var/out -c configs/onnx.yaml --resume
+npm run cli -- restore var/out/sample.md.redacted.md --mapping var/out/mapping.json -o restored.md
 ```
 
 `--resume` 的判定是「清单标 `ok` **且产物文件还在**」。`restore` 只吃 txt/md/csv；
@@ -48,7 +48,7 @@ ls var/out          # sample.docx.redacted.docx  manifest.json  mapping.json  �
 | 想要 | 配置 | 额外准备 |
 |---|---|---|
 | 只要规则 + 词典（最快） | `configs/default.yaml`（不带 `-c` 就是它） | 无 |
-| 人名/机构/地址（日常推荐） | `-c configs/onnx.yaml` | `./scripts/dev.sh models` |
+| 人名/机构/地址（日常推荐） | `-c configs/onnx.yaml` | `npm run models` |
 | 更灵活的实体识别 | `-c configs/llm.yaml` | `./scripts/download_model.sh` + `./scripts/serve_llm.sh` |
 
 ## 常见问题

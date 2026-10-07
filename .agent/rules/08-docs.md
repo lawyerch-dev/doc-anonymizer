@@ -13,7 +13,7 @@
 | `CONTRIBUTING.md` | 参与开发：环境、测试、提交与 PR | 现状权威 |
 | `docs/architecture.md` | 目录与分层的**为什么**、硬边界索引、决策记录、搬迁历史 | 解释性 |
 | `docs/benchmarks.md` | 模型选型与基准数字 | 实测记录 |
-| `SECURITY.md` | 安全问题的报告流程与已有边界 | 现状权威 |
+| `.github/SECURITY.md` | 安全问题的报告流程与已有边界 | 现状权威 |
 | `CHANGELOG.md` · `docs/specs/*` | **记录类**：允许出现旧名字与旧路径 | 历史 |
 
 - 改行为 → 同步 README 与对应 rules；改边界 → 改 `AGENTS.md` 与对应 rule。

@@ -33,15 +33,25 @@
 
 ```bash
 git clone https://github.com/lawyerch/doc-anonymizer && cd doc-anonymizer
-./scripts/dev.sh setup      # 装依赖(幂等) + 环境自检
-./scripts/dev.sh web        # → http://127.0.0.1:8000
-./scripts/dev.sh desktop    # 桌面壳(需 Hutch)
+npm run setup          # 一键装齐: Python venv + 五个包 + 预览资源 + npm install
+npm run dev            # 产品界面 → http://127.0.0.1:8000
+npm run dev:website    # 官网/文档站 → http://127.0.0.1:4321
+npm test               # 一键全测（Python 全量 + 组件库检查 + 文档站构建）
 ```
 
-`dev.sh` 是开发入口：`setup` `web` `desktop` `test` `cli` `engines` `models` `website` `doctor`（`./scripts/dev.sh help` 看全部）。
-缺 ONNX 模型（`configs/onnx.yaml` 的中文 NER）时取一次：`./scripts/dev.sh models` —— 约 830MB，
-默认走 `hf-mirror.com`（官方 huggingface.co 在部分网络不可达），`HF_ENDPOINT` 可换端点。
-它只是包装，底层就是 `docanon` / `pytest` / `hutch` —— 下文用的是原始命令，出问题可直接排查。
+**npm scripts 就是入口**（`scripts/dev.sh` 是它调用的实现层）：
+
+| 命令 | 做什么 |
+|---|---|
+| `npm run setup` | 幂等装齐环境；`npm run doctor` 告诉你缺什么、为什么起不来 |
+| `npm run dev` / `dev:website` / `dev:desktop` | 产品界面 / 官网文档站 / 桌面壳 |
+| `npm test` | 一键全测（`test:py` 只跑 Python，`test:web` 只跑前端） |
+| `npm run build` | 构建静态站 → `website/dist/` |
+| `npm run cli -- <参数>` | 直接调 docanon（注意 npm 的 `--`） |
+| `npm run engines` / `models` / `doctor` | 引擎自检 / 取模型 / 环境自检 |
+
+`npm run models` 取 `configs/onnx.yaml` 要的中文 NER 模型（约 830MB；官方 huggingface.co 在部分网络
+不可达，脚本默认走 `hf-mirror.com`，`HF_ENDPOINT` 可换）。
 逐步走一遍：[docs/quickstart.md](docs/quickstart.md)。
 
 ## 用法
@@ -74,8 +84,8 @@ git clone https://github.com/lawyerch/doc-anonymizer && cd doc-anonymizer
 ### 官网与文档站（可选）
 
 ```bash
-./scripts/dev.sh website                      # → http://127.0.0.1:4321（首次自动 npm install）
-npm run build -w @doc-anonymizer/website      # 静态输出到 website/dist/，任意静态服务器都能发
+npm run dev:website        # → http://127.0.0.1:4321（首次自动 npm install）
+npm run build              # 静态输出到 website/dist/，任意静态服务器都能发
 ```
 
 Astro 5 + Starlight（搜索/TOC/上下页内置），内容直接来自本仓库的 markdown
@@ -150,7 +160,7 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 | 模型选型与基准数字 | [docs/benchmarks.md](docs/benchmarks.md) |
 | 脚本清单 | [scripts/README.md](scripts/README.md) |
 | 版本变更 | [CHANGELOG.md](CHANGELOG.md) |
-| 漏脱敏等安全问题怎么报 | [SECURITY.md](SECURITY.md) |
+| 漏脱敏等安全问题怎么报 | [SECURITY.md](.github/SECURITY.md) |
 | 最初的设计方案（历史） | [docs/specs/2026-10-05-doc-anonymizer-design.md](docs/specs/2026-10-05-doc-anonymizer-design.md) |
 
 [MIT](LICENSE) © 2026 [lawyerch](https://github.com/lawyerch) ·

@@ -60,11 +60,13 @@ doc-anonymizer/
 ├── .agent/              给 agent 看的分类规范: AGENTS.md 是索引, rules/ 是细则
 ├── docs/                本文件 / benchmarks.md / specs/(设计历史)
 ├── var/                 本地可再生状态(gitignore): models 权重 / vendor 预览包 / out 默认产物 / pycache 字节码
-├── pyproject.toml       工作区根: 只有 pytest 配置(这里没有包, 也没有代码)
+├── package.json         前端工作区根 + **唯一命令入口**(npm run setup/dev/test/build/...)
+├── package-lock.json    前端依赖锁(可复现安装)
+├── pyproject.toml       Python 侧工作区根: 只有 pytest 配置(这里没有包, 也没有代码)
 ├── requirements-dev.txt 一条命令装好五个包(editable) + 测试依赖
 ├── conftest.py          共享 fixture(仓库根, 所有包的测试都能用)
-└── 开源项目门面          LICENSE / CONTRIBUTING.md / SECURITY.md / CHANGELOG.md /
-                          CODE_OF_CONDUCT.md / .github/(issue 与 PR 模板) / .gitattributes
+└── 开源项目门面          LICENSE / CHANGELOG.md / CONTRIBUTING.md / .gitattributes
+                          .github/ 里: SECURITY.md / CODE_OF_CONDUCT.md / issue 与 PR 模板
 ```
 
 `configs/` 与 `samples/` 故意留在仓库根而不是塞进包：它们是**资源根**的内容（打包成桌面应用时
@@ -73,7 +75,7 @@ doc-anonymizer/
 
 ## 三、开发与测试不需要启动桌面壳
 
-日常就是 `./scripts/dev.sh setup|web|test|desktop`（命令含义见 [README](../README.md)）。
+日常就是 `npm run setup|dev|test`（命令含义见 [README](../README.md)）。
 壳只是把同一套 Web UI 装进原生窗口，而壳里的渲染由 `tests/e2e/webkit/`（Playwright 的 WebKit 内核）
 覆盖，所以改界面不必开窗口。
 

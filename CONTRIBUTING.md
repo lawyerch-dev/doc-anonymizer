@@ -3,23 +3,23 @@
 ## 环境
 
 ```bash
-./scripts/dev.sh setup     # venv + 五个包(editable) + 预览资源; 幂等
+npm run setup              # 一键装齐: Python venv + 五个包(editable) + 预览资源 + npm install
 ```
 
 前置：Apple Silicon macOS + Python 3.11/3.12。跑 LLM 路线要 `llama.cpp`，起桌面壳要 Hutch，
-跑浏览器端 e2e 要 `npm`。缺什么用 `./scripts/dev.sh doctor` 看。
+跑浏览器端 e2e 要 `npm`。缺什么用 `npm run doctor` 看。
 
 ## 常用命令
 
-所有开发动作走 `./scripts/dev.sh`（`setup` `web` `desktop` `test` `cli` `engines` `doctor`，
-`help` 看全部）。底层命令（排查时可直接用）：
+所有开发动作走仓库根的 npm scripts：`npm test`（一键全测）、`npm run test:py` / `test:web`、
+`npm run dev` / `dev:website` / `dev:desktop`、`npm run cli -- …`。底层命令（排查时直接用）：
 
 ```bash
 .venv/bin/python -m pytest -q                                        # 全量(约 5 秒)
 .venv/bin/python -m pytest packages/docanon-core/tests/test_job.py -q # 单个文件
 .venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml       # CLI 端到端
 .venv/bin/docanon web -p 8000 -c configs/onnx.yaml                    # 产品 Web 端到端
-npm run build -w @doc-anonymizer/website                             # 官网/文档站: 构建必须能过
+npm test                                                             # Python + 组件库 + 文档站构建
 ```
 
 > 必须用 `.venv/bin/python -m pytest`：PATH 上的 `pytest` 可能跑在别的 Python 上（缺 `rapidocr`），
@@ -51,8 +51,8 @@ velora 组件就等于复用失效（`tests/test_docs.py` 会拦）。根目录�
 ## 文档站（改了它才需要）
 
 ```bash
-./scripts/dev.sh website                          # 开发服务器 :4321（Astro 默认）
-npm run build -w @doc-anonymizer/website          # 必须能过: 静态输出到 dist/
+npm run dev:website        # 开发服务器 :4321（Astro 默认）
+npm run build              # 必须能过: 静态输出到 website/dist/
 ```
 
 内容来自仓库里的 markdown：加页面 = 在 `website/content-manifest.json` 加一行
@@ -81,6 +81,6 @@ DOCANON_URL=http://127.0.0.1:8803 PRESET=sample_text.pdf node webkit-check.mjs  
 
 ## 报问题
 
-漏脱敏 / 敏感内容可能被还原 → [SECURITY.md](SECURITY.md) 的私密渠道。
+漏脱敏 / 敏感内容可能被还原 → [SECURITY.md](.github/SECURITY.md) 的私密渠道。
 其余用 [issue 模板](.github/ISSUE_TEMPLATE/bug_report.yml)，附 `docanon engines` 输出与版本号，
 **不要**附真实敏感原文。
