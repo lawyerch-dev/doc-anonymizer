@@ -1,35 +1,5 @@
 ---
-import Landing from "../components/Landing";
-import { url } from "../lib/site";
+import LandingPage from "../components/LandingPage.astro";
 import "../styles/global.css";
-
-const repo = "https://github.com/lawyerch-dev/doc-anonymizer";
 ---
-<!doctype html>
-<html lang="zh-CN" class="h-full antialiased">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>doc-anonymizer · 本地文档脱敏</title>
-    <meta name="description" content="中文优先、全离线、保留原格式的本地文档脱敏工具" />
-  </head>
-  <body class="min-h-full bg-background text-foreground">
-    <header class="border-b">
-      <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4 text-sm">
-        <a href={url("/")} class="font-medium">doc-anonymizer</a>
-        <nav class="flex gap-4 text-muted-foreground">
-          <a href={url("/start/quickstart/")} class="hover:text-foreground">文档</a>
-          <a href={url("/dev/architecture/")} class="hover:text-foreground">架构</a>
-          <a href={repo} class="hover:text-foreground">GitHub</a>
-        </nav>
-      </div>
-    </header>
-    <Landing client:load repo={repo} />
-    <footer class="border-t px-6 py-8 text-sm text-muted-foreground">
-      <div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
-        <span>MIT © 2026 LawyerCH · 组件来自 <a class="underline" href="https://github.com/ColorlibHQ/velora-ui">velora-ui</a>（MIT）</span>
-        <span>Astro + Starlight · Tailwind CSS 4 · 静态输出</span>
-      </div>
-    </footer>
-  </body>
-</html>
+<LandingPage locale="zh" />

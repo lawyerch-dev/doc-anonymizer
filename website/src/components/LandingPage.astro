@@ -1,0 +1,44 @@
+---
+/**
+ * 落地页外壳(头部/落地页/页脚)。中英两条路由共用它, 只传 locale —— 避免同一个页面抄两遍。
+ */
+import Landing from "./Landing";
+import { url } from "../lib/site";
+import { COPY } from "../lib/landing-copy";
+
+interface Props { locale: "zh" | "en" }
+const { locale } = Astro.props;
+const c = COPY[locale];
+const repo = "https://github.com/lawyerch-dev/doc-anonymizer";
+// 语言切换: 中文在根路径, 英文在 /en/
+const switchHref = locale === "zh" ? url("/en/") : url("/");
+---
+<!doctype html>
+<html lang={c.htmlLang} class="h-full antialiased">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{c.title}</title>
+    <meta name="description" content={c.metaDescription} />
+  </head>
+  <body class="min-h-full bg-background text-foreground">
+    <header class="border-b">
+      <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4 text-sm">
+        <a href={url(locale === "zh" ? "/" : "/en/")} class="font-medium">doc-anonymizer</a>
+        <nav class="flex items-center gap-4 text-muted-foreground">
+          <a href={url(c.docs[0]!.href)} class="hover:text-foreground">{c.nav.docs}</a>
+          <a href={url(locale === "zh" ? "/dev/architecture/" : "/en/dev/architecture/")} class="hover:text-foreground">{c.nav.architecture}</a>
+          <a href={repo} class="hover:text-foreground">{c.nav.github}</a>
+          <a href={switchHref} class="rounded-md border px-2 py-1 hover:text-foreground">{c.nav.switchLabel}</a>
+        </nav>
+      </div>
+    </header>
+    <Landing client:load repo={repo} locale={locale} />
+    <footer class="border-t px-6 py-8 text-sm text-muted-foreground">
+      <div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
+        <span>{c.footerLicense}</span>
+        <span>{c.footerTech}</span>
+      </div>
+    </footer>
+  </body>
+</html>

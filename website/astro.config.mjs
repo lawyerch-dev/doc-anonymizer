@@ -19,7 +19,12 @@ export default defineConfig({
       title: "doc-anonymizer",
       description: "本地文档脱敏：中文优先、全离线、保留原格式",
       defaultLocale: "root",
-      locales: { root: { label: "简体中文", lang: "zh-CN" } },
+      // 中文在根路径, 英文在 /en/。缺译文的页面由 Starlight 的 fallback 路由承接(不 404),
+      // 侧栏语言标签由 scripts/sync-content.py 生成时带 translations。
+      locales: {
+        root: { label: "简体中文", lang: "zh-CN" },
+        en: { label: "English", lang: "en" },
+      },
       // 侧栏由 scripts/sync-content.py 从 content-manifest.json 生成(不要在这里手写第二份)
       sidebar,
       social: [{ icon: "github", label: "GitHub", href: "https://github.com/lawyerch-dev/doc-anonymizer" }],

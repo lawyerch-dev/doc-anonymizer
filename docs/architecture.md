@@ -1,3 +1,5 @@
+[English](architecture.en.md) | 中文
+
 # 架构与目录设计
 
 **怎么用**看 [README](../README.md)，**不能违反的边界**看 [AGENTS.md](../AGENTS.md)，

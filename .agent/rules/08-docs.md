@@ -27,3 +27,16 @@
 - **能力边界不要手写进文档**（哪些引擎认识哪些实体、起不起得来），让 `docanon engines` 自己报 ——
   写死的清单一定会漂移。
 - docs 站的内容来自仓库 markdown（清单在 `website/content-manifest.json`），不要另存一份。
+
+## 双语文档（中英必须成对）
+
+- **产品层文档必须有英文版**：`README.md`、`docs/quickstart.md`、`docs/architecture.md`、
+  `CONTRIBUTING.md` 各有 `<名字>.en.md` 孪生文件。开发内部文档（契约细则/决策记录/操作手册/事故复盘/包说明）
+  目前**仅中文**，英文站对它们用中文内容回退（不 404）。
+- **改中文就必须改英文**：门禁 `test_bilingual_pages_are_paired_and_fresh` 比对"译文基线哈希"
+  （`website/content-manifest.json` 的 `en_hash` = 翻译时中文源的 sha256 前 16 位）。中文一改就红，
+  提醒你更新译文并跑 `python3 website/scripts/sync-content.py --record-hashes`。
+- 两份文件顶部要有互相切换的行（中文侧 `[English](x.en.md) | 中文`，英文侧 `English | [中文](x.md)`）；
+  站点生成时这行会被去掉（Starlight 自带语言切换器）。
+- 步骤见 [`docs/cookbook/maintaining-bilingual-docs.md`](../../docs/cookbook/maintaining-bilingual-docs.md)。
+

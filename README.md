@@ -3,10 +3,19 @@
 <p align="center"><b>本地文档脱敏</b> · 中文优先 · 全离线 · 保留原格式</p>
 
 <p align="center">
+  <a href="https://lawyerch-dev.github.io/doc-anonymizer/"><img alt="在线文档" src="https://img.shields.io/badge/docs-%E5%9C%A8%E7%BA%BF%E6%96%87%E6%A1%A3-2ea44f.svg"></a>
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="Platform: macOS arm64" src="https://img.shields.io/badge/platform-macOS%20arm64-lightgrey.svg">
   <img alt="Python 3.10–3.13" src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg">
   <img alt="No network" src="https://img.shields.io/badge/network-offline%20by%20design-success.svg">
+</p>
+
+<p align="center">
+  <a href="https://lawyerch-dev.github.io/doc-anonymizer/"><b>在线文档</b></a> ·
+  <a href="#快速上手">快速上手</a> ·
+  <a href="CONTRIBUTING.md">参与开发</a> ·
+  <a href=".github/SECURITY.md">安全问题</a> ·
+  <a href="README.en.md">English</a>
 </p>
 
 <p align="center">

@@ -7,6 +7,17 @@
 
 ### Added
 
+- **双语文档**：产品层四篇（README / 快速上手 / 架构 / 贡献指南）各有英文版 `<名字>.en.md`，
+  站点变成中英双语（中文在根路径、英文在 `/en/`，Starlight 语言切换器 + 侧栏标签双语 + 缺译页面自动回退）。
+  加**配对门禁** `test_bilingual_pages_are_paired_and_fresh`：英文版必须存在、能互相切回，
+  且译文基线哈希（`en_hash` = 翻译时中文源的 sha256）与中文源一致 —— 改了中文忘改英文就红。
+  维护步骤见 [`docs/cookbook/maintaining-bilingual-docs.md`](docs/cookbook/maintaining-bilingual-docs.md)。
+- **仓库门面补全**：About 里设了在线文档地址（description 也带上），README 顶部加 docs 徽章与
+  「在线文档 / 快速上手 / 参与开发 / 安全问题 / English」导航行。
+- **落地页清理**：去掉当初验证组件库用的演示区块，文案抽到 `website/src/lib/landing-copy.ts`
+  （中英各一份，组件只有一套），落地页也有 `/en/` 英文版。
+
+
 - **反假绿门禁**：`npm run test:strict`（`DOCANON_REQUIRE_ENGINES=1`）声明"环境齐备"后，
   **任何 skip 都算失败**，并在终端点名是哪几条、为什么跳 —— 引擎测试缺模型时会 skip，
   否则"全绿"可能只是"引擎一次都没跑"。门禁自身有测试（`test_false_green_gate_fails_on_skips`）。

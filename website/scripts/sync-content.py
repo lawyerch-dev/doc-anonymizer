@@ -26,6 +26,8 @@ OUT = SITE / "src" / "content" / "docs"
 
 FRONTMATTER = re.compile(r"\A---\n.*?\n---\n", re.S)
 H1 = re.compile(r"^#\s+(.+)$", re.M)
+# 仓库文档顶部的语言切换行(中英成对): 站点有 Starlight 自己的切换器, 生成时去掉
+SWITCHER = re.compile(r"^\s*(?:\[English\]\([^)]*\.en\.md\)\s*\|\s*中文|English\s*\|\s*\[中文\]\([^)]*\.md\))\s*$", re.M)
 
 
 def render_velora_index(entry: dict) -> str:
@@ -56,10 +58,21 @@ def render_velora_index(entry: dict) -> str:
     return "\n".join(parts)
 
 
-def read_page(entry: dict, file_to_route: dict[str, str]) -> str:
-    src = REPO / entry["file"]
+def read_page(
+    entry: dict,
+    file_to_route: dict[str, str],
+    *,
+    source: str | None = None,
+    title: str | None = None,
+    description: str | None = None,
+) -> str:
+    """把仓库里的一篇 markdown 变成站点页面(中英共用一套改写逻辑)。
+
+    译文走同一个函数: 只有"读哪个文件、标题/描述写什么"不同, 链接改写规则完全一致。
+    """
+    src = REPO / (source or entry["file"])
     if not src.is_file():
-        sys.exit(f"错误: 清单里的文件不存在: {entry['file']}")
+        sys.exit(f"错误: 清单里的文件不存在: {source or entry['file']}")
     if entry.get("render") == "velora-index":
         body = render_velora_index(entry)
         return (
@@ -69,9 +82,10 @@ def read_page(entry: dict, file_to_route: dict[str, str]) -> str:
             "---\n\n" + body + "\n"
         )
     text = FRONTMATTER.sub("", src.read_text(encoding="utf-8"))
+    text = SWITCHER.sub("", text).lstrip("\n")
     h1 = H1.search(text)
     text = H1.sub("", text, count=1).lstrip("\n")          # 标题进 frontmatter, 正文别再重复
-    title = entry.get("title") or (h1.group(1).strip() if h1 else src.stem)
+    title = title or entry.get("title") or (h1.group(1).strip() if h1 else src.stem)
 
     def to_route(match: re.Match[str]) -> str:
         href = match.group(1)
@@ -95,7 +109,7 @@ def read_page(entry: dict, file_to_route: dict[str, str]) -> str:
     return (
         "---\n"
         f"title: {json.dumps(title, ensure_ascii=False)}\n"
-        f"description: {json.dumps(entry.get('description', ''), ensure_ascii=False)}\n"
+        f"description: {json.dumps(description or entry.get('description', ''), ensure_ascii=False)}\n"
         "---\n\n" + text.strip() + "\n"
     )
 
@@ -144,9 +158,15 @@ def discover_extra() -> list[dict]:
 
 
 def main() -> None:
-    manifest = json.loads((SITE / "content-manifest.json").read_text(encoding="utf-8"))
+    mp = SITE / "content-manifest.json"
+    manifest = json.loads(mp.read_text(encoding="utf-8"))
     pages = manifest["pages"] + discover_extra()
     file_to_route = {p["file"]: f"{p['group']}/{p['slug']}" for p in pages}
+
+    # 清单给出的英文源也进路由表(指向同一条路由), 译文里的相对链接才能一起改写
+    for entry in pages:
+        if entry.get("en"):
+            file_to_route[entry["en"]] = f"{entry['group']}/{entry['slug']}"
 
     if OUT.exists():
         for old in OUT.rglob("*.md"):
@@ -158,15 +178,36 @@ def main() -> None:
         dest.write_text(read_page(entry, file_to_route), encoding="utf-8")
         written.append(dest.relative_to(SITE).as_posix())
 
+        if entry.get("en"):
+            en_dest = OUT / "en" / entry["group"] / f"{entry['slug']}.md"
+            en_dest.parent.mkdir(parents=True, exist_ok=True)
+            en_dest.write_text(
+                read_page(
+                    entry,
+                    file_to_route,
+                    source=entry["en"],
+                    title=entry.get("en_title", entry.get("title")),
+                ),
+                encoding="utf-8",
+            )
+            written.append(en_dest.relative_to(SITE).as_posix())
+
     # 侧栏也由同一份清单生成: 避免 astro.config 里再抄一遍组与顺序
-    groups: dict[str, list[dict[str, str]]] = {}
+    groups: dict[str, list[dict[str, object]]] = {}
     for entry in pages:
-        groups.setdefault(entry["group"], []).append(
-            {"label": entry["title"], "slug": f"{entry['group']}/{entry['slug']}"}
-        )
+        item: dict[str, object] = {"label": entry["title"], "slug": f"{entry['group']}/{entry['slug']}"}
+        if entry.get("en_title"):                      # 侧栏标签跟着语言切换
+            item["translations"] = {"en": entry["en_title"]}
+        groups.setdefault(entry["group"], []).append(item)
     label_of = {"start": "开始", "dev": "开发", "agent": "契约细则", "packages": "包",
                 "skills": "操作手册", "notes": "决策记录", "cookbook": "操作指引", "postmortem": "事故复盘", "other": "其他"}
-    sidebar = [{"label": label_of.get(g, g), "items": items} for g, items in groups.items()]
+    label_en = {"start": "Start", "dev": "Development", "agent": "Contract rules", "packages": "Packages",
+                "skills": "Playbooks", "notes": "Decision records", "cookbook": "Guides",
+                "postmortem": "Post-mortems", "other": "Other"}
+    sidebar = [
+        {"label": label_of.get(g, g), "translations": {"en": label_en.get(g, g)}, "items": items}
+        for g, items in groups.items()
+    ]
     sidebar_ts = SITE / "src" / "sidebar.generated.mjs"
     sidebar_ts.write_text(
         "// 由 scripts/sync-content.py 从 content-manifest.json 生成, 不要手改\n"
@@ -174,7 +215,17 @@ def main() -> None:
         encoding="utf-8",
     )
 
-    print(f"同步 {len(written)} 页 → {OUT.relative_to(SITE)}/")
+    if "--record-hashes" in sys.argv:                  # 重新翻译后刷新基线
+        import hashlib
+
+        for entry in manifest["pages"]:
+            if entry.get("en"):
+                digest = hashlib.sha256((REPO / entry["file"]).read_bytes()).hexdigest()[:16]
+                entry["en_hash"] = digest
+        mp.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print("已记录译文基线哈希(en_hash)")
+
+    print(f"同步 {len(written)} 页(含 {sum(1 for e in pages if e.get('en'))} 页英文) → {OUT.relative_to(SITE)}/")
     for path in written:
         print(f"  {path}")
 

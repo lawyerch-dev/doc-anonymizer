@@ -188,6 +188,14 @@ SINGLE_OWNER = [
 ]
 
 
+def _same_document(rel: str, owner: str) -> bool:
+    """同一篇文档的另一种语言不算"第二处": 译文承载的是同一个事实。
+
+    例外之外的重复仍然要拦 —— "一个主题只有一个出处"针对的是把同一事实抄进**别的**文档。
+    """
+    return rel == owner or rel == owner.replace(".md", ".en.md")
+
+
 def test_each_topic_has_one_owner():
     bad = []
     for what, needle, owner in SINGLE_OWNER:
@@ -195,7 +203,7 @@ def test_each_topic_has_one_owner():
             bad.append(f"{what}: 在 {owner} 里找不到(改名或删了?)")
         for doc in CURRENT_DOCS:
             rel = str(doc.relative_to(REPO))
-            if rel != owner and needle in doc.read_text(encoding="utf-8"):
+            if not _same_document(rel, owner) and needle in doc.read_text(encoding="utf-8"):
                 bad.append(f"{what}: 也出现在 {rel} —— 只该在 {owner}, 其余用链接")
     assert not bad, "\n".join(bad)
 
@@ -415,10 +423,68 @@ def test_postmortems_follow_the_format():
     assert not bad, "\n".join(bad)
 
 
+# 产品层文档必须有英文版(开发内部文档不在其列, 英文站用中文内容回退)
+BILINGUAL_REQUIRED = ("README.md", "docs/quickstart.md", "docs/architecture.md", "CONTRIBUTING.md")
+
+
+def test_bilingual_pages_are_paired_and_fresh():
+    """中英必须成对且同步: 英文版存在、能互相切回、且译文基线哈希与中文源一致。
+
+    最后一条是关键 —— 改了中文却忘了改英文, 这里会红(提醒刷新 `--record-hashes`)。
+    见 docs/cookbook/maintaining-bilingual-docs.md。
+    """
+    import hashlib
+
+    manifest = json.loads((REPO / "website" / "content-manifest.json").read_text(encoding="utf-8"))
+    paired = {p["file"]: p for p in manifest["pages"] if p.get("en")}
+    problems = []
+
+    for required in BILINGUAL_REQUIRED:
+        if required not in paired:
+            problems.append(f"{required}: 这类文档必须有英文版, 但清单里没登记 en")
+
+    for zh_rel, entry in paired.items():
+        zh, en = REPO / zh_rel, REPO / entry["en"]
+        if not en.is_file():
+            problems.append(f"{zh_rel}: 英文版 {entry['en']} 不存在")
+            continue
+        if not entry.get("en_title"):
+            problems.append(f"{zh_rel}: 缺 en_title(侧栏切换语言时要用)")
+        if not entry.get("en_hash"):
+            problems.append(f"{zh_rel}: 缺 en_hash(跑 sync-content.py --record-hashes)")
+        else:
+            digest = hashlib.sha256(zh.read_bytes()).hexdigest()[:16]
+            if digest != entry["en_hash"]:
+                problems.append(
+                    f"{zh_rel}: 中文源改过了但英文版没跟着更新"
+                    f" —— 更新 {entry['en']} 后跑 `python3 website/scripts/sync-content.py --record-hashes`"
+                )
+        if en.name not in zh.read_text(encoding="utf-8"):
+            problems.append(f"{zh_rel}: 中文版里没有指向 {en.name} 的切换入口")
+        if zh.name not in en.read_text(encoding="utf-8"):
+            problems.append(f"{entry['en']}: 英文版里没有指回 {zh.name} 的切换入口")
+
+    assert not problems, "\n".join(problems)
+
+
+FENCED = re.compile(r"^```.*?^```", re.S | re.M)
+INLINE_CODE = re.compile(r"`[^`\n]*`")
+
+
+def _link_targets(text: str):
+    """取真正的 markdown 链接目标 —— 跳过围栏代码块与行内代码里的示例写法。
+
+    文档里经常要演示链接语法(例如"写成 `[English](x.en.md)`"), 那不是链接, 不该被当成链接查。
+    """
+    text = FENCED.sub("", text)
+    text = INLINE_CODE.sub("", text)
+    return re.findall(r"\[([^\]]+)\]\(([^)\s#]+)\)", text)
+
+
 def test_markdown_links_resolve():
     bad = []
     for doc in ALL_DOCS:
-        for label, target in re.findall(r"\[([^\]]+)\]\(([^)\s#]+)\)", doc.read_text(encoding="utf-8")):
+        for label, target in _link_targets(doc.read_text(encoding="utf-8")):
             t = target.strip()
             if not t or t.startswith(("http://", "https://", "mailto:")):
                 continue

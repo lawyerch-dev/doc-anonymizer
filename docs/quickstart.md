@@ -1,3 +1,5 @@
+[English](quickstart.en.md) | 中文
+
 # 快速上手
 
 前置：Apple Silicon macOS + Python 3.11/3.12；命令都在仓库根执行。

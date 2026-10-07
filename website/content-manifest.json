@@ -6,21 +6,30 @@
       "slug": "quickstart",
       "title": "快速上手",
       "description": "5 分钟跑通 + 常见问题",
-      "file": "docs/quickstart.md"
+      "file": "docs/quickstart.md",
+      "en": "docs/quickstart.en.md",
+      "en_title": "Quickstart",
+      "en_hash": "8057fb27a1c10e92"
     },
     {
       "group": "start",
       "slug": "readme",
       "title": "使用手册",
       "description": "命令、产物、配置、引擎与已知限制",
-      "file": "README.md"
+      "file": "README.md",
+      "en": "README.en.md",
+      "en_title": "Manual",
+      "en_hash": "803e65658c227fbd"
     },
     {
       "group": "dev",
       "slug": "contributing",
       "title": "贡献指南",
       "description": "环境、测试、提交与 PR",
-      "file": "CONTRIBUTING.md"
+      "file": "CONTRIBUTING.md",
+      "en": "CONTRIBUTING.en.md",
+      "en_title": "Contributing",
+      "en_hash": "244a485ab9dc0a71"
     },
     {
       "group": "dev",
@@ -34,7 +43,10 @@
       "slug": "architecture",
       "title": "架构与目录设计",
       "description": "五包结构、硬边界、决策记录",
-      "file": "docs/architecture.md"
+      "file": "docs/architecture.md",
+      "en": "docs/architecture.en.md",
+      "en_title": "Architecture",
+      "en_hash": "48d75fffb9a68e22"
     },
     {
       "group": "dev",
@@ -156,5 +168,12 @@
       "description": "内容怎么从仓库 markdown 同步、部署参数",
       "file": "website/README.md"
     }
-  ]
+  ],
+  "i18n": {
+    "default": "zh-CN",
+    "locales": {
+      "en": "English"
+    },
+    "policy": "产品层文档(README/快速上手/架构/贡献指南)必须有英文版; 开发内部文档(契约细则/决策记录/操作手册/复盘/包说明)目前仅中文, 英文站以中文内容回退。改中文源后必须同步英文并刷新 en_hash。"
+  }
 }
