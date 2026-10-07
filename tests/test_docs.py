@@ -222,25 +222,62 @@ def test_ui_components_live_only_in_the_shared_package():
     这是踩过的坑 —— 第一次集成时把组件拷进了站点 app, 结果产品前端将来根本复用不到。
     """
     kit = REPO / "apps" / "ui"
-    assert (kit / "src" / "marquee.tsx").is_file(), "共享组件包 apps/ui 不见了"
+    assert (kit / "src" / "components" / "velora" / "marquee.tsx").is_file(), "共享组件库 apps/ui 不见了"
     pkg = json.loads((kit / "package.json").read_text(encoding="utf-8"))
     assert pkg["name"] == "@doc-anonymizer/ui"
-    assert "./theme.css" in pkg.get("exports", {}), "设计 token 必须由共享包提供"
+    exports = pkg.get("exports", {})
+    for sub in ("./theme.css", "./manifest.json", "./blocks/*", "./primitives/*", "./*"):
+        assert sub in exports, f"共享库少了导出 {sub}"
 
     # 站点要通过包引用, 而不是自己持有一份组件源码
     site_pkg = json.loads((REPO / "website" / "package.json").read_text(encoding="utf-8"))
     assert "@doc-anonymizer/ui" in site_pkg.get("dependencies", {}), "网站没引共享组件包"
 
+    kit_names = {p.name for p in (kit / "src" / "components" / "velora").glob("*.tsx")}
     strays = [
         str(p.relative_to(REPO))
         for app in (REPO / "website" / "src", REPO / "apps" / "web" / "src")
         for p in app.rglob("*.tsx")
-        if "velora" in p.parts or p.name in {"marquee.tsx", "number-ticker.tsx", "blur-fade.tsx", "globe.tsx"}
+        if "velora" in p.parts or p.name in kit_names
     ]
     assert not strays, f"这些组件不该出现在 app 里(应只放 apps/ui): {strays}"
 
     root_pkg = json.loads((REPO / "package.json").read_text(encoding="utf-8"))
     assert set(root_pkg.get("workspaces", [])) >= {"apps/ui", "website"}, "根 package.json 的 workspaces 不全"
+
+
+def test_tailwind_sources_resolve():
+    """Tailwind 4 的 @source 必须指向真实目录 —— 指错时类名被静默摇掉(踩过: website 搬家后没改,
+    数字组件的 sr-only 失灵、aurora 颜色全丢)。"""
+    import re as _re
+
+    css = REPO / "website" / "src" / "styles" / "global.css"
+    sources = _re.findall(r'@source\s+"([^"]+)"', css.read_text(encoding="utf-8"))
+    assert sources, "global.css 里没有 @source"
+    missing = [s for s in sources if not (css.parent / s).resolve().is_dir()]
+    assert not missing, f"@source 指向了不存在的目录: {missing}"
+
+
+def test_ui_kit_ships_the_whole_library():
+    """apps/ui 必须是完整组件库(不是我们页面用到的那几个), 且导入已规范化。"""
+    kit = REPO / "apps" / "ui"
+    manifest = json.loads((kit / "src" / "manifest.json").read_text(encoding="utf-8"))
+    items = manifest["items"]
+    kinds = {i["type"] for i in items}
+    counts = {k: sum(1 for i in items if i["type"] == k) for k in kinds}
+    assert counts.get("ui", 0) >= 100, f"velora 组件应 ≥100 个, 实际 {counts.get('ui', 0)}"
+    assert counts.get("block", 0) >= 31, f"velora 区块应 ≥31 个, 实际 {counts.get('block', 0)}"
+
+    missing = [i["file"] for i in items if not (kit / i["file"]).is_file()]
+    assert not missing, f"清单里的组件文件不存在: {missing[:5]}"
+
+    # 导入必须是相对路径: 消费方不该为 kit 配别名
+    leftovers = [
+        str(p.relative_to(REPO))
+        for p in (kit / "src").rglob("*.ts*")
+        if 'from "@/' in p.read_text(encoding="utf-8")
+    ]
+    assert not leftovers, f"这些文件还在用 shadcn 的 @/ 别名(跑 npm run sync -w @doc-anonymizer/ui): {leftovers[:5]}"
 
 
 def test_markdown_links_resolve():

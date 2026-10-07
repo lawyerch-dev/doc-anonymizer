@@ -1,13 +1,13 @@
 import { ArrowRightIcon, GlobeIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { BlurFade } from "@/components/velora/blur-fade";
+import { Button } from "../../components/ui/button";
+import { BlurFade } from "../../components/velora/blur-fade";
 import {
   Globe,
   type GlobeArc,
   type GlobeMarker,
-} from "@/components/velora/globe";
-import { NumberTicker } from "@/components/velora/number-ticker";
+} from "../../components/velora/globe";
+import { NumberTicker } from "../../components/velora/number-ticker";
 
 const REGIONS: GlobeMarker[] = [
   { lat: 37.77, lng: -122.42, label: "San Francisco" },

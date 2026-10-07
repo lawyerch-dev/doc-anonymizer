@@ -16,6 +16,11 @@
 
 ### Added
 
+- **共享组件库装全**：`apps/ui` 从"我们页面用到的那 6 个"补成 velora 完整库 ——
+  **100 个组件 + 31 个区块 + 9 个 shadcn 基础件**（`registry.lock.json` 是 131 项的源头快照）。
+  导入规范化成相对路径（消费方不必配 `@/` 别名），主题 token/keyframes 合进 `theme.css`；
+  文档站多一页**组件库总览**（由 `apps/ui/src/manifest.json` 渲染，131 条带说明与用法）。
+
 - **官网与文档站**：`apps/website/`（**Astro 5 + Starlight** + Tailwind CSS 4）——搜索/TOC/上下页/多语言
   内置，静态输出 `dist/`；内容按 `content-manifest.json` 从仓库 markdown 同步（源仍是那些 .md），
   `./scripts/dev.sh website` 起开发服务器。选型对比（依赖 241M vs Next 537M、构建 0.7s vs 3–4s、

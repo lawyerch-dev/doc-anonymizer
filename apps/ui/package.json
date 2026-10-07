@@ -2,11 +2,13 @@
   "name": "@doc-anonymizer/ui",
   "version": "0.1.0",
   "private": true,
-  "description": "共享 React/Tailwind 组件: velora-ui(MIT) 组件 + 设计 token; apps/website 与将来的产品前端共用",
+  "description": "共享 React/Tailwind 组件库: velora 全量组件(100)+ 区块(31)+ shadcn 基础件 + 设计 token",
   "exports": {
     "./theme.css": "./src/theme.css",
-    "./*": "./src/*.tsx",
-    "./utils": "./src/utils.ts"
+    "./manifest.json": "./src/manifest.json",
+    "./blocks/*": "./src/components/blocks/*.tsx",
+    "./primitives/*": "./src/components/ui/*.tsx",
+    "./*": "./src/components/velora/*.tsx"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -25,5 +27,9 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "typescript": "^5"
+  },
+  "scripts": {
+    "sync": "python3 scripts/normalize.py",
+    "check": "python3 scripts/normalize.py --check"
   }
 }

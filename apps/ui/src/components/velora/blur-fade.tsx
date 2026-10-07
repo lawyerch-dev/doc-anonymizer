@@ -2,7 +2,7 @@
 
 import { motion, useReducedMotion } from "motion/react";
 
-import { cn } from "./utils";
+import { cn } from "../../lib/utils";
 
 interface BlurFadeProps {
   children: React.ReactNode;

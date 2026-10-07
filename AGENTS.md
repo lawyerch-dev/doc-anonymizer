@@ -13,7 +13,7 @@
 ./scripts/dev.sh web        # 产品界面 → :8000
 ./scripts/dev.sh website    # 官网/文档站 → :4321
 ./scripts/dev.sh desktop    # 桌面壳（需 Hutch）
-./scripts/dev.sh test       # 全量测试（112 项，约 5 秒）
+./scripts/dev.sh test       # 全量测试（114 项，约 5 秒）
 ```
 
 其余子命令：`cli` / `engines` / `models` / `doctor`（`./scripts/dev.sh help` 看全部）。

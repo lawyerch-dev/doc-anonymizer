@@ -133,6 +133,14 @@
       "title": "环境与资产",
       "description": "var/、缓存、samples、桌面壳约束",
       "file": ".agent/rules/09-environment.md"
+    },
+    {
+      "group": "dev",
+      "slug": "components",
+      "title": "组件库总览",
+      "description": "apps/ui 里的 velora 组件与区块（131 项，可直接 import）",
+      "file": "apps/ui/src/manifest.json",
+      "render": "velora-index"
     }
   ]
 }

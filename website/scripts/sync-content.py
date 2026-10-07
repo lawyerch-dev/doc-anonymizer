@@ -25,10 +25,46 @@ FRONTMATTER = re.compile(r"\A---\n.*?\n---\n", re.S)
 H1 = re.compile(r"^#\s+(.+)$", re.M)
 
 
+def render_velora_index(entry: dict) -> str:
+    """把 apps/ui/src/manifest.json 渲染成一页总览: 库里有啥, 一眼看到, 不用翻源码。"""
+    data = json.loads((REPO / entry["file"]).read_text(encoding="utf-8"))
+    groups = {"ui": ("组件", "ui"), "block": ("区块", "ui/blocks")}
+    parts = [
+        "这一页由 `apps/ui/src/manifest.json` 生成 —— 也就是共享组件包里**真实存在**的东西",
+        "（`cd apps/ui && npm run sync` 重新生成）。用法：",
+        "",
+        "```tsx",
+        'import { Marquee } from "@doc-anonymizer/ui/marquee";',
+        'import { HeroGlobe } from "@doc-anonymizer/ui/blocks/hero-globe";',
+        'import { Button } from "@doc-anonymizer/ui/primitives/button";',
+        "```",
+        "",
+        "线上目录（每个都有 live demo 与 props）：<https://velora.colorlib.com/components>。",
+        "",
+    ]
+    for kind, (label, path) in groups.items():
+        items = [i for i in data["items"] if i["type"] == kind]
+        parts += [f"## {label}（{len(items)}）", "", "| 名称 | 说明 | 用法 |", "|---|---|---|"]
+        for i in items:
+            usage = f'`@doc-anonymizer/ui/{path}/{i["name"]}`' if kind == "block" else f'`@doc-anonymizer/ui/{i["name"]}`'
+            desc = (i.get("description") or "").replace("|", "\\|")
+            parts.append(f'| [{i["name"]}](https://velora.colorlib.com/components/{i["name"]}) | {desc} | {usage} |')
+        parts.append("")
+    return "\n".join(parts)
+
+
 def read_page(entry: dict, file_to_route: dict[str, str]) -> str:
     src = REPO / entry["file"]
     if not src.is_file():
         sys.exit(f"错误: 清单里的文件不存在: {entry['file']}")
+    if entry.get("render") == "velora-index":
+        body = render_velora_index(entry)
+        return (
+            "---\n"
+            f"title: {json.dumps(entry['title'], ensure_ascii=False)}\n"
+            f"description: {json.dumps(entry.get('description', ''), ensure_ascii=False)}\n"
+            "---\n\n" + body + "\n"
+        )
     text = FRONTMATTER.sub("", src.read_text(encoding="utf-8"))
     h1 = H1.search(text)
     text = H1.sub("", text, count=1).lstrip("\n")          # 标题进 frontmatter, 正文别再重复

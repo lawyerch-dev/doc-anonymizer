@@ -1,4 +1,4 @@
-import { cn } from "./utils";
+import { cn } from "../../lib/utils";
 
 interface MarqueeProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Reverse the scroll direction */

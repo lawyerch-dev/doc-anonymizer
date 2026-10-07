@@ -2,7 +2,10 @@ import { ArrowRightIcon, FileTextIcon, FingerprintIcon, LanguagesIcon, LockIcon,
 import { BlurFade } from "@doc-anonymizer/ui/blur-fade";
 import { Marquee } from "@doc-anonymizer/ui/marquee";
 import { NumberTicker } from "@doc-anonymizer/ui/number-ticker";
-import { buttonVariants } from "@doc-anonymizer/ui/button";
+import { buttonVariants } from "@doc-anonymizer/ui/primitives/button";
+import { AnimatedGradientText } from "@doc-anonymizer/ui/animated-gradient-text";
+import { AuroraBackground } from "@doc-anonymizer/ui/aurora-background";
+import { BorderBeam } from "@doc-anonymizer/ui/border-beam";
 
 const ENTITY_TYPES = ["PERSON", "PHONE", "ID_CARD", "BANK_CARD", "EMAIL", "IP", "LOCATION", "ORG", "AMOUNT", "SECRET", "CUSTOM", "USCC"];
 
@@ -34,6 +37,18 @@ const DOC_LINKS = [
 export default function Landing({ repo }: { repo: string }) {
   return (
     <main className="mx-auto max-w-5xl px-6 py-16">
+      <div className="relative -mx-6 mb-10 overflow-hidden rounded-2xl border">
+        <AuroraBackground intensity="medium" />
+        <div className="relative px-6 py-14">
+          <h2 className="text-2xl font-semibold">
+            velora 全量组件已就位：
+            <AnimatedGradientText>100 个组件 + 31 个区块</AnimatedGradientText>
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            共享包 <code>apps/ui</code> 里，产品界面与文档站共用同一套。
+          </p>
+        </div>
+      </div>
       <BlurFade>
         <p className="mb-4 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground">
           <LockIcon className="size-3.5" /> MIT · 本地运行 · 不联网
@@ -93,6 +108,18 @@ export default function Landing({ repo }: { repo: string }) {
               </div>
             </BlurFade>
           ))}
+        </div>
+      </section>
+
+      <section className="mt-16">
+        <div className="relative overflow-hidden rounded-2xl border bg-card p-6">
+          <BorderBeam />
+          <h2 className="text-xl font-semibold">装上就能用</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            <code>{'import { Marquee } from "@doc-anonymizer/ui/marquee"'}</code> ——
+            区块用 <code>@doc-anonymizer/ui/blocks/hero-globe</code>，基础件用
+            <code>@doc-anonymizer/ui/primitives/button</code>。
+          </p>
         </div>
       </section>
 

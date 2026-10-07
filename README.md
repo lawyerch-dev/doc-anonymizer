@@ -79,9 +79,9 @@ npm run build -w @doc-anonymizer/website      # 静态输出到 website/dist/，
 ```
 
 Astro 5 + Starlight（搜索/TOC/上下页内置），内容直接来自本仓库的 markdown
-（清单 `website/content-manifest.json`）；组件在共享包 [`apps/ui`](apps/ui/README.md)
-（`@doc-anonymizer/ui`，来自 [velora-ui](https://github.com/ColorlibHQ/velora-ui)，MIT），
-**产品前端以后换栈时引同一个包**，外观与组件不会分叉。
+（清单 `website/content-manifest.json`）；组件在共享库 [`apps/ui`](apps/ui/README.md)
+（`@doc-anonymizer/ui`：velora **100 个组件 + 31 个区块** + shadcn 基础件，MIT），
+**产品前端以后换栈时引同一个包**，外观与组件不会分叉。名录见站点「开发 → 组件库总览」。
 细节、框架选型的实测对比与坑见 [website/README.md](website/README.md)。
 
 ### 桌面壳（可选）

@@ -8,7 +8,7 @@ import {
   useSpring,
 } from "motion/react";
 
-import { cn } from "./utils";
+import { cn } from "../../lib/utils";
 
 interface NumberTickerProps extends React.HTMLAttributes<HTMLSpanElement> {
   value: number;
