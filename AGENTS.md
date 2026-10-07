@@ -12,7 +12,7 @@
 npm run setup          # 一键装齐: Python venv + 五个包 + 预览资源 + npm install
 npm run dev            # 产品界面 → :8000
 npm run dev:website    # 官网/文档站 → :4321
-npm test               # 一键全测: Python（114 项，约 5 秒）+ 组件库检查 + 文档站构建
+npm test               # 一键全测: Python（118 项，约 5 秒）+ 组件库检查 + 文档站构建
 npm run doctor         # 环境自检: 缺什么、为什么起不来
 ```
 
@@ -44,6 +44,14 @@ npm scripts 是入口，`scripts/dev.sh` 是实现层。
 | 前端（apps/ui · website · apps/web） | [`07-frontend.md`](.agent/rules/07-frontend.md) |
 | 文档怎么写、写在哪 | [`08-docs.md`](.agent/rules/08-docs.md) |
 | 环境、可再生资产、samples、桌面壳 | [`09-environment.md`](.agent/rules/09-environment.md) |
+
+## 记录与操作手册（借鉴 DeepSeek Harness）
+
+| 想要 | 去哪 |
+|---|---|
+| **为什么**当年这么决定 / 踩过什么坑 | [`.agent/notes/`](.agent/notes/README.md)（`{状态}/{类别}/日期-主题.md`，含证据与代价） |
+| **怎么做**某件反复发生的事 | [`.agent/skills/`](.agent/skills/)：加检测器 / 加引擎包 / 发版本 |
+| 某个包**本地的**约束 | 每个包自己的 `AGENTS.md`（`packages/*/AGENTS.md`，harness 会自动加载 root→cwd） |
 
 ## 三条纪律
 

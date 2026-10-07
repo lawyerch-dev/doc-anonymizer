@@ -7,6 +7,15 @@
 
 ### Changed
 
+- **借鉴 DeepSeek Harness 的规范与流程**（同一套里我们只取适合小仓库的部分）：
+  - **决策/修复笔记**：`.agent/notes/{状态}/{类别}/日期-主题.md`（状态 `proposed|implemented|rejected|archived`、
+    类别封闭集合），文件内 `Status:` 与目录交叉校验；**不建索引文件**，靠相对链接从架构表/规则里指过来。
+  - **操作手册**：`.agent/skills/<名字>/SKILL.md`（自描述 frontmatter + 步骤 + 验证命令）——
+    加检测器 / 加引擎包 / 发版本。
+  - **每目录 `AGENTS.md`**：五个包各自一份本地约束（harness 会按 root→cwd 自动加载）。
+  - 四条对应门禁进 `tests/test_docs.py`；文档站自动发现这三类内容（新增「决策记录/操作手册/包」三组，共 37 页）。
+  - 有意**没搬**：双语文档（本仓库全中文）、CI/lefthook（测试即门禁）、笔记归档流程（规模还没到）。
+
 - **文档审计**：修掉搬家后遗留的旧路径（`website/README.md` 还写着自己叫 `apps/website`、还在用
   `./scripts/dev.sh website`；架构决策记录指向旧文件），文档站补两页开发文档（组件库、官网/文档站）。
 - **命令入口统一成 npm scripts**（仓库根 `package.json`）：`npm run setup` / `dev` / `dev:website` /

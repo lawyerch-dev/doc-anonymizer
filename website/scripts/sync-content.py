@@ -97,9 +97,40 @@ def read_page(entry: dict, file_to_route: dict[str, str]) -> str:
     )
 
 
+def _title_of(path: pathlib.Path) -> str:
+    text = FRONTMATTER.sub("", path.read_text(encoding="utf-8"))
+    h1 = H1.search(text)
+    title = h1.group(1).strip() if h1 else path.stem
+    return title.removeprefix("Agent Note: ").strip()
+
+
+def discover_extra() -> list[dict]:
+    """树里加了就上站, 不用手工维护清单: 已落地的笔记 / 操作手册 / 各包本地规范。"""
+    pages: list[dict] = []
+    for note in sorted((REPO / ".agent" / "notes" / "implemented").rglob("*.md")):
+        pages.append({
+            "group": "notes", "slug": note.stem, "title": _title_of(note),
+            "description": "决策与修复记录（为什么这么做、踩过什么坑）",
+            "file": note.relative_to(REPO).as_posix(),
+        })
+    for skill in sorted((REPO / ".agent" / "skills").glob("*/SKILL.md")):
+        pages.append({
+            "group": "skills", "slug": skill.parent.name, "title": _title_of(skill),
+            "description": "操作手册（反复发生的事怎么做）",
+            "file": skill.relative_to(REPO).as_posix(),
+        })
+    for agents in sorted((REPO / "packages").glob("docanon-*/AGENTS.md")):
+        pages.append({
+            "group": "packages", "slug": agents.parent.name, "title": agents.parent.name,
+            "description": "这个包本地的约束（边界、怎么测、本地坑）",
+            "file": agents.relative_to(REPO).as_posix(),
+        })
+    return pages
+
+
 def main() -> None:
     manifest = json.loads((SITE / "content-manifest.json").read_text(encoding="utf-8"))
-    pages = manifest["pages"]
+    pages = manifest["pages"] + discover_extra()
     file_to_route = {p["file"]: f"{p['group']}/{p['slug']}" for p in pages}
 
     if OUT.exists():
@@ -118,7 +149,8 @@ def main() -> None:
         groups.setdefault(entry["group"], []).append(
             {"label": entry["title"], "slug": f"{entry['group']}/{entry['slug']}"}
         )
-    label_of = {"start": "开始", "dev": "开发", "agent": "契约细则", "other": "其他"}
+    label_of = {"start": "开始", "dev": "开发", "agent": "契约细则", "packages": "包",
+                "skills": "操作手册", "notes": "决策记录", "other": "其他"}
     sidebar = [{"label": label_of.get(g, g), "items": items} for g, items in groups.items()]
     sidebar_ts = SITE / "src" / "sidebar.generated.mjs"
     sidebar_ts.write_text(

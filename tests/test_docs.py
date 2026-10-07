@@ -51,10 +51,15 @@ def _markdown_under(*roots: str) -> set[pathlib.Path]:
     }
 
 
+# 笔记是记录类: 写的是"当时是什么样", 允许旧名字与旧路径(与 CHANGELOG/设计历史同待遇)
+NOTE_DOCS = [(REPO / ".agent" / "notes"), ]
+
 CURRENT_DOCS = sorted(
-    {*REPO.glob("*.md"), *_markdown_under("docs", ".github", "apps", ".agent")} - set(RECORDS)
+    {*REPO.glob("*.md"), *_markdown_under("docs", ".github", "apps", ".agent", "packages")}
+    - set(RECORDS)
+    - {p for p in (REPO / ".agent" / "notes").rglob("*.md")}
 )
-ALL_DOCS = [*CURRENT_DOCS, *RECORDS]
+ALL_DOCS = [*CURRENT_DOCS, *RECORDS, *(REPO / ".agent" / "notes").rglob("*.md")]
 
 # GitHub 社区标准要求存在的文件(社区档案页会按这几项打分)
 COMMUNITY_FILES = [
@@ -90,8 +95,8 @@ def test_documented_repo_paths_exist():
     missing = []
     for doc in CURRENT_DOCS:  # 记录类文档不查(它们要写旧路径)
         for token in re.findall(r"`([^`\n]+)`", doc.read_text(encoding="utf-8")):
-            t = token.strip().rstrip("/")
-            if not t or any(c in t for c in "*{}…") or " " in t or t.startswith(RUNTIME_PREFIXES):
+            t = token.strip().rstrip("/").split("::")[0]   # 允许 `file.py::test_name` 这种写法
+            if not t or any(c in t for c in "*{}…<>") or " " in t or t.startswith(RUNTIME_PREFIXES):
                 continue
             if "/" not in t or t.split("/")[0] not in TOP_LEVEL:
                 continue
@@ -280,6 +285,79 @@ def test_ui_kit_ships_the_whole_library():
         if 'from "@/' in p.read_text(encoding="utf-8")
     ]
     assert not leftovers, f"这些文件还在用 shadcn 的 @/ 别名(跑 npm run sync -w @doc-anonymizer/ui): {leftovers[:5]}"
+
+
+# 借鉴 DeepSeek Harness: 笔记的"状态/分类"编码在路径里, 文件内 Status 必须与目录一致
+NOTE_LIFECYCLES = {"proposed", "implemented", "rejected", "archived"}
+NOTE_CLASSES = {"feature", "bug-fix", "simplification", "architecture", "process", "testing"}
+NOTE_NAME = re.compile(r"^\d{4}-\d{2}-\d{2}-[a-z0-9-]+\.md$")
+
+
+def test_notes_follow_the_two_axis_format():
+    """每个笔记: 路径 = {状态}/{类别}/日期-主题.md, 且文件内 Status 与目录一致。"""
+    root = REPO / ".agent" / "notes"
+    notes = [p for p in root.rglob("*.md") if p.name != "README.md"]
+    assert notes, "一篇笔记都没有?"
+    bad = []
+    for note in notes:
+        rel = note.relative_to(root)
+        parts = rel.parts
+        if len(parts) != 3 or parts[0] not in NOTE_LIFECYCLES or parts[1] not in NOTE_CLASSES or not NOTE_NAME.match(parts[2]):
+            bad.append(f"{rel}: 路径必须是 {{状态}}/{{类别}}/YYYY-MM-DD-slug.md")
+            continue
+        text = note.read_text(encoding="utf-8")
+        if not text.startswith("# Agent Note: "):
+            bad.append(f"{rel}: 首行必须是 '# Agent Note: <标题>'")
+        status = re.search(r"^Status: (\S+)", text, re.M)
+        if not status:
+            bad.append(f"{rel}: 缺 'Status: …' 行")
+        else:
+            want = "implemented" if parts[0] == "archived" else parts[0]
+            if status.group(1) != want:
+                bad.append(f"{rel}: Status 是 {status.group(1)}, 与目录 {parts[0]} 不符(应为 {want})")
+        if "## 问题" not in text:
+            bad.append(f"{rel}: 正文要先讲 '## 问题'(能脱离方案独立成立)")
+    assert not bad, "\n".join(bad)
+
+
+def test_implemented_notes_are_linked_from_real_docs():
+    """不做索引文件(DSH 的规则), 但每篇已落地的笔记都要从别处被链到 —— 否则没人会读到它。"""
+    notes = sorted((REPO / ".agent" / "notes" / "implemented").rglob("*.md"))
+    assert notes, "implemented/ 下没有笔记"
+    haystack = "\n".join(
+        p.read_text(encoding="utf-8")
+        for p in CURRENT_DOCS
+        if "notes" not in p.parts or p.parts[:2] != (".agent", "notes")
+    )
+    orphans = [n.name for n in notes if n.name not in haystack]
+    assert not orphans, f"这些笔记没有被任何文档链到(架构表/规则/README 里加一行即可): {orphans}"
+
+
+def test_skills_declare_when_to_use_them():
+    """SKILL.md 必须自描述: frontmatter 的 name 与目录同名, description 以 'Use when ' 开头。"""
+    skills = sorted((REPO / ".agent" / "skills").glob("*/SKILL.md"))
+    assert skills, "少了 .agent/skills/"
+    bad = []
+    for skill in skills:
+        text = skill.read_text(encoding="utf-8")
+        if not text.startswith("---\n"):
+            bad.append(f"{skill.parent.name}: 缺 frontmatter")
+            continue
+        if f"name: {skill.parent.name}" not in text:
+            bad.append(f"{skill.parent.name}: frontmatter 里的 name 必须与目录同名")
+        if not re.search(r"^description: Use when ", text, re.M):
+            bad.append(f"{skill.parent.name}: description 要以 'Use when ' 开头(告诉 agent 何时用)")
+    assert not bad, "\n".join(bad)
+
+
+def test_every_package_documents_itself():
+    """每个包都有自己的 AGENTS.md(harness 按目录加载), 且被规则索引到。"""
+    packages = sorted(p for p in (REPO / "packages").glob("docanon-*") if p.is_dir())
+    assert len(packages) >= 5, f"包数量不对: {[p.name for p in packages]}"
+    missing = [p.name for p in packages if not (p / "AGENTS.md").is_file()]
+    assert not missing, f"这些包少了本地 AGENTS.md: {missing}"
+    rules = (REPO / ".agent" / "rules" / "02-packages.md").read_text(encoding="utf-8")
+    assert "packages/*/AGENTS.md" in rules, "rules/02-packages.md 里没有索引各包的 AGENTS.md"
 
 
 def test_markdown_links_resolve():

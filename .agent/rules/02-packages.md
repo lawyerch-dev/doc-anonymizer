@@ -8,6 +8,8 @@
 | `docanon-engine-ner-llm` | llama-server 客户端 + LLM NER | contract（传输层只用标准库） |
 | `docanon-core` | 编排、脱敏回写、账本、CLI、Web | contract + 三个引擎 + pyyaml/pypdfium2/python-docx/openpyxl/Pillow |
 
+每个包本地还有一份自己的 `AGENTS.md`（`packages/*/AGENTS.md`）：写它自己的边界、怎么测、本地坑。
+
 方向永远是 **core → 引擎 → 契约**，由 `tests/test_architecture.py` 机械检查（含 pyproject 的依赖声明）。
 core 内部再分层：`extractors/` → `detectors/` → `redaction/`，外加 `pipeline.py`/`job.py`/`server/`。
 

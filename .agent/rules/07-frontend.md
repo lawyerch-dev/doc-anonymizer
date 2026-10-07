@@ -12,7 +12,8 @@
 | `website/` | 官网 + 文档站：Astro 5 + Starlight + Tailwind 4，静态输出 `website/dist/` |
 | `apps/web/` | 产品界面（零构建；将来换栈时引同一个 `apps/ui`） |
 
-- **别把 velora 组件拷进任何 app**：复用靠包不靠复制，`tests/test_docs.py` 会拦。
+- **别把 velora 组件拷进任何 app**：复用靠包不靠复制，`tests/test_docs.py` 会拦
+  （为什么：[决策记录](../notes/implemented/architecture/2026-10-07-shared-ui-package.md)）。
   导入方式：组件 `@doc-anonymizer/ui/<名字>`、区块 `@doc-anonymizer/ui/blocks/<名字>`、
   基础件 `@doc-anonymizer/ui/primitives/<名字>`。名录见 `apps/ui/src/manifest.json`
   （文档站「开发 → 组件库总览」就是它渲染的）。
@@ -22,6 +23,7 @@
 - website 的内容：`website/content-manifest.json`（唯一清单）→ `website/scripts/sync-content.py`
   生成 `src/content/docs/**` 与侧栏（生成物 gitignore，**源始终是仓库里的 markdown**）。
   加一页 = 清单加一行，别改生成目录，也别在 `astro.config.mjs` 里手写侧栏。
-- Tailwind 4 要显式 `@source` 共享包源码（`website/src/styles/global.css`），否则 kit 的类名被摇掉。
+- Tailwind 4 要显式 `@source` 共享包源码（`website/src/styles/global.css`），否则 kit 的类名被摇掉
+  （踩过：搬家后路径少一层，`sr-only`/aurora/渐变静默失效 —— [复盘](../notes/implemented/bug-fix/2026-10-07-tailwind-source-after-move.md)）。
 - React 组件在 Astro 里是 island：`<Landing client:load />`。
 - 部署：`SITE_BASE=/doc-anonymizer SITE_URL=https://… npm run build`。

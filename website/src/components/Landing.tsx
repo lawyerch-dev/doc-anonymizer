@@ -32,6 +32,9 @@ const DOC_LINKS = [
   { href: "/dev/contributing/", group: "开发", title: "贡献指南", summary: "环境、测试、提交与 PR" },
   { href: "/dev/agents/", group: "开发", title: "开发契约", summary: "不能违反的边界、命令与坑" },
   { href: "/other/security/", group: "其他", title: "安全策略", summary: "漏脱敏怎么报、设计上的边界" },
+  { href: "/agent/01-commands/", group: "契约细则", title: "命令与脚本", summary: "npm 入口、底层命令、脚本清单" },
+  { href: "/notes/2026-10-07-astro-starlight-for-website/", group: "决策记录", title: "为什么用 Astro", summary: "框架选型的实测对比与代价" },
+  { href: "/skills/cut-a-release/", group: "操作手册", title: "发一个版本", summary: "版本号、CHANGELOG、tag、验证" },
 ];
 
 export default function Landing({ repo }: { repo: string }) {

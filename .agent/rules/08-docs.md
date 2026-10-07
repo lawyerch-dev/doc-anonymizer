@@ -10,6 +10,9 @@
 | `docs/quickstart.md` | 第一次跑通 + 常见问题 | 现状权威 |
 | `AGENTS.md` | **入口与索引**：不可违反的边界、命令速查、按主题指向 `.agent/rules/` | 现状权威 |
 | `.agent/rules/*.md` | 分类细则（命令/包/资源/产物/安全/测试/前端/文档/环境） | 现状权威 |
+| `.agent/notes/**` | 决策与修复记录：`{状态}/{类别}/日期-主题.md`，格式与生命周期见其中的 README | 记录类（允许旧名字） |
+| `.agent/skills/*/SKILL.md` | 操作手册：加检测器 / 加引擎包 / 发版本 | 现状权威 |
+| `packages/*/AGENTS.md` | 每个包本地的约束（harness 自动按目录加载） | 现状权威 |
 | `CONTRIBUTING.md` | 参与开发：环境、测试、提交与 PR | 现状权威 |
 | `docs/architecture.md` | 目录与分层的**为什么**、硬边界索引、决策记录、搬迁历史 | 解释性 |
 | `docs/benchmarks.md` | 模型选型与基准数字 | 实测记录 |

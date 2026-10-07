@@ -87,7 +87,7 @@ doc-anonymizer/
 | 引擎能整块搬走 | `tests/test_engine_portability.py`（拷到只有契约+自己的环境里 import） | 引擎偷偷依赖 core，搬走即炸 |
 | 资源根可验证、布局只有一处真相 | `packages/docanon-core/tests/test_{resources,layout}.py` | 非 editable 安装下静默读到空配置 |
 | 产物命名 `<全名>.redacted.<原扩展名>` + 保留子目录；账本每文件原子落盘、`--resume` 要求产物仍在 | `test_output_layout.py`、`test_job.py` | 同名覆盖；崩溃丢记录；把漏脱敏报成已处理 |
-| PDF 命中页不留可提取文字（未命中页原样保留） | `test_pdf_output.py` | 给文字层盖黑块 = 原文仍可复制 = 没脱敏 |
+| PDF 命中页不留可提取文字（未命中页原样保留） | `test_pdf_output.py`（[决策记录](../.agent/notes/implemented/architecture/2026-10-06-pdf-hit-pages-rasterized.md)） | 给文字层盖黑块 = 原文仍可复制 = 没脱敏 |
 | **文档不与代码漂移**（路径、链接、测试文件名、AGENTS 里的测试数量） | `tests/test_docs.py` | 代码搬了文档还写旧的 —— 前后矛盾，读文档的人被带到沟里 |
 
 共同原则：**"少一层宁可报错，也不许静默"**（`prepare_detectors` 预检、`ResourceRootError`、
@@ -111,7 +111,7 @@ doc-anonymizer/
 | PDF 命中页整页栅格化 | 盖黑块不改变内容流，原文仍可复制/搜索 | 命中页不可再编辑（已收窄到"只有命中的页"） |
 | 命令入口 = 仓库根的 npm scripts（`scripts/dev.sh` 退居实现层） | 前端本来就要 node：一键 `npm run dev` / `npm test` 比让人记 `./scripts/dev.sh <子命令>` 更好记；shell 逻辑留在 dev.sh，不塞进 package.json | 多一层包装（排查时仍可直接用 dev.sh 与底层命令） |
 | 开发文档：`AGENTS.md` 只做索引，细则拆到 `.agent/rules/` | 160 行的「什么都塞」没人读完再动手；按主题拆开后改前端只读前端那篇 | 文档多一层跳转；靠守卫（AGENTS ≤80 行、每篇 ≤60 行、每篇都被索引）防膨胀 |
-| 前端组件抽成共享包 `apps/ui`, 网站用 Astro + Starlight | velora(MIT shadcn 组件)是 React/Tailwind 4 的; 组件与 token 只放一份, `website/` 与将来重写的产品前端引同一个包 —— **复用靠包, 不靠复制**。网站选 Starlight 是因为 搜索/TOC/上下页/多语言内置、依赖 241MB 与构建 0.7s 都比 Next 方案小一个量级(实测对比见 website/README.md) | 前端多了 npm workspaces 与构建链(仅构建期); 网站与将来的产品 app 可能是两个框架(组件仍共享) |
+| 前端组件抽成共享包 `apps/ui`, 网站用 Astro + Starlight（决策详情：[共享包](../.agent/notes/implemented/architecture/2026-10-07-shared-ui-package.md) · [Astro 选型](../.agent/notes/implemented/architecture/2026-10-07-astro-starlight-for-website.md)） | velora(MIT shadcn 组件)是 React/Tailwind 4 的; 组件与 token 只放一份, `website/` 与将来重写的产品前端引同一个包 —— **复用靠包, 不靠复制**。网站选 Starlight 是因为 搜索/TOC/上下页/多语言内置、依赖 241MB 与构建 0.7s 都比 Next 方案小一个量级(实测对比见 website/README.md) | 前端多了 npm workspaces 与构建链(仅构建期); 网站与将来的产品 app 可能是两个框架(组件仍共享) |
 | 桌面壳用 Electrobun | 系统 WebView，体积小一个数量级 | WKWebView 的坑自己趟（Tauri 就死在 PDF 抖动上） |
 
 ## 六、搬迁历史
