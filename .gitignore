@@ -1,6 +1,8 @@
 # ---- Python ----
 .venv/
 venv/
+# 字节码缓存: 正常路径都由 scripts/setup_dev.sh 重定向到 var/pycache(见 AGENTS.md);
+# 这条兜住"用别的 python 跑"(系统 python / 别的 venv)的情况
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -21,7 +23,8 @@ var/
 *.onnx
 *.safetensors
 
-# ---- 运行产物(脱敏输出等) ----
+# ---- 运行产物(脱敏输出) ----
+# 默认落在 var/out(上面那条已覆盖); out*/ 兜住显式 -o out 的历史习惯
 out*/
 *.log
 

@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docanon-engine-ocr"
+version = "0.1.0"
+description = "docanon OCR 引擎: RapidOCR(图片/扫描页 → 文字 + bbox)"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "docanon-contract",
+    "rapidocr>=2.0.0",
+    "onnxruntime>=1.17",
+    "Pillow>=10.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

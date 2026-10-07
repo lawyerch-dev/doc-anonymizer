@@ -1,10 +1,17 @@
 # scripts/ 一览
 
-一律在**仓库根**执行。脚本里的相对路径按资源根解析（`src/docanon/resources.py` 的 `LAYOUT`），
-所以从别的目录调用会指错地方。
+一律在**仓库根**执行，但两种脚本的定位方式不同：
+
+- **按调用者 cwd**：`download_model.sh`、`serve_llm.sh`（脚本里写的就是 `var/models/...`）——
+  换目录执行会指错地方。
+- **按脚本自身位置**（`Path(__file__).parents[1]` / `dirname $0`）：`make_samples.py`、`bench_*.py`、
+  `fetch_file_viewer.sh` —— 从哪儿调用都找得到仓库根。
+
+这与 `docanon` 本身又不同：它的相对路径按**资源根**解析（见 `resources.LAYOUT`）。
 
 | 脚本 | 干什么 | 依赖 | 用法 |
 |---|---|---|---|
+| `setup_dev.sh` | 首次准备(幂等): 建 `.venv`、装五个包 editable + 测试依赖、把字节码缓存重定向到 `var/pycache` | python3.12 / pip | `./scripts/setup_dev.sh` |
 | `make_samples.py` | 生成 `samples/`（覆盖 txt/md/docx/pdf 文字/扫描/png/xlsx/csv） | python-docx / openpyxl / pypdfium2 / Pillow | `.venv/bin/python scripts/make_samples.py` |
 | `download_model.sh` | 从 ModelScope 下载 GGUF 到 `var/models/` | curl | `./scripts/download_model.sh [Q4_K_M]` |
 | `serve_llm.sh` | 起 llama-server（OpenAI 兼容 :8080） | brew 的 `llama.cpp` | `./scripts/serve_llm.sh [端口] [模型路径]` |
@@ -20,3 +27,6 @@
   的中文预览乱码（commit `094b863`）。所以 `samples/` 不要手改，改脚本重跑。
 - `download_model.sh` / `fetch_file_viewer.sh` 下载的东西都 gitignore（`var/`），换机器要重跑。
 - WebKit 兼容检查不在 `scripts/`，在 `tests/e2e/webkit/`（node + Playwright）。
+- `setup_dev.sh` 装的 `sitecustomize.py` 只做一件事：把 `sys.pycache_prefix` 指到 `var/pycache`，
+  所以源码树里不会再有 `__pycache__`（已经显式设了 `PYTHONPYCACHEPREFIX` 的环境照旧优先）。
+  它是幂等的，随时可以重跑。
