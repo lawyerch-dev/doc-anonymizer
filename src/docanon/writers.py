@@ -184,6 +184,12 @@ def _sub_boxes(bbox, text: str, repls) -> list[tuple]:
 
 
 def _pdf(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list[str]:
+    """命中的页栅格化后涂黑, **没命中的页原样保留**(不重渲染)。
+
+    为什么不给命中页做"保留文字层 + 盖黑块": 那样敏感文字仍可被复制/搜索, 等于没脱敏 —— 宁可
+    让这一页变成位图。代价是这一页不可再编辑、体积变大; 但没命中的页没必要陪着一起变位图,
+    所以它们直接从原文件导入(矢量文字、体积都不变)。
+    """
     import pypdfium2 as pdfium
     from PIL import ImageDraw
 
@@ -204,23 +210,31 @@ def _pdf(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list[
             text_repls.setdefault(pno, []).extend(r.replacements)
 
     pdf = pdfium.PdfDocument(doc.source_path)
-    n = len(pdf)
-    pages_img = []
-    for pno in range(n):
-        if pno in scanned:
-            img = scanned[pno]
-        else:
-            img = pdf[pno].render(scale=_SCALE).to_pil()
+    out = pdfium.PdfDocument.new()
+    for pno in range(len(pdf)):
+        boxes = img_boxes.get(pno, [])
+        repls = text_repls.get(pno, [])
+        if not boxes and not repls:
+            out.import_pages(pdf, [pno])  # 没命中: 原样搬过来
+            continue
+        img = scanned[pno] if pno in scanned else pdf[pno].render(scale=_SCALE).to_pil()
         draw = ImageDraw.Draw(img)
-        for box in img_boxes.get(pno, []):
+        for box in boxes:
             draw.rectangle(box, fill="black")
-        for box in _text_page_boxes(pdf, pno, text_repls.get(pno, []), _SCALE):
+        for box in _text_page_boxes(pdf, pno, repls, _SCALE):
             draw.rectangle(box, fill="black")
-        pages_img.append(img.convert("RGB"))
+        # 位图按原文页面尺寸铺满: 矩阵给的是页面单位(pt), 不是 1/scale —— 给错等于没涂黑
+        width_pt, height_pt = pdf[pno].get_size()
+        bitmap = pdfium.PdfImage.new(out)
+        bitmap.set_bitmap(pdfium.PdfBitmap.from_pil(img.convert("RGB")))
+        bitmap.set_matrix(pdfium.PdfMatrix().scale(width_pt, height_pt))
+        page = out.new_page(width_pt, height_pt)
+        page.insert_obj(bitmap)
+        page.gen_content()
 
-    if not pages_img:
+    if len(out) == 0:
         return []
-    pages_img[0].save(str(out_path), save_all=True, append_images=pages_img[1:])
+    out.save(str(out_path))
     return [str(out_path)]
 
 
