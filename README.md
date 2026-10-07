@@ -27,8 +27,7 @@
 > 建议 Python 3.11/3.12。3.14 目前 onnxruntime/rapidocr 可能无轮子。
 
 ```bash
-python3.12 -m venv .venv
-.venv/bin/pip install -r requirements-dev.txt   # 五个包 editable + 测试依赖
+./scripts/setup_dev.sh    # 幂等: 建 .venv + 装五个包 editable + 把字节码缓存收到 var/pycache
 ```
 
 代码分五个包（`packages/`）：`docanon-contract`（引擎契约）、`docanon-core`（app 与 CLI/Web）、

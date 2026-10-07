@@ -56,7 +56,7 @@ doc-anonymizer/
 ├── scripts/             开发者脚本(见 scripts/README.md)
 ├── tests/               跨包测试: 包边界 + 可搬运性 + e2e/webkit
 ├── docs/                本文件 / benchmarks.md / specs/(设计历史)
-├── var/                 下载或构建得到的资产(gitignore): models / vendor / out(默认产物)
+├── var/                 本地可再生状态(gitignore): models 权重 / vendor 预览包 / out 默认产物 / pycache 字节码
 ├── pyproject.toml       工作区根: 只有 pytest 配置(这里没有包, 也没有代码)
 ├── requirements-dev.txt 一条命令装好五个包(editable) + 测试依赖
 └── conftest.py          共享 fixture(仓库根, 所有包的测试都能用)

@@ -9,9 +9,10 @@
 
 ## 命令（一律在仓库根执行）
 
-- 首次准备：`python3.12 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`
-  （五个包 editable + 测试依赖；每个包自己的运行时依赖写在它的 `pyproject.toml` 里）
-- 全量测试：`.venv/bin/python -m pytest -q`（101 项，约 5 秒；这个数字由 `tests/test_docs.py` 盯着，改了测试要同步）
+- 首次准备：`./scripts/setup_dev.sh`（幂等）—— 建 `.venv`、装五个包 editable + 测试依赖、
+  再把字节码缓存重定向到 `var/pycache`。等价的手工版是
+  `python3.12 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`，只是少了第 3 步
+- 全量测试：`.venv/bin/python -m pytest -q`（104 项，约 5 秒；这个数字由 `tests/test_docs.py` 盯着，改了测试要同步）
 - 单个测试：`.venv/bin/python -m pytest packages/docanon-core/tests/test_pipeline.py::test_pipeline_masks_pii`
 - 包边界与可搬运性：`.venv/bin/python -m pytest tests/test_architecture.py tests/test_engine_portability.py -q`
 - CLI 脱敏：`.venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml`
@@ -91,6 +92,9 @@
 - Web UI 的 WebKit 兼容检查在 `tests/e2e/webkit/`（node + Playwright，**不进 pytest**；pytest 的
   默认 `norecursedirs` 会跳过那里的 `node_modules`）。改了预览相关的东西先跑它：
   `DOCANON_URL=http://127.0.0.1:8803 [PRESET=sample_text.pdf] node webkit-check.mjs`。
+- **字节码缓存只有一处**：`var/pycache`（由 `scripts/setup_dev.sh` 装进 venv 的 `sitecustomize` 重定向）。
+  源码树里不该出现 `__pycache__`，`tests/test_dev_env.py` 会盯着。不要改成"完全不写字节码"：
+  实测那样每次都要重编译所有导入，整套测试 5.12s → 6.24s。
 - `samples/` 由 `scripts/make_samples.py` 生成，不要手改。重新生成的 PDF 必须内嵌中文 TTF 子集
   （脚本取 macOS 的 `/System/Library/Fonts/Supplemental/Arial Unicode.ttf`）；非嵌入 CID 字体会让
   file-viewer 的中文预览乱码（commit `094b863`）。
@@ -132,7 +136,7 @@
 | `AGENTS.md`（本文件） | 操作契约：不能违反的边界、命令、坑 | 现状权威 |
 | `docs/architecture.md` | 五包结构与**为什么**、硬边界、决策记录、搬迁历史 | 解释性，与代码同步 |
 | `docs/benchmarks.md` | 模型选型与基准数字（ONNX vs LLM、各 GGUF 对比） | 实测记录 |
-| `scripts/README.md` | 六个脚本各干什么、依赖、用法 | 现状权威 |
+| `scripts/README.md` | 七个脚本各干什么、依赖、用法 | 现状权威 |
 | `apps/desktop/README.md` | 桌面壳的运行方式与三条实测约束 | 现状权威 |
 | `docs/specs/2026-10-05-*.md` | 设计决策的历史记录（选型与理由）+ §10 后续变更 | 历史记录，现状以本文件与 README 为准 |
 
