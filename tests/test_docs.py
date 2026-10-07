@@ -12,6 +12,7 @@
 """
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 import subprocess
@@ -27,10 +28,19 @@ RECORDS = [
     REPO / "CHANGELOG.md",
 ]
 
-# 现状文档: 扫全部 .md(新写的文档自动纳入检查, 不用来改这份清单)
+# 现状文档: 扫全部 .md(新写的文档自动纳入检查, 不用来改这份清单)。
+# apps/ 下也扫(桌面壳与文档站的 README 同样是现状文档), 但别把 node_modules 里的包文档卷进来。
+def _markdown_under(*roots: str) -> set[pathlib.Path]:
+    found: set[pathlib.Path] = set()
+    for root in roots:
+        for path in (REPO / root).rglob("*.md"):
+            if "node_modules" not in path.parts:
+                found.add(path)
+    return found
+
+
 CURRENT_DOCS = sorted(
-    {*REPO.glob("*.md"), *(REPO / "docs").rglob("*.md"), *(REPO / ".github").rglob("*.md")}
-    - set(RECORDS)
+    {*REPO.glob("*.md"), *_markdown_under("docs", ".github", "apps")} - set(RECORDS)
 )
 ALL_DOCS = [*CURRENT_DOCS, *RECORDS]
 
@@ -50,7 +60,7 @@ COMMUNITY_FILES = [
 
 TOP_LEVEL = {"packages", "apps", "configs", "samples", "scripts", "tests", "docs", "var"}
 # 运行时才存在的东西: var/(权重、预览包、默认产物)、用户自选产物目录、壳的构建产物
-RUNTIME_PREFIXES = ("var/", "out/", "apps/desktop/build")
+RUNTIME_PREFIXES = ("var/", "out/", "apps/docs/out", "apps/desktop/build")
 
 # 名字一旦删掉/改名, 现状文档里就不该再有它
 REMOVED_NAMES = {
@@ -167,6 +177,29 @@ def test_each_topic_has_one_owner():
             if rel != owner and needle in doc.read_text(encoding="utf-8"):
                 bad.append(f"{what}: 也出现在 {rel} —— 只该在 {owner}, 其余用链接")
     assert not bad, "\n".join(bad)
+
+
+def test_docs_site_is_wired_correctly():
+    """文档站(apps/docs)接得对不对, 不用跑 npm 也能查一半 —— 另一半靠构建命令。"""
+    import re
+
+    site = REPO / "apps" / "docs"
+    assert (site / "package.json").is_file(), "apps/docs 不见了"
+    pkg = json.loads((site / "package.json").read_text(encoding="utf-8"))
+    assert "build" in pkg.get("scripts", {}), "apps/docs 少了 build 脚本"
+
+    cfg = (site / "next.config.ts").read_text(encoding="utf-8")
+    assert 'output: "export"' in cfg, "文档站必须静态导出(运行期不发 node)"
+    # 这两条与静态导出冲突, 构建会以 "PPR cannot be enabled in export mode" 失败
+    # (注释里提到它们没关系, 这里查的是"真的被打开")
+    assert "cacheComponents:" not in cfg and "ppr: true" not in cfg, "别打开 cacheComponents/PPR"
+
+    # 侧栏清单指向的 markdown 必须真的存在(否则文档站点进去是 404)
+    listing = (site / "src" / "lib" / "docs.ts").read_text(encoding="utf-8")
+    files = re.findall(r'file:\s*"([^"]+)"', listing)
+    assert len(files) >= 5, f"文档站清单只解析出 {len(files)} 条, 是不是格式变了?"
+    missing = [f for f in files if not (REPO / f).is_file()]
+    assert not missing, f"文档站清单指向了不存在的文件: {missing}"
 
 
 def test_markdown_links_resolve():

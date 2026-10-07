@@ -18,7 +18,8 @@
 .venv/bin/python -m pytest -q                                        # 全量(约 5 秒)
 .venv/bin/python -m pytest packages/docanon-core/tests/test_job.py -q # 单个文件
 .venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml       # CLI 端到端
-.venv/bin/docanon web -p 8000 -c configs/onnx.yaml                    # Web 端到端
+.venv/bin/docanon web -p 8000 -c configs/onnx.yaml                    # 产品 Web 端到端
+cd apps/docs && npm run build                                         # 文档站(Next+velora): 静态导出后要能构建
 ```
 
 > 必须用 `.venv/bin/python -m pytest`：PATH 上的 `pytest` 可能跑在别的 Python 上（缺 `rapidocr`），
@@ -30,8 +31,11 @@
 ## 代码在哪
 
 `packages/` 五个包（`docanon-contract` + 三个引擎包 + `docanon-core`），依赖只有一条方向：
-**core → 引擎 → contract**，引擎各自可整块搬走。前端零构建在 `apps/web/`，壳在 `apps/desktop/`，
-跨包测试在 `tests/`。结构与理由：[docs/architecture.md](docs/architecture.md)。
+**core → 引擎 → contract**，引擎各自可整块搬走。跨包测试在 `tests/`。
+
+前端有两条路径：**产品运行期零 node**（`apps/web/` 零构建，`docanon web` 直接发静态文件）；
+**构建期可以用 node**（`apps/docs/` 文档站 = Next.js 16 + Tailwind 4 + velora 组件，静态导出）。
+改前端时记住这条分界，别把构建产物塞进产品运行路径。
 
 ## 改代码前必读
 
@@ -40,6 +44,16 @@
 
 改完记得同步文档：`tests/test_docs.py` 会检查文档里的路径/链接/测试文件名，
 **以及 `AGENTS.md` 里那句测试数量**（加删测试后要一起改，否则测试红）。
+
+## 文档站（改了它才需要）
+
+```bash
+./scripts/dev.sh docs                 # 开发服务器 :3000
+cd apps/docs && npm run build         # 必须能过: 静态导出到 out/
+```
+
+内容来自仓库里的 markdown，加页面 = 在 `apps/docs/src/lib/docs.ts` 的清单加一行（测试会检查文件存在）。
+装新组件：`npx shadcn@latest add @velora/<名字>`。三个实测坑写在 [apps/docs/README.md](apps/docs/README.md)。
 
 ## 浏览器端检查（改了预览/界面才需要）
 

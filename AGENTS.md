@@ -1,7 +1,13 @@
 # doc-anonymizer 操作契约
 
-日常开发只碰两处：`.venv` 里的 Python 包 `packages/`（五个包，见下表），和零构建前端
-`apps/web/`（`index.html` + `app.css` + `app.js`，由 `docanon web` 直接发出去，无 node 构建链）。
+日常开发只碰两处：`.venv` 里的 Python 包 `packages/`（五个包，见下表），和前端 `apps/`。
+
+**前端契约（两条，别搞混）**：
+1. **产品运行期零 node、全离线** —— `docanon web` 只发静态文件（现在是零构建的
+   `apps/web/`：`index.html` + `app.css` + `app.js`）。
+2. **构建期可以用 node** —— `apps/docs/`（文档站）是 Next.js 16 + Tailwind 4 + velora 组件，
+   `npm run build` **静态导出**到 `apps/docs/out/`，交给任意静态服务器发。
+   这是为了让产品界面优化与文档站共用 velora 组件（MIT）。`node_modules/`、`.next/`、`out/` 都不提交。
 
 桌面壳只有一个（`apps/desktop/`，Electrobun + 系统 WebView），**不是日常路径**：
 开发与测试都不需要启动它 —— pytest / CLI / Web 三条命令足够；壳里那套渲染由
@@ -10,11 +16,11 @@
 ## 命令（一律在仓库根执行）
 
 **开发入口**：`./scripts/dev.sh <命令>`（`setup` / `web` / `desktop` / `test` / `cli` / `engines` /
-`models` / `doctor`）——一键起 Web、起桌面壳、跑测试；它只是包装，下面这些原始命令都照旧成立，
+`models` / `docs` / `doctor`）——一键起 Web、起桌面壳、跑测试；它只是包装，下面这些原始命令都照旧成立，
 排查时直接用它们（`dev.sh` 的 `doctor` 会告诉你缺什么）。
 
 - 首次准备：`./scripts/setup_dev.sh`（幂等：venv + 五个包 + 预览资源 + 缓存重定向；脚本注释写了每步在干什么）
-- 全量测试：`.venv/bin/python -m pytest -q`（109 项，约 5 秒；这个数字由 `tests/test_docs.py` 盯着，改了测试要同步）
+- 全量测试：`.venv/bin/python -m pytest -q`（110 项，约 5 秒；这个数字由 `tests/test_docs.py` 盯着，改了测试要同步）
 - 单个测试：`.venv/bin/python -m pytest packages/docanon-core/tests/test_pipeline.py::test_pipeline_masks_pii`
 - 包边界与可搬运性：`.venv/bin/python -m pytest tests/test_architecture.py tests/test_engine_portability.py -q`
 - CLI 脱敏：`.venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml`
@@ -22,7 +28,10 @@
 - 看这份配置实际加载了哪些引擎（含起不来的原因）：`.venv/bin/docanon engines -c configs/onnx.yaml`
 - 还原（**只吃文本产物**）：`.venv/bin/docanon restore var/out/sample.md.redacted.md --mapping var/out/mapping.json`
 - Web：`.venv/bin/docanon web -p 8000 -c configs/onnx.yaml`
-- 仓库没有 lint、typecheck、CI、pre-commit。不要假定 `ruff`/`mypy`/`npm run lint` 存在，也不要顺手加。
+- 文档站：`./scripts/dev.sh docs`（首次自动 `npm install`）→ http://127.0.0.1:3000；
+  静态站构建 `cd apps/docs && npm run build`（产物 `apps/docs/out/`，用 `npm run preview` 或任意静态服务器看）。
+- 仓库没有 lint、typecheck、CI、pre-commit。不要假定 `ruff`/`mypy`/`npm run lint` 存在，也不要顺手加
+  （`apps/docs` 里也刻意没装 eslint）。
 
 ## 包结构（改代码前先看这张表）
 
@@ -99,6 +108,9 @@
 - **字节码缓存只有一处**：`var/pycache`（由 `scripts/setup_dev.sh` 装进 venv 的 `sitecustomize` 重定向）。
   源码树里不该出现 `__pycache__`，`tests/test_dev_env.py` 会盯着。不要改成"完全不写字节码"：
   实测那样每次都要重编译所有导入，整套测试 5.12s → 6.24s。
+- 文档站的内容来自仓库里的 markdown（清单在 `apps/docs/src/lib/docs.ts`），**不要另存一份**；
+  加页面就在那份清单里加一行，`tests/test_docs.py` 会检查指向的文件真的存在。
+  三个实测坑写在 `apps/docs/README.md`（PPR 与静态导出冲突、`trailingSlash`、别用 Google 字体）。
 - `samples/` 由 `scripts/make_samples.py` 生成，不要手改。重新生成的 PDF 必须内嵌中文 TTF 子集
   （脚本取 macOS 的 `/System/Library/Fonts/Supplemental/Arial Unicode.ttf`）；非嵌入 CID 字体会让
   file-viewer 的中文预览乱码（commit `094b863`）。

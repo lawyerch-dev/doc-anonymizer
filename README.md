@@ -38,7 +38,7 @@ git clone https://github.com/lawyerch/doc-anonymizer && cd doc-anonymizer
 ./scripts/dev.sh desktop    # 桌面壳(需 Hutch)
 ```
 
-`dev.sh` 是开发入口：`setup` `web` `desktop` `test` `cli` `engines` `models` `doctor`（`./scripts/dev.sh help` 看全部）。
+`dev.sh` 是开发入口：`setup` `web` `desktop` `test` `cli` `engines` `models` `docs` `doctor`（`./scripts/dev.sh help` 看全部）。
 缺 ONNX 模型（`configs/onnx.yaml` 的中文 NER）时取一次：`./scripts/dev.sh models` —— 约 830MB，
 默认走 `hf-mirror.com`（官方 huggingface.co 在部分网络不可达），`HF_ENDPOINT` 可换端点。
 它只是包装，底层就是 `docanon` / `pytest` / `hutch` —— 下文用的是原始命令，出问题可直接排查。
@@ -70,6 +70,17 @@ git clone https://github.com/lawyerch/doc-anonymizer && cd doc-anonymizer
 
 接口：`/` `/app.css` `/app.js` `/health` `/api/presets` `/api/upload` `/api/anonymize`
 （后两个入参 `{filename, content_b64}` / `{preset|token}`，出参含 `counts` 与 `trace`；上传上限 50MB）。
+
+### 文档站（可选）
+
+```bash
+./scripts/dev.sh docs                 # → http://127.0.0.1:3000（首次自动 npm install）
+cd apps/docs && npm run build         # 静态导出到 apps/docs/out/，任意静态服务器都能发
+```
+
+内容直接来自本仓库的 markdown（清单在 `apps/docs/src/lib/docs.ts`），组件用
+[velora-ui](https://github.com/ColorlibHQ/velora-ui)（MIT）。细节与三个实测坑见
+[apps/docs/README.md](apps/docs/README.md)。
 
 ### 桌面壳（可选）
 
@@ -144,4 +155,4 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 致谢 [RapidOCR](https://github.com/RapidAI/RapidOCR)、[pypdfium2](https://github.com/pypdfium2-team/pypdfium2)、
 [python-docx](https://github.com/python-openxml/python-docx)、[openpyxl](https://foss.heptapod.net/openpyxl/openpyxl)、
 [llama.cpp](https://github.com/ggml-org/llama.cpp)、[file-viewer](https://github.com/flyfish-dev/file-viewer)、
-[Electrobun](https://github.com/blackboardsh/electrobun)
+[Electrobun](https://github.com/blackboardsh/electrobun)、[velora-ui](https://github.com/ColorlibHQ/velora-ui)
