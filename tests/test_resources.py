@@ -13,8 +13,6 @@ import pytest
 from docanon import resources
 from docanon.config import load_config
 
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-
 
 def _fake_root(tmp_path: pathlib.Path) -> pathlib.Path:
     (tmp_path / "configs").mkdir(parents=True, exist_ok=True)
@@ -24,13 +22,13 @@ def _fake_root(tmp_path: pathlib.Path) -> pathlib.Path:
     return tmp_path
 
 
-def test_find_root_from_the_source_tree():
-    assert resources.find_root(REPO_ROOT / "src" / "docanon" / "resources.py") == REPO_ROOT
+def test_find_root_from_the_source_tree(repo_root):
+    assert resources.find_root(repo_root / "src" / "docanon" / "resources.py") == repo_root
 
 
-def test_find_root_walks_up_from_a_nested_dir():
+def test_find_root_walks_up_from_a_nested_dir(repo_root):
     """打包/安装后本文件可能躺在更深的子目录里, 逐级向上必须还能找到根。"""
-    assert resources.find_root(REPO_ROOT / "docs" / "specs") == REPO_ROOT
+    assert resources.find_root(repo_root / "docs" / "specs") == repo_root
 
 
 def test_find_root_raises_outside_any_root(tmp_path):
@@ -60,6 +58,6 @@ def test_explicit_config_missing_is_an_error(tmp_path, monkeypatch):
         load_config("nope.yaml")
 
 
-def test_repo_root_has_the_marked_resources():
+def test_repo_root_has_the_marked_resources(repo_root):
     """标记文件就是契约: 它不在, 资源根的概念就无从谈起。"""
-    assert (REPO_ROOT / resources.MARKER).is_file()
+    assert (repo_root / resources.MARKER).is_file()

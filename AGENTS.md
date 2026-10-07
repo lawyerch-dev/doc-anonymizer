@@ -65,6 +65,8 @@
 
 ## 改动前后
 
+- Web UI 的 WebKit 兼容检查在 `tests/e2e/webkit/`（node + Playwright，**不进 pytest**；pytest 的
+  默认 `norecursedirs` 会跳过那里的 `node_modules`）。壳用的就是系统 WebView，改了预览相关的东西先跑它。
 - `samples/` 由 `scripts/make_samples.py` 生成，不要手改。重新生成的 PDF 必须内嵌中文 TTF 子集
   （脚本取 macOS 的 `/System/Library/Fonts/Supplemental/Arial Unicode.ttf`）；非嵌入 CID 字体会让
   file-viewer 的中文预览乱码（commit `094b863`）。

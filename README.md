@@ -237,9 +237,10 @@ doc-anonymizer/
 │   └── cli.py              命令行(run / restore / engines / web)
 ├── apps/
 │   ├── web/                前端: 单文件 index.html(零构建; 预览包在 var/vendor)
-│   └── desktop/            Electrobun 桌面壳: src/bun 主进程 + compat/ WebKit 兼容检查
+│   └── desktop/            Electrobun 桌面壳: src/bun 主进程 + src/mainview + hutch.lock
 ├── configs/                配置(default / onnx / with_llm)
-├── scripts/  samples/  tests/  docs/
+├── tests/                  pytest 测试; e2e/webkit 是 WebKit 兼容检查(node, 不进 pytest)
+├── scripts/  samples/  docs/
 └── var/                    下载/构建得到的资产(gitignore): models 权重 + vendor 预览包
 ```
 

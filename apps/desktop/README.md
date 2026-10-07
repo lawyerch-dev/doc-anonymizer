@@ -50,7 +50,7 @@ hutch electrobun dev        # 或 npm start / npm run build
 # 先起本地服务
 docanon web -p 8803 -c configs/onnx.yaml
 # 再跑检测
-cd apps/desktop/compat && npm install && npx playwright install webkit
+cd tests/e2e/webkit && npm install && npx playwright install webkit
 DOCANON_URL=http://127.0.0.1:8803 node webkit-check.mjs   # 功能
 DOCANON_URL=http://127.0.0.1:8803 PRESET=sample_text.pdf node jitter-check.mjs  # 抖动
 ```
