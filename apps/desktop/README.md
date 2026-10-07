@@ -1,7 +1,8 @@
 # apps/desktop — 桌面壳 (Electrobun)
 
-把本地 Python 服务 + Web UI 装进一个原生窗口。**开发时不用它**，直接 `docanon web` 用浏览器即可
-（壳只是同一套 UI 的窗口包装，调试迭代走浏览器更快）。
+把本地 Python 服务 + Web UI 装进一个原生窗口。**开发与测试都不需要它**：
+`.venv/bin/python -m pytest`、`.venv/bin/docanon run`、`.venv/bin/docanon web` 三条命令就够，
+壳只是同一套 UI 的窗口包装。壳里那套渲染由 `tests/e2e/webkit/`（Playwright 的 WebKit 内核）覆盖。
 
 用**系统 WebView**（macOS = WKWebView）而不是内置 Chromium：打包体积小一个数量级。
 
@@ -16,7 +17,8 @@ hutch install
 hutch electrobun dev        # 或 npm start / npm run build
 ```
 
-主进程 `src/bun/index.ts` 会：拉起 `.venv` 的 Python 跑 `docanon web`（默认端口 **8770**、`configs/onnx.yaml`），
+主进程 `src/bun/index.ts` 会：用 `.venv` 的 Python 跑 `docanon_core.cli web`（默认端口 **8770**、
+`configs/onnx.yaml`；五个包已 editable 装进 `.venv`，所以不需要再拼 `PYTHONPATH`），
 等 `/health` 就绪后开窗加载 `http://127.0.0.1:8770`。
 
 `hutch.lock` 要提交（钉住 `@types/bun`）；`.hutch/`、`build/`、`node_modules/` 都在 .gitignore 里。

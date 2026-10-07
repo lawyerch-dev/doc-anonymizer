@@ -26,9 +26,13 @@
 > 建议 Python 3.11/3.12。3.14 目前 onnxruntime/rapidocr 可能无轮子。
 
 ```bash
-python3.12 -m venv .venv && source .venv/bin/activate
-pip install -e '.[ocr,dev]'
+python3.12 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt   # 五个包 editable + 测试依赖
 ```
+
+代码分五个包（`packages/`）：`docanon-contract`（引擎契约）、`docanon-core`（app 与 CLI/Web）、
+以及三个引擎包 `docanon-engine-ocr` / `-ner-onnx` / `-ner-llm`。依赖归属跟着实现走 ——
+每个包自己的运行时依赖写在它的 `pyproject.toml` 里。
 
 ## 下载并启动本地大模型
 
@@ -42,10 +46,10 @@ pip install -e '.[ocr,dev]'
 
 ```bash
 # 处理单个文件或目录
-docanon run ./samples -o ./out -c configs/onnx.yaml
+docanon run ./samples -o ./var/out -c configs/onnx.yaml
 
 # 大卷宗跑到一半 Ctrl+C 或某个文件失败 —— 接着跑, 不重来
-docanon run ./案件 -o ./out -c configs/onnx.yaml --resume
+docanon run ./案件 -o ./var/out -c configs/onnx.yaml --resume
 
 # 启动轻量 Web
 docanon web --port 8000 -c configs/onnx.yaml
@@ -54,7 +58,7 @@ docanon web --port 8000 -c configs/onnx.yaml
 docanon engines -c configs/onnx.yaml
 
 # 还原(只支持文本产物, 见「已知限制」)
-docanon restore ./out/sample.md.redacted.md --mapping ./out/mapping.json
+docanon restore ./var/out/sample.md.redacted.md --mapping ./var/out/mapping.json
 ```
 
 `-c` 省略时走 `configs/default.yaml`：只有规则+词典（`onnx_ner`/`llm_ner` 均为 `false`），
@@ -68,8 +72,8 @@ docanon restore ./out/sample.md.redacted.md --mapping ./out/mapping.json
 产物命名 `<源文件全名>.redacted.<原扩展名>`, 并按源文件的相对路径建子树, 因此同名不同类型的文件不会互相覆盖:
 
 ```
-docs/告知书/明细.docx   ->   out/告知书/明细.docx.redacted.docx
-docs/债权人/明细.txt    ->   out/债权人/明细.txt.redacted.txt
+docs/告知书/明细.docx   ->   var/out/告知书/明细.docx.redacted.docx
+docs/债权人/明细.txt    ->   var/out/债权人/明细.txt.redacted.txt
 ```
 
 | 源格式 | 产物 | 怎么脱敏 |
@@ -89,7 +93,7 @@ docs/债权人/明细.txt    ->   out/债权人/明细.txt.redacted.txt
 已完成的部分不会丢、也不会被重做:
 
 ```bash
-docanon run ./案件 -o ./out -c configs/onnx.yaml --resume
+docanon run ./案件 -o ./var/out -c configs/onnx.yaml --resume
 ```
 
 `--resume` 判定"这个文件已经脱过敏"的条件是账本里标 `ok` **且产物文件仍在** —— 账本说做过而文件不见了
@@ -166,7 +170,7 @@ npm start            # = hutch electrobun dev, 端口 8770
 
 ```bash
 # 模型在 var/models/onnx/ (gyr66 通用中文NER + pii-engineer 中文PII)
-docanon run ./samples -o out_onnx -c configs/onnx.yaml
+docanon run ./samples -o var/out -c configs/onnx.yaml
 ```
 
 比 LLM 快约 30 倍（34ms vs 1190ms，同为 100% 召回），代价是标签集固定：不能听指令、不能生成自然假名。
@@ -185,8 +189,8 @@ docanon run ./samples -o out_onnx -c configs/onnx.yaml
   (不带 `-c`)也报错, 不再静默退化。
 - **布局只有一处真相**: `resources.LAYOUT`(键 → 相对路径)。要挪 `configs/`、`apps/web/`、`samples/`、
   `var/models` 这些目录, 改这张表就行, `tests/test_layout.py` 会立刻指出哪里对不上。
-- **部署契约**: 只支持 editable 安装(`pip install -e .`)与打包根两种形态; 不做 wheel 自包含
-  (前端 vendor 232MB、模型 GB 级, 不该进包)。细节写在 `pyproject.toml`。
+- **部署契约**: 只支持 editable 安装(`requirements-dev.txt`)与打包根两种形态; 不做 wheel 自包含
+  (前端 vendor 232MB、模型 GB 级, 不该进包)。细节写在根 `pyproject.toml`。
 - 检测引擎在 `detectors/base.py` 的注册表里按名字启用。引擎装不起来或端点没应答时, `run` 与 `web` 都会在
   写任何文件之前报错退出(退出码 1), 不会带着少一层检测的产物报告成功。
 - 想确认"这份配置到底跑了几层检测", 别猜, 直接列出来:
@@ -201,28 +205,21 @@ docanon run ./samples -o out_onnx -c configs/onnx.yaml
 
 ```
 doc-anonymizer/
-├── src/docanon/            # Python 包(CLI / Web / 桌面壳共用)
-│   ├── contract.py         引擎契约: Block/Span/Detection + 引擎 ABC(只依赖标准库)
-│   ├── engines/            ★ 可整块搬走的引擎(目录即边界): OCR / ONNX NER / LLM
-│   ├── extractors/         抽取器(文本/PDF/表格) + 按扩展名路由
-│   ├── detectors/          规则/词典检测器 + 注册表(base.py)
-│   ├── inventory.py        引擎自检清单(`docanon engines`)
-│   ├── resources.py        资源根 + 仓库布局表(所有相对路径的唯一出处)
-│   ├── writers.py          原位回写(docx/xlsx/csv/pdf/图片)
-│   ├── strategies.py       脱敏策略(pseudonym/placeholder/mask/remove)
-│   ├── resolve.py          重叠合并
-│   ├── mapping.py          全局映射表(全文一致 + 可还原)
-│   ├── job.py              账本: manifest/mapping 每文件原子落盘, --resume 的依据
-│   ├── pipeline.py         编排: 抽取 → 检测 → 合并 → 替换 → 回写
-│   ├── server.py           本地 HTTP 服务(前端/桌面壳共用)
-│   └── cli.py              命令行(run / restore / engines / web)
+├── packages/               五个包(见「安装」; 每个包自带 tests/)
+│   ├── docanon-contract/       引擎契约: Block/Span/Detection + 引擎 ABC(只标准库)
+│   ├── docanon-engine-ocr/     OCR 引擎: RapidOCR + 图片/扫描页抽取
+│   ├── docanon-engine-ner-onnx/ ONNX 中文 NER 引擎(构造即加载)
+│   ├── docanon-engine-ner-llm/  LLM NER 引擎: llama-server 客户端 + 检测器
+│   └── docanon-core/           app: extractors/ detectors/ redaction/ + pipeline/job/cli/server
 ├── apps/
 │   ├── web/                前端: index.html + app.css + app.js(零构建; 预览包在 var/vendor)
 │   └── desktop/            Electrobun 桌面壳: src/bun 主进程 + src/mainview + hutch.lock
-├── configs/                配置(default / onnx / with_llm)
-├── tests/                  pytest 测试; e2e/webkit 是 WebKit 兼容检查(node, 不进 pytest)
-├── scripts/  samples/  docs/
-└── var/                    下载/构建得到的资产(gitignore): models 权重 + vendor 预览包
+├── configs/                配置(default / onnx / llm)
+├── samples/                内置样例(Web 预设 + 测试数据)
+├── scripts/                开发者脚本(见 scripts/README.md)
+├── tests/                  跨包测试: 包边界 + 可搬运性 + e2e/webkit(node, 不进 pytest)
+├── docs/                   架构与目录设计 / 基准 / specs(设计历史)
+└── var/                    下载或构建得到的资产(gitignore): models 权重 + vendor 预览包 + out 默认产物
 ```
 
 

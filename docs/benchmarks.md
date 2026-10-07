@@ -18,7 +18,7 @@
 
 ```bash
 # 模型在 var/models/onnx/ (gyr66 通用中文 NER + pii-engineer 中文 PII)
-docanon run ./samples -o out_onnx -c configs/onnx.yaml
+docanon run ./samples -o var/out -c configs/onnx.yaml
 ```
 
 | 后端 | 召回 | 均耗时 | 依赖 |
@@ -30,7 +30,8 @@ docanon run ./samples -o out_onnx -c configs/onnx.yaml
 - 金额由规则补（两个 NER 都无 AMOUNT 标签）
 - 代价：标签集固定，不如 LLM 灵活（不能听指令、不能生成自然假名）
 
-标签 → 本项目实体类型的映射表在 `src/docanon/config.py` 的 `DEFAULT_ONNX_ENTITY_MAP`（app 侧词汇表）。
+标签 → 本项目实体类型的映射表在 `packages/docanon-core/src/docanon_core/config.py` 的
+`DEFAULT_ONNX_ENTITY_MAP`（app 侧词汇表，引擎只收它当参数）。
 
 ## LLM 路线：模型对比
 

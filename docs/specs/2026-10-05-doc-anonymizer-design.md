@@ -156,7 +156,8 @@
 本节只记"设计定稿之后改掉/补上的东西"。**现状以 `README.md`、`AGENTS.md` 与
 [`docs/architecture.md`](../architecture.md) 为准**，本节只是索引。
 
-- **引擎可移植边界**：新增 `src/docanon/contract.py`（只依赖标准库）作为引擎与 app 之间唯一的共享层，
+- **引擎可移植边界**：新增 `contract.py`（只依赖标准库）作为引擎与 app 之间唯一的共享层——现为
+  `packages/docanon-contract`，见本节「分包」；
   由 `tests/test_architecture.py` 用 AST 锁死；实体词表留在 app 侧（`config.py` 的 `DEFAULT_ONNX_ENTITY_MAP`）
   当引擎的必填构造参数；引擎按配置指纹在进程内缓存；`docanon engines` 与跑前 `prepare_detectors`
   保证"少一层检测必须报错，不许静默"。
@@ -171,7 +172,7 @@
   Electron 因体积被弃。壳侧三条实测约束（项目根按标记文件找、壳被强杀时 sidecar 自己了断、
   只认自己拉起的后端）见 `apps/desktop/README.md`。
 - **还原（`restore`）**：只支持文本产物；`remove` 策略的原文不可还原（替换值为空串，不是锚点）。
-- **目录细化**：引擎收进 `src/docanon/engines/`（目录即边界，并有"拷到别处导入一遍"的可搬运验证）；
+- **目录细化**（后被「分包」取代）：引擎曾收进 `src/docanon/engines/`（目录即边界），可搬运性由"拷到别处导入一遍"验证；
   `server.py` 拆成 `server/{__init__,routes,lifecycle}.py`；前端拆 `index.html + app.css + app.js`
   （仍零构建）；WebKit 兼容检查归位 `tests/e2e/webkit/`。
 - **PDF 产物**：只栅格化**命中**的页，未命中页原样保留矢量文字；命中页整页栅格化是安全保证
@@ -179,5 +180,9 @@
 - **布局**：下载/构建得到的资产统一收进 `var/`（`var/models`、`var/vendor`），产物目录仍由 `-o` 决定；
   壳的 `apps/desktop/build/` 是唯一例外（Hutch 的 `buildFolder` 只接受项目相对路径）。
   所有布局路径集中在 `resources.LAYOUT` 一张表里，`tests/test_layout.py` 锁住。
-- **测试**：从设计期的 7 项长到 76 项；`samples/` 由 `scripts/make_samples.py` 生成（PDF 必须内嵌中文 TTF 子集）。
+- **分包**：代码拆成五个包（`packages/`）：`docanon-contract`（引擎契约）、三个引擎包
+  （`docanon-engine-ocr` / `-ner-onnx` / `-ner-llm`）与 `docanon-core`（app + CLI/Web）。
+  依赖方向由包与 pyproject 锁死，引擎可整块搬走（`tests/test_engine_portability.py` 真跑验证）；
+  安装改成 `pip install -r requirements-dev.txt`；默认产物落 `var/out`。
+- **测试**：从设计期的 7 项长到 96 项；`samples/` 由 `scripts/make_samples.py` 生成（PDF 必须内嵌中文 TTF 子集）。
 

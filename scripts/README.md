@@ -1,6 +1,7 @@
 # scripts/ 一览
 
-一律在**仓库根**执行。脚本里的相对路径按资源根解析（`src/docanon/resources.py` 的 `LAYOUT`），
+一律在**仓库根**执行。脚本里的相对路径按资源根解析
+（`packages/docanon-core/src/docanon_core/resources.py` 的 `LAYOUT`），
 所以从别的目录调用会指错地方。
 
 | 脚本 | 干什么 | 依赖 | 用法 |
