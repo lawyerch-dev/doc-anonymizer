@@ -51,8 +51,9 @@ hutch electrobun dev        # 或 npm start / npm run build
 docanon web -p 8803 -c configs/onnx.yaml
 # 再跑检测
 cd tests/e2e/webkit && npm install && npx playwright install webkit
-DOCANON_URL=http://127.0.0.1:8803 node webkit-check.mjs   # 功能
-DOCANON_URL=http://127.0.0.1:8803 PRESET=sample_text.pdf node jitter-check.mjs  # 抖动
+DOCANON_URL=http://127.0.0.1:8803 node webkit-check.mjs                      # 功能(默认走 sample.docx)
+DOCANON_URL=http://127.0.0.1:8803 PRESET=sample_text.pdf node webkit-check.mjs # 换格式(如 PDF)
+DOCANON_URL=http://127.0.0.1:8803 PRESET=sample_text.pdf node jitter-check.mjs # 抖动
 ```
 
 **结果（Safari/26.6, AppleWebKit 605.1.15）**：file-viewer 预览渲染正常、脱敏前后对比正常、浅色、**零控制台错误**。

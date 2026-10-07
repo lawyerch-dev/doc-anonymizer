@@ -2,11 +2,12 @@
  * 在 WebKit 引擎(macOS 上即 Safari / WKWebView 的内核)里跑一遍 Web UI，
  * 验证 file-viewer 的预览、脱敏、前后对比是否正常，并收集控制台错误。
  *
- * 用法: DOCANON_URL=http://127.0.0.1:8803 node webkit-check.mjs
+ * 用法: DOCANON_URL=http://127.0.0.1:8803 [PRESET=sample_text.pdf] node webkit-check.mjs
  */
 import { webkit } from 'playwright';
 
 const URL = process.env.DOCANON_URL || 'http://127.0.0.1:8803';
+const PRESET = process.env.PRESET || 'sample.docx';
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const browser = await webkit.launch();
@@ -17,7 +18,7 @@ page.on('pageerror', (e) => errors.push('PAGEERROR ' + e.message));
 
 await page.goto(URL, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('.preset', { timeout: 15000 });
-await page.locator('.preset', { hasText: 'sample.docx' }).click();
+await page.locator('.preset', { hasText: PRESET }).click();
 await wait(7000);
 
 const shadowProbe = () => {
@@ -57,5 +58,5 @@ const after = await page.evaluate(() => {
   };
 });
 
-console.log(JSON.stringify({ render: before, after, errors: errors.slice(0, 20) }, null, 1));
+console.log(JSON.stringify({ preset: PRESET, render: before, after, errors: errors.slice(0, 20) }, null, 1));
 await browser.close();
