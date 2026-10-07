@@ -50,7 +50,8 @@ doc-anonymizer/
 ├── packages/            五个包(见上); 每个包自带 tests/
 ├── apps/
 │   ├── web/             产品前端(零构建): index.html + app.css + app.js, docanon web 直接发
-│   ├── docs/            文档站: Next.js 16 + Tailwind 4 + velora 组件, 静态导出到 out/
+│   ├── ui/              共享组件包 @doc-anonymizer/ui: velora 组件 + 设计 token(产品前端与网站共用)
+│   ├── website/         官网 + 文档站: Next.js 16 + Tailwind 4, 静态导出到 out/
 │   └── desktop/         Electrobun 壳(系统 WebView) + hutch.lock
 ├── configs/             运行期配置(default / onnx / llm) —— 随资源根走, 不进包
 ├── samples/             内置样例: Web 预设 + 测试数据(scripts/make_samples.py 生成)
@@ -105,7 +106,7 @@ doc-anonymizer/
 | **不做 wheel 自包含** | 前端 vendor 232MB、模型 GB 级，不该进包 | `pip install .` 到别处不可用（明确报错 + `DOCANON_ROOT`） |
 | 前端零构建、三个静态件 | 无 node 构建链；预览包是预构建产物；`app.js` 用 `@ts-check` + JSDoc 换编辑器提示 | 没有打包/压缩，也没有真类型检查 |
 | PDF 命中页整页栅格化 | 盖黑块不改变内容流，原文仍可复制/搜索 | 命中页不可再编辑（已收窄到"只有命中的页"） |
-| 文档站与前端组件用 Next.js + velora | velora 是 MIT 的 shadcn 组件库(React + Tailwind 4 + Motion), 与"以后优化产品界面、再做文档站"共用一套组件; 静态导出后**运行期仍不需要 node** | 仓库里多了一条 node 构建链(仅构建期): `node_modules` 610MB、要 `npm install` |
+| 前端组件抽成共享包 `apps/ui` + Next.js 网站 | velora(MIT shadcn 组件)是 React/Tailwind 4 的; 组件与 token 只放一份, `apps/website` 与将来重写的产品前端引同一个包 —— **复用靠包, 不靠复制** | 前端多了 npm workspaces 与构建链(仅构建期); `node_modules` 数百 MB、要 `npm install` |
 | 桌面壳用 Electrobun | 系统 WebView，体积小一个数量级 | WKWebView 的坑自己趟（Tauri 就死在 PDF 抖动上） |
 
 ## 六、搬迁历史

@@ -7,8 +7,10 @@
 
 ### Added
 
-- **文档站**：`apps/docs/`（Next.js 16 + Tailwind CSS 4 + [velora-ui](https://github.com/ColorlibHQ/velora-ui)
-  组件，MIT），内容直接来自仓库里的 markdown，静态导出后交给任意静态服务器；`./scripts/dev.sh docs` 起开发服务器。
+- **官网与文档站**：`apps/website/`（Next.js 16 + Tailwind CSS 4），内容直接来自仓库里的 markdown，
+  静态导出后交给任意静态服务器；`./scripts/dev.sh website` 起开发服务器。
+- **共享组件包**：`apps/ui/`（`@doc-anonymizer/ui`，npm workspaces）—— velora 组件与设计 token
+  只放一份，网站与将来的产品前端共用（[velora-ui](https://github.com/ColorlibHQ/velora-ui)，MIT）。
 
 
 ## [0.1.0] — 2026-10-07

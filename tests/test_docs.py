@@ -180,11 +180,11 @@ def test_each_topic_has_one_owner():
 
 
 def test_docs_site_is_wired_correctly():
-    """文档站(apps/docs)接得对不对, 不用跑 npm 也能查一半 —— 另一半靠构建命令。"""
+    """官网(apps/website)接得对不对, 不用跑 npm 也能查一半 —— 另一半靠构建命令。"""
     import re
 
-    site = REPO / "apps" / "docs"
-    assert (site / "package.json").is_file(), "apps/docs 不见了"
+    site = REPO / "apps" / "website"
+    assert (site / "package.json").is_file(), "apps/website 不见了"
     pkg = json.loads((site / "package.json").read_text(encoding="utf-8"))
     assert "build" in pkg.get("scripts", {}), "apps/docs 少了 build 脚本"
 
@@ -200,6 +200,33 @@ def test_docs_site_is_wired_correctly():
     assert len(files) >= 5, f"文档站清单只解析出 {len(files)} 条, 是不是格式变了?"
     missing = [f for f in files if not (REPO / f).is_file()]
     assert not missing, f"文档站清单指向了不存在的文件: {missing}"
+
+
+def test_ui_components_live_only_in_the_shared_package():
+    """复用靠共享包: velora 组件只许在 apps/ui, 任何 app 里再放一份就红了。
+
+    这是踩过的坑 —— 第一次集成时把组件拷进了站点 app, 结果产品前端将来根本复用不到。
+    """
+    kit = REPO / "apps" / "ui"
+    assert (kit / "src" / "marquee.tsx").is_file(), "共享组件包 apps/ui 不见了"
+    pkg = json.loads((kit / "package.json").read_text(encoding="utf-8"))
+    assert pkg["name"] == "@doc-anonymizer/ui"
+    assert "./theme.css" in pkg.get("exports", {}), "设计 token 必须由共享包提供"
+
+    # 站点要通过包引用, 而不是自己持有一份组件源码
+    site_pkg = json.loads((REPO / "apps" / "website" / "package.json").read_text(encoding="utf-8"))
+    assert "@doc-anonymizer/ui" in site_pkg.get("dependencies", {}), "网站没引共享组件包"
+
+    strays = [
+        str(p.relative_to(REPO))
+        for app in ("website", "web")
+        for p in (REPO / "apps" / app / "src").rglob("*.tsx")
+        if "velora" in p.parts or p.name in {"marquee.tsx", "number-ticker.tsx", "blur-fade.tsx", "globe.tsx"}
+    ]
+    assert not strays, f"这些组件不该出现在 app 里(应只放 apps/ui): {strays}"
+
+    root_pkg = json.loads((REPO / "package.json").read_text(encoding="utf-8"))
+    assert set(root_pkg.get("workspaces", [])) >= {"apps/ui", "apps/website"}, "根 package.json 的 workspaces 不全"
 
 
 def test_markdown_links_resolve():

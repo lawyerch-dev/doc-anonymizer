@@ -6,6 +6,8 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 const nextConfig: NextConfig = {
   // 静态导出: 构建出 out/, 交给任意静态服务器(或 Pages)直接发 —— 运行期不需要 node
   output: "export",
+  // 工作区里的 @doc-anonymizer/ui 直接发 TS 源码, 需要 Next 帮忙转译
+  transpilePackages: ["@doc-anonymizer/ui"],
   basePath,
   images: { unoptimized: true },
   // 目录式输出(docs/quickstart/index.html): 任何静态服务器(含 python -m http.server)都能直接访问,

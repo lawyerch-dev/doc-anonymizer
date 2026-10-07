@@ -38,7 +38,7 @@ git clone https://github.com/lawyerch/doc-anonymizer && cd doc-anonymizer
 ./scripts/dev.sh desktop    # 桌面壳(需 Hutch)
 ```
 
-`dev.sh` 是开发入口：`setup` `web` `desktop` `test` `cli` `engines` `models` `docs` `doctor`（`./scripts/dev.sh help` 看全部）。
+`dev.sh` 是开发入口：`setup` `web` `desktop` `test` `cli` `engines` `models` `website` `doctor`（`./scripts/dev.sh help` 看全部）。
 缺 ONNX 模型（`configs/onnx.yaml` 的中文 NER）时取一次：`./scripts/dev.sh models` —— 约 830MB，
 默认走 `hf-mirror.com`（官方 huggingface.co 在部分网络不可达），`HF_ENDPOINT` 可换端点。
 它只是包装，底层就是 `docanon` / `pytest` / `hutch` —— 下文用的是原始命令，出问题可直接排查。
@@ -71,16 +71,17 @@ git clone https://github.com/lawyerch/doc-anonymizer && cd doc-anonymizer
 接口：`/` `/app.css` `/app.js` `/health` `/api/presets` `/api/upload` `/api/anonymize`
 （后两个入参 `{filename, content_b64}` / `{preset|token}`，出参含 `counts` 与 `trace`；上传上限 50MB）。
 
-### 文档站（可选）
+### 官网与文档站（可选）
 
 ```bash
-./scripts/dev.sh docs                 # → http://127.0.0.1:3000（首次自动 npm install）
-cd apps/docs && npm run build         # 静态导出到 apps/docs/out/，任意静态服务器都能发
+./scripts/dev.sh website                      # → http://127.0.0.1:3000（首次自动 npm install）
+npm run build -w @doc-anonymizer/website      # 静态导出到 apps/website/out/，任意静态服务器都能发
 ```
 
-内容直接来自本仓库的 markdown（清单在 `apps/docs/src/lib/docs.ts`），组件用
-[velora-ui](https://github.com/ColorlibHQ/velora-ui)（MIT）。细节与三个实测坑见
-[apps/docs/README.md](apps/docs/README.md)。
+内容直接来自本仓库的 markdown（清单在 `apps/website/src/lib/docs.ts`）；组件在共享包
+[`apps/ui`](apps/ui/README.md)（`@doc-anonymizer/ui`，来自 [velora-ui](https://github.com/ColorlibHQ/velora-ui)，MIT），
+**产品前端以后换栈时引同一个包**，外观与组件不会分叉。细节与三个实测坑见
+[apps/website/README.md](apps/website/README.md)。
 
 ### 桌面壳（可选）
 

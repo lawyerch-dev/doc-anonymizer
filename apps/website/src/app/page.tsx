@@ -9,10 +9,10 @@ import {
   ShieldCheckIcon,
   WifiOffIcon,
 } from "lucide-react";
-import { BlurFade } from "@/components/velora/blur-fade";
-import { Marquee } from "@/components/velora/marquee";
-import { NumberTicker } from "@/components/velora/number-ticker";
-import { buttonVariants } from "@/components/ui/button";
+import { BlurFade } from "@doc-anonymizer/ui/blur-fade";
+import { Marquee } from "@doc-anonymizer/ui/marquee";
+import { NumberTicker } from "@doc-anonymizer/ui/number-ticker";
+import { buttonVariants } from "@doc-anonymizer/ui/button";
 import { groupedDocs } from "@/lib/docs";
 
 const ENTITY_TYPES = [

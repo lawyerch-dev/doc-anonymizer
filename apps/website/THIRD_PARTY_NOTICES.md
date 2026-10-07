@@ -1,6 +1,6 @@
 # 第三方组件许可
 
-`src/components/velora/**`、`src/components/ui/**` 与 `src/components/blocks/hero-globe.tsx`
+`apps/ui/src/*.tsx`
 来自 [velora-ui](https://github.com/ColorlibHQ/velora-ui)（shadcn registry 安装，源码随仓库提交）。
 上游为 **MIT** 许可，原文如下（保留以符合 MIT 的署名要求）：
 

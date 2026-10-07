@@ -26,7 +26,7 @@ usage() {
   cli  <docanon 参数>  直接调 docanon, 例: ./scripts/dev.sh cli run ./samples -o var/out
   engines [配置文件]   看这份配置实际加载了哪些引擎(默认 configs/onnx.yaml)
   models [额外参数]    取 ONNX NER 模型到 var/models/onnx(约 830MB; 默认走 hf-mirror 镜像)
-  docs                 起文档站(apps/docs: Next.js + velora 组件, 首次自动 npm install)
+  website              起官网+文档站(apps/website: Next.js + @doc-anonymizer/ui, 首次自动 npm install)
   doctor               环境自检: 缺什么、为什么起不来
 
 例:
@@ -135,12 +135,11 @@ cmd_models() {
   exec ./scripts/download_onnx_models.sh "$@"
 }
 
-cmd_docs() {
-  has npm || die "文档站要 node/npm: 装 node 后重试(或只用 .venv/bin/docanon web 那个产品界面)"
-  cd apps/docs
-  [ -d node_modules ] || { say "首次: npm install(约 1 分钟)…"; npm install --no-audit --no-fund; }
-  say "→ http://127.0.0.1:3000    (Ctrl+C 停止; 构建静态站: npm run build → apps/docs/out)"
-  exec npm run dev
+cmd_website() {
+  has npm || die "官网/文档站要 node/npm: 装 node 后重试(或只用 .venv/bin/docanon web 那个产品界面)"
+  [ -d node_modules ] || { say "首次: 根目录 npm install(npm workspaces: ui + website)…"; npm install --no-audit --no-fund; }
+  say "→ http://127.0.0.1:3000    (Ctrl+C 停止; 静态站: npm run build -w @doc-anonymizer/website → apps/website/out)"
+  exec npm run dev -w @doc-anonymizer/website
 }
 
 cmd_engines() {
@@ -212,7 +211,7 @@ case "$cmd" in
   cli) cmd_cli "$@" ;;
   engines) cmd_engines "$@" ;;
   models) cmd_models "$@" ;;
-  docs) cmd_docs ;;
+  website) cmd_website ;;
   doctor) cmd_doctor ;;
   help | -h | --help) usage ;;
   *) usage; exit 1 ;;

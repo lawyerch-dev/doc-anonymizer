@@ -1,15 +1,15 @@
-# apps/docs — 文档站
+# apps/website — 官网与文档站
 
-把仓库里的 markdown 变成网站，并作为 [velora-ui](https://github.com/ColorlibHQ/velora-ui)（MIT）
-组件的第一个落地处：以后产品界面优化与文档站共用同一套组件与设计 token。
+把仓库里的 markdown 变成网站。**组件不在这里** —— 它们在共享包 [`apps/ui`](../ui/README.md)
+（`@doc-anonymizer/ui`），以后产品前端（`apps/web`）换栈时引同一个包、同一份 token，外观与组件才不会分叉。
 
 **Next.js 16 + Tailwind CSS 4 + Motion + shadcn/velora 组件。静态导出，运行期不需要 node。**
 
 ## 跑起来
 
 ```bash
-./scripts/dev.sh docs          # = cd apps/docs && npm install(首次) && npm run dev  → :3000
-cd apps/docs && npm run build  # 静态导出到 apps/docs/out/
+./scripts/dev.sh website       # = cd apps/website && npm install(首次) && npm run dev  → :3000
+npm run build -w @doc-anonymizer/website   # 或 cd apps/website && npm run build → out/
 npm run preview                # 用 python -m http.server 起 out/(零依赖)
 ```
 
@@ -21,13 +21,13 @@ npm run preview                # 用 python -m http.server 起 out/(零依赖)
 
 加一页 = 在 `DOCS` 里加一行，指向仓库里已有的 `.md`。测试会检查清单里的文件真的存在。
 
-## 加 velora 组件
+## 加 velora 组件（写在 `apps/ui` 里）
 
 registry 已在 [`components.json`](components.json) 里注册，直接按名字装（组件源码会落到
 `src/components/velora/`，随仓库提交 —— 这是 shadcn 的模式，便于按需改）：
 
 ```bash
-cd apps/docs
+cd apps/ui
 npx shadcn@latest add @velora/marquee       # 100 个组件任选, 名字见 velora.colorlib.com/components
 npx shadcn@latest add https://velora.colorlib.com/r/hero-globe.json   # blocks 用完整 URL
 ```
@@ -47,5 +47,4 @@ npx shadcn@latest add https://velora.colorlib.com/r/hero-globe.json   # blocks �
 
 ## 许可
 
-组件来自 velora-ui（**MIT**，© Colorlib），本仓库同样 MIT；`src/components/velora/**` 与
-`src/components/blocks/hero-globe.tsx` 保留其原始内容与注释，改动它们时注意别丢版权头。
+组件来自 velora-ui（**MIT**，© Colorlib），本仓库同样 MIT；`apps/ui/src/*.tsx` 保留其原始内容与注释，改动它们时注意别丢版权头。

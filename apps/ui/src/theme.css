@@ -1,5 +1,4 @@
-@import "tailwindcss";
-@plugin "@tailwindcss/typography";
+/* 设计 token(shadcn base-nova 变量) —— 由 @doc-anonymizer/ui 提供, 消费方 @import 即可 */
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 

@@ -2,7 +2,7 @@
 
 **日常只用一个**：`./scripts/dev.sh <命令>`（`setup` `web` `desktop` `test` `cli` `engines` `doctor`；
 `help` 看全部）。它包装下面这些脚本与命令，`setup` 会调用 `setup_dev.sh` 与（缺预览资源时）
-`fetch_file_viewer.sh`；`web`/`desktop`/`docs` 分别起 `docanon web`、壳里的 `npm start`、`apps/docs` 的 `npm run dev`。
+`fetch_file_viewer.sh`；`web`/`desktop`/`website` 分别起 `docanon web`、壳里的 `npm start`、`apps/website` 的 `npm run dev`。
 
 | 脚本 | 干什么 | 依赖 | 用法 |
 |---|---|---|---|

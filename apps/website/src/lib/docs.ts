@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-/** 仓库根 = apps/docs/../..  */
+/** 仓库根 = apps/website/../..  */
 export const REPO_ROOT = path.resolve(process.cwd(), "..", "..");
 
 export type DocEntry = {
