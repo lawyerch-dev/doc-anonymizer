@@ -9,7 +9,7 @@
 |---|---|
 | `tests/test_architecture.py` | 包边界、pyproject 依赖声明、引擎包清单 |
 | `tests/test_engine_portability.py` | 引擎能被拷走独立 import（带陷阱文件反证） |
-| `tests/test_docs.py` | 文档路径/链接/测试数量/一个主题一个出处/组件复用/文档站接线/`.agent` 索引 |
+| `tests/test_docs.py` | 文档路径/链接/测试数量/一个主题一个出处/组件复用/文档站接线/`.agent` 索引/`npm scripts` 都被 README 写到/组件库完整性/Tailwind `@source` 有效 |
 | `tests/test_dev_env.py` | 源码树不许有 `__pycache__`、`scripts/*.sh` 可执行、缓存重定向钩子 |
 | `packages/docanon-core/tests/` | 布局、资源根、产物命名、账本、PDF、还原、服务生命周期 |
 | `packages/docanon-*/tests/` | 各引擎自己的语义（词表必填、缺模型要报错、真模型上跑一遍） |

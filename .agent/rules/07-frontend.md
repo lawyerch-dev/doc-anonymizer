@@ -24,4 +24,4 @@
   加一页 = 清单加一行，别改生成目录，也别在 `astro.config.mjs` 里手写侧栏。
 - Tailwind 4 要显式 `@source` 共享包源码（`website/src/styles/global.css`），否则 kit 的类名被摇掉。
 - React 组件在 Astro 里是 island：`<Landing client:load />`。
-- 部署：`SITE_BASE=/doc-anonymizer SITE_URL=https://… npm run build -w @doc-anonymizer/website`。
+- 部署：`SITE_BASE=/doc-anonymizer SITE_URL=https://… npm run build`。

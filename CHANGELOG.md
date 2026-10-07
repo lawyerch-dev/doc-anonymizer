@@ -7,6 +7,8 @@
 
 ### Changed
 
+- **文档审计**：修掉搬家后遗留的旧路径（`website/README.md` 还写着自己叫 `apps/website`、还在用
+  `./scripts/dev.sh website`；架构决策记录指向旧文件），文档站补两页开发文档（组件库、官网/文档站）。
 - **命令入口统一成 npm scripts**（仓库根 `package.json`）：`npm run setup` / `dev` / `dev:website` /
   `dev:desktop` / `test` / `build` / `cli` / `engines` / `models` / `doctor`。
   `scripts/dev.sh` 退居**实现层**（被 npm scripts 调用，仍可直接用）。

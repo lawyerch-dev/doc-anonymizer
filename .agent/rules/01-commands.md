@@ -22,7 +22,7 @@
 .venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml   # 脱敏
 .venv/bin/docanon engines -c configs/onnx.yaml                    # 引擎自检
 .venv/bin/docanon restore var/out/x.md.redacted.md --mapping var/out/mapping.json
-npm run build -w @doc-anonymizer/website                          # 官网静态站 → website/dist/
+npm run build                                                     # 官网静态站 → website/dist/
 ```
 
 - 仓库**没有** lint / typecheck / CI / pre-commit，别顺手加（`apps/ui` 与 `website` 也刻意没装 eslint）。

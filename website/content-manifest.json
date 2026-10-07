@@ -141,6 +141,20 @@
       "description": "apps/ui 里的 velora 组件与区块（131 项，可直接 import）",
       "file": "apps/ui/src/manifest.json",
       "render": "velora-index"
+    },
+    {
+      "group": "dev",
+      "slug": "ui",
+      "title": "组件库（apps/ui）",
+      "description": "131 项 velora 组件/区块怎么引、怎么加",
+      "file": "apps/ui/README.md"
+    },
+    {
+      "group": "dev",
+      "slug": "website-doc",
+      "title": "官网/文档站（website）",
+      "description": "内容怎么从仓库 markdown 同步、部署参数",
+      "file": "website/README.md"
     }
   ]
 }

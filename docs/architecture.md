@@ -109,7 +109,9 @@ doc-anonymizer/
 | **不做 wheel 自包含** | 前端 vendor 232MB、模型 GB 级，不该进包 | `pip install .` 到别处不可用（明确报错 + `DOCANON_ROOT`） |
 | 前端零构建、三个静态件 | 无 node 构建链；预览包是预构建产物；`app.js` 用 `@ts-check` + JSDoc 换编辑器提示 | 没有打包/压缩，也没有真类型检查 |
 | PDF 命中页整页栅格化 | 盖黑块不改变内容流，原文仍可复制/搜索 | 命中页不可再编辑（已收窄到"只有命中的页"） |
-| 前端组件抽成共享包 `apps/ui`, 网站用 Astro + Starlight | velora(MIT shadcn 组件)是 React/Tailwind 4 的; 组件与 token 只放一份, `website/` 与将来重写的产品前端引同一个包 —— **复用靠包, 不靠复制**。网站选 Starlight 是因为 搜索/TOC/上下页/多语言内置、依赖 241MB 与构建 0.7s 都比 Next 方案小一个量级(实测对比见 apps/website/README) | 前端多了 npm workspaces 与构建链(仅构建期); 网站与将来的产品 app 可能是两个框架(组件仍共享) |
+| 命令入口 = 仓库根的 npm scripts（`scripts/dev.sh` 退居实现层） | 前端本来就要 node：一键 `npm run dev` / `npm test` 比让人记 `./scripts/dev.sh <子命令>` 更好记；shell 逻辑留在 dev.sh，不塞进 package.json | 多一层包装（排查时仍可直接用 dev.sh 与底层命令） |
+| 开发文档：`AGENTS.md` 只做索引，细则拆到 `.agent/rules/` | 160 行的「什么都塞」没人读完再动手；按主题拆开后改前端只读前端那篇 | 文档多一层跳转；靠守卫（AGENTS ≤80 行、每篇 ≤60 行、每篇都被索引）防膨胀 |
+| 前端组件抽成共享包 `apps/ui`, 网站用 Astro + Starlight | velora(MIT shadcn 组件)是 React/Tailwind 4 的; 组件与 token 只放一份, `website/` 与将来重写的产品前端引同一个包 —— **复用靠包, 不靠复制**。网站选 Starlight 是因为 搜索/TOC/上下页/多语言内置、依赖 241MB 与构建 0.7s 都比 Next 方案小一个量级(实测对比见 website/README.md) | 前端多了 npm workspaces 与构建链(仅构建期); 网站与将来的产品 app 可能是两个框架(组件仍共享) |
 | 桌面壳用 Electrobun | 系统 WebView，体积小一个数量级 | WKWebView 的坑自己趟（Tauri 就死在 PDF 抖动上） |
 
 ## 六、搬迁历史

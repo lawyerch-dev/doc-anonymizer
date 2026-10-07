@@ -1,4 +1,4 @@
-# apps/website — 官网与文档站
+# website/ — 官网与文档站
 
 **Astro 5 + Starlight + Tailwind 4**，组件来自共享包 [`apps/ui`](../apps/ui/README.md)（`@doc-anonymizer/ui`，velora）。
 静态输出到 `dist/`，交给任意静态服务器；**运行期不需要 node**。
@@ -8,12 +8,12 @@
 ## 跑起来
 
 ```bash
-./scripts/dev.sh website                      # = npm run dev -w @doc-anonymizer/website → :4321
-npm run build -w @doc-anonymizer/website      # 静态输出 dist/
+npm run dev:website        # → :4321（= npm run dev -w @doc-anonymizer/website）
+npm run build              # 静态输出 website/dist/
 npm run preview -w @doc-anonymizer/website    # 用 python -m http.server 起 dist/
 ```
 
-装依赖在**仓库根**跑一次 `npm install`（npm workspaces：`apps/ui` + `apps/website`）。
+装依赖：仓库根 `npm run setup`（含 `npm install`；npm workspaces = `apps/ui` + `website`）。
 
 ## 内容从哪来（单一真相）
 
@@ -66,7 +66,7 @@ React 组件在 Astro 里是 island，记得带指令：`<Landing client:load />
 ## 部署
 
 ```bash
-SITE_BASE=/doc-anonymizer SITE_URL=https://lawyerch.github.io npm run build -w @doc-anonymizer/website
+SITE_BASE=/doc-anonymizer SITE_URL=https://lawyerch.github.io npm run build
 ```
 
 `SITE_BASE` 用于 GitHub Pages 项目页这类子路径；`SITE_URL` 供 sitemap 用（不设则跳过 sitemap 并给提示）。

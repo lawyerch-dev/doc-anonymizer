@@ -159,6 +159,7 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 | 五包结构、硬边界、决策记录、搬迁历史 | [docs/architecture.md](docs/architecture.md) |
 | 模型选型与基准数字 | [docs/benchmarks.md](docs/benchmarks.md) |
 | 脚本清单 | [scripts/README.md](scripts/README.md) |
+| 官网/文档站、组件库怎么改 | [website/README.md](website/README.md) · [apps/ui/README.md](apps/ui/README.md) |
 | 版本变更 | [CHANGELOG.md](CHANGELOG.md) |
 | 漏脱敏等安全问题怎么报 | [SECURITY.md](.github/SECURITY.md) |
 | 最初的设计方案（历史） | [docs/specs/2026-10-05-doc-anonymizer-design.md](docs/specs/2026-10-05-doc-anonymizer-design.md) |
