@@ -26,7 +26,7 @@ usage() {
   cli  <docanon 参数>  直接调 docanon, 例: ./scripts/dev.sh cli run ./samples -o var/out
   engines [配置文件]   看这份配置实际加载了哪些引擎(默认 configs/onnx.yaml)
   models [额外参数]    取 ONNX NER 模型到 var/models/onnx(约 830MB; 默认走 hf-mirror 镜像)
-  website              起官网+文档站(apps/website: Next.js + @doc-anonymizer/ui, 首次自动 npm install)
+  website              起官网+文档站(website/: Astro + Starlight + @doc-anonymizer/ui, 首次自动 npm install)
   doctor               环境自检: 缺什么、为什么起不来
 
 例:

@@ -34,7 +34,7 @@ npm run build -w @doc-anonymizer/website                             # 官网/�
 **core → 引擎 → contract**，引擎各自可整块搬走。跨包测试在 `tests/`。
 
 前端有两条路径：**产品运行期零 node**（`apps/web/` 零构建，`docanon web` 直接发静态文件）；
-**构建期可以用 node**（npm workspaces：`apps/ui` 共享组件 + `apps/website` 官网/文档站，
+**构建期可以用 node**（npm workspaces：`apps/ui` 共享组件 + `website/` 官网/文档站，
 Astro + Starlight，静态输出到 `dist/`）。
 
 **组件只放 `apps/ui`**（`@doc-anonymizer/ui`）：网站与将来的产品前端都引它 —— 往 app 里再拷一份
@@ -42,8 +42,8 @@ velora 组件就等于复用失效（`tests/test_docs.py` 会拦）。根目录�
 
 ## 改代码前必读
 
-[AGENTS.md](AGENTS.md) 是不可违反的操作契约：引擎起不来必须报错（不许静默返回空）、契约只准标准库、
-布局只改 `resources.LAYOUT`、产物命名与账本写入纪律、PDF 命中页栅格化…… 每条都有测试锁着。
+[AGENTS.md](AGENTS.md) 是入口：六条不可违反的边界 + 按主题指向 [.agent/rules/](.agent/rules/)。
+引擎起不来必须报错、契约只准标准库、布局只改 `resources.LAYOUT`、产物命名与账本纪律、PDF 命中页栅格化……每条都有测试锁着。要改哪块就读那一篇 rule，别读完整本。
 
 改完记得同步文档：`tests/test_docs.py` 会检查文档里的路径/链接/测试文件名，
 **以及 `AGENTS.md` 里那句测试数量**（加删测试后要一起改，否则测试红）。
@@ -55,10 +55,10 @@ velora 组件就等于复用失效（`tests/test_docs.py` 会拦）。根目录�
 npm run build -w @doc-anonymizer/website          # 必须能过: 静态输出到 dist/
 ```
 
-内容来自仓库里的 markdown：加页面 = 在 `apps/website/content-manifest.json` 加一行
-（构建时 `apps/website/scripts/sync-content.py` 生成 Starlight 要的 frontmatter，测试会检查文件存在）。
+内容来自仓库里的 markdown：加页面 = 在 `website/content-manifest.json` 加一行
+（构建时 `website/scripts/sync-content.py` 生成 Starlight 要的 frontmatter，测试会检查文件存在）。
 装新组件：`cd apps/ui && npx shadcn@latest add @velora/<名字>`（组件进共享包，不进城建 app）。
-机制与实测坑写在 [apps/website/README.md](apps/website/README.md)。
+机制与实测坑写在 [website/README.md](website/README.md)。
 
 ## 浏览器端检查（改了预览/界面才需要）
 

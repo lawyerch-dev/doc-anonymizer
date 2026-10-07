@@ -1,8 +1,11 @@
 {
   "name": "doc-anonymizer-web",
   "private": true,
-  "description": "前端工作区(Python 侧在 packages/, 用 requirements-dev.txt 装): apps/ui 共享组件, apps/website 官网与文档站",
-  "workspaces": ["apps/ui", "apps/website"],
+  "description": "前端工作区(Python 侧在 packages/, 用 requirements-dev.txt 装): apps/ui 共享组件, website 官网与文档站",
+  "workspaces": [
+    "apps/ui",
+    "website"
+  ],
   "scripts": {
     "build": "npm run build --workspace @doc-anonymizer/website",
     "dev": "npm run dev --workspace @doc-anonymizer/website"

@@ -51,12 +51,13 @@ doc-anonymizer/
 ├── apps/
 │   ├── web/             产品前端(零构建): index.html + app.css + app.js, docanon web 直接发
 │   ├── ui/              共享组件包 @doc-anonymizer/ui: velora 组件 + 设计 token(产品前端与网站共用)
-│   ├── website/         官网 + 文档站: Next.js 16 + Tailwind 4, 静态导出到 out/
 │   └── desktop/         Electrobun 壳(系统 WebView) + hutch.lock
 ├── configs/             运行期配置(default / onnx / llm) —— 随资源根走, 不进包
 ├── samples/             内置样例: Web 预设 + 测试数据(scripts/make_samples.py 生成)
 ├── scripts/             开发者脚本(见 scripts/README.md)
 ├── tests/               跨包测试: 包边界 + 可搬运性 + e2e/webkit
+├── website/             官网 + 文档站: Astro 5 + Starlight, 静态输出 dist/
+├── .agent/              给 agent 看的分类规范: AGENTS.md 是索引, rules/ 是细则
 ├── docs/                本文件 / benchmarks.md / specs/(设计历史)
 ├── var/                 本地可再生状态(gitignore): models 权重 / vendor 预览包 / out 默认产物 / pycache 字节码
 ├── pyproject.toml       工作区根: 只有 pytest 配置(这里没有包, 也没有代码)
@@ -106,7 +107,7 @@ doc-anonymizer/
 | **不做 wheel 自包含** | 前端 vendor 232MB、模型 GB 级，不该进包 | `pip install .` 到别处不可用（明确报错 + `DOCANON_ROOT`） |
 | 前端零构建、三个静态件 | 无 node 构建链；预览包是预构建产物；`app.js` 用 `@ts-check` + JSDoc 换编辑器提示 | 没有打包/压缩，也没有真类型检查 |
 | PDF 命中页整页栅格化 | 盖黑块不改变内容流，原文仍可复制/搜索 | 命中页不可再编辑（已收窄到"只有命中的页"） |
-| 前端组件抽成共享包 `apps/ui`, 网站用 Astro + Starlight | velora(MIT shadcn 组件)是 React/Tailwind 4 的; 组件与 token 只放一份, `apps/website` 与将来重写的产品前端引同一个包 —— **复用靠包, 不靠复制**。网站选 Starlight 是因为 搜索/TOC/上下页/多语言内置、依赖 241MB 与构建 0.7s 都比 Next 方案小一个量级(实测对比见 apps/website/README) | 前端多了 npm workspaces 与构建链(仅构建期); 网站与将来的产品 app 可能是两个框架(组件仍共享) |
+| 前端组件抽成共享包 `apps/ui`, 网站用 Astro + Starlight | velora(MIT shadcn 组件)是 React/Tailwind 4 的; 组件与 token 只放一份, `website/` 与将来重写的产品前端引同一个包 —— **复用靠包, 不靠复制**。网站选 Starlight 是因为 搜索/TOC/上下页/多语言内置、依赖 241MB 与构建 0.7s 都比 Next 方案小一个量级(实测对比见 apps/website/README) | 前端多了 npm workspaces 与构建链(仅构建期); 网站与将来的产品 app 可能是两个框架(组件仍共享) |
 | 桌面壳用 Electrobun | 系统 WebView，体积小一个数量级 | WKWebView 的坑自己趟（Tauri 就死在 PDF 抖动上） |
 
 ## 六、搬迁历史

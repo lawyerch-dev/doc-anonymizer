@@ -2,5 +2,5 @@
 @import "@doc-anonymizer/ui/theme.css";
 
 /* Tailwind 4 要扫到共享组件包的源码, 否则 kit 里的类名会被摇掉 */
-@source "../../../ui/src";
+@source "../../apps/ui/src";
 @source "../components";

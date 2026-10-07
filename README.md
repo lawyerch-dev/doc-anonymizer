@@ -75,14 +75,14 @@ git clone https://github.com/lawyerch/doc-anonymizer && cd doc-anonymizer
 
 ```bash
 ./scripts/dev.sh website                      # → http://127.0.0.1:4321（首次自动 npm install）
-npm run build -w @doc-anonymizer/website      # 静态输出到 apps/website/dist/，任意静态服务器都能发
+npm run build -w @doc-anonymizer/website      # 静态输出到 website/dist/，任意静态服务器都能发
 ```
 
 Astro 5 + Starlight（搜索/TOC/上下页内置），内容直接来自本仓库的 markdown
-（清单 `apps/website/content-manifest.json`）；组件在共享包 [`apps/ui`](apps/ui/README.md)
+（清单 `website/content-manifest.json`）；组件在共享包 [`apps/ui`](apps/ui/README.md)
 （`@doc-anonymizer/ui`，来自 [velora-ui](https://github.com/ColorlibHQ/velora-ui)，MIT），
 **产品前端以后换栈时引同一个包**，外观与组件不会分叉。
-细节、框架选型的实测对比与坑见 [apps/website/README.md](apps/website/README.md)。
+细节、框架选型的实测对比与坑见 [website/README.md](website/README.md)。
 
 ### 桌面壳（可选）
 
@@ -145,7 +145,7 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 |---|---|
 | 逐步跑通、常见问题 | [docs/quickstart.md](docs/quickstart.md) |
 | 参与开发（环境、测试、提交、PR） | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| 改代码前必读的契约与坑 | [AGENTS.md](AGENTS.md) |
+| 改代码前必读的契约（入口 + 分类细则） | [AGENTS.md](AGENTS.md) · [.agent/rules/](.agent/rules/) |
 | 五包结构、硬边界、决策记录、搬迁历史 | [docs/architecture.md](docs/architecture.md) |
 | 模型选型与基准数字 | [docs/benchmarks.md](docs/benchmarks.md) |
 | 脚本清单 | [scripts/README.md](scripts/README.md) |

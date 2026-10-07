@@ -38,8 +38,8 @@ def _is_generated(path: pathlib.Path) -> bool:
     rel = path.relative_to(REPO)
     if any(part in GENERATED_PARTS for part in rel.parts):
         return True
-    # apps/website/src/content/docs/** 是 sync-content.py 从仓库 markdown 生成的副本
-    return rel.parts[:3] == ("apps", "website", "src") and "content" in rel.parts
+    # website/src/content/docs/** 是 sync-content.py 从仓库 markdown 生成的副本
+    return rel.parts[:2] == ("website", "src") and "content" in rel.parts
 
 
 def _markdown_under(*roots: str) -> set[pathlib.Path]:
@@ -52,7 +52,7 @@ def _markdown_under(*roots: str) -> set[pathlib.Path]:
 
 
 CURRENT_DOCS = sorted(
-    {*REPO.glob("*.md"), *_markdown_under("docs", ".github", "apps")} - set(RECORDS)
+    {*REPO.glob("*.md"), *_markdown_under("docs", ".github", "apps", ".agent")} - set(RECORDS)
 )
 ALL_DOCS = [*CURRENT_DOCS, *RECORDS]
 
@@ -72,7 +72,7 @@ COMMUNITY_FILES = [
 
 TOP_LEVEL = {"packages", "apps", "configs", "samples", "scripts", "tests", "docs", "var"}
 # 运行时才存在的东西: var/(权重、预览包、默认产物)、用户自选产物目录、壳的构建产物
-RUNTIME_PREFIXES = ("var/", "out/", "apps/website/dist", "apps/desktop/build")
+RUNTIME_PREFIXES = ("var/", "out/", "website/dist", "apps/desktop/build")
 
 # 名字一旦删掉/改名, 现状文档里就不该再有它
 REMOVED_NAMES = {
@@ -175,7 +175,7 @@ SINGLE_OWNER = [
     ("五包目录树", "├── docanon-contract/", "docs/architecture.md"),
     ("已知限制小节", "## 已知限制", "README.md"),
     ("硬边界表", "| 边界 | 锁在哪 |", "docs/architecture.md"),
-    ("一键命令清单", "`./scripts/dev.sh help`", "README.md"),
+    ("dev.sh 子命令表", "| `website` | 起官网/文档站", ".agent/rules/01-commands.md"),
 ]
 
 
@@ -192,13 +192,13 @@ def test_each_topic_has_one_owner():
 
 
 def test_docs_site_is_wired_correctly():
-    """官网(apps/website = Astro + Starlight)接得对不对, 不用跑 npm 也能查一半。"""
-    site = REPO / "apps" / "website"
-    assert (site / "package.json").is_file(), "apps/website 不见了"
+    """官网/文档站(website/ = Astro + Starlight)接得对不对, 不用跑 npm 也能查一半。"""
+    site = REPO / "website"
+    assert (site / "package.json").is_file(), "website/ 不见了"
     pkg = json.loads((site / "package.json").read_text(encoding="utf-8"))
     deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
     for need in ("astro", "@astrojs/starlight", "@astrojs/react", "@doc-anonymizer/ui"):
-        assert need in deps, f"apps/website 少了依赖 {need}"
+        assert need in deps, f"website/ 少了依赖 {need}"
     assert "sync" in pkg.get("scripts", {}), "构建前必须先同步内容(sync)"
 
     cfg = (site / "astro.config.mjs").read_text(encoding="utf-8")
@@ -228,19 +228,19 @@ def test_ui_components_live_only_in_the_shared_package():
     assert "./theme.css" in pkg.get("exports", {}), "设计 token 必须由共享包提供"
 
     # 站点要通过包引用, 而不是自己持有一份组件源码
-    site_pkg = json.loads((REPO / "apps" / "website" / "package.json").read_text(encoding="utf-8"))
+    site_pkg = json.loads((REPO / "website" / "package.json").read_text(encoding="utf-8"))
     assert "@doc-anonymizer/ui" in site_pkg.get("dependencies", {}), "网站没引共享组件包"
 
     strays = [
         str(p.relative_to(REPO))
-        for app in ("website", "web")
-        for p in (REPO / "apps" / app / "src").rglob("*.tsx")
+        for app in (REPO / "website" / "src", REPO / "apps" / "web" / "src")
+        for p in app.rglob("*.tsx")
         if "velora" in p.parts or p.name in {"marquee.tsx", "number-ticker.tsx", "blur-fade.tsx", "globe.tsx"}
     ]
     assert not strays, f"这些组件不该出现在 app 里(应只放 apps/ui): {strays}"
 
     root_pkg = json.loads((REPO / "package.json").read_text(encoding="utf-8"))
-    assert set(root_pkg.get("workspaces", [])) >= {"apps/ui", "apps/website"}, "根 package.json 的 workspaces 不全"
+    assert set(root_pkg.get("workspaces", [])) >= {"apps/ui", "website"}, "根 package.json 的 workspaces 不全"
 
 
 def test_markdown_links_resolve():
@@ -257,8 +257,8 @@ def test_markdown_links_resolve():
 
 def test_agents_test_count_matches_reality():
     """AGENTS.md 里那句"N 项"必须是真的 —— 它是文档最容易漂移的地方。"""
-    claimed = re.search(r"pytest -q`?（(\d+) 项", (REPO / "AGENTS.md").read_text(encoding="utf-8"))
-    assert claimed, "AGENTS.md 里找不到「全量测试…（N 项）」那句"
+    claimed = re.search(r"（(\d+) 项，约 \d+ 秒", (REPO / "AGENTS.md").read_text(encoding="utf-8"))
+    assert claimed, "AGENTS.md 里找不到「（N 项，约 M 秒）」那句"
 
     proc = subprocess.run(
         [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider"],
@@ -273,3 +273,27 @@ def test_agents_test_count_matches_reality():
     assert int(claimed.group(1)) == int(got.group(1)), (
         f"AGENTS.md 说 {claimed.group(1)} 项, 实际收集到 {got.group(1)} 项 —— 改了测试就同步那句话"
     )
+
+
+AGENTS_MAX_LINES = 80
+RULE_MAX_LINES = 60
+
+
+def test_agent_rules_stay_small_and_indexed():
+    """规范按主题拆开才有人读: AGENTS.md 只做索引, 细则在 .agent/rules/, 两边都不许膨胀。"""
+    agents = (REPO / "AGENTS.md").read_text(encoding="utf-8")
+    lines = len(agents.splitlines())
+    assert lines <= AGENTS_MAX_LINES, (
+        f"AGENTS.md 有 {lines} 行(上限 {AGENTS_MAX_LINES}) —— 细则请拆进 .agent/rules/"
+    )
+
+    rule_files = sorted((REPO / ".agent" / "rules").glob("*.md"))
+    assert rule_files, "少了 .agent/rules/"
+    bad = []
+    for rule in rule_files:
+        count = len(rule.read_text(encoding="utf-8").splitlines())
+        if count > RULE_MAX_LINES:
+            bad.append(f"{rule.name} {count} 行(上限 {RULE_MAX_LINES})")
+        if rule.name not in agents:
+            bad.append(f"{rule.name} 没有被 AGENTS.md 索引到")
+    assert not bad, "\n".join(bad)

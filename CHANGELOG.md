@@ -5,12 +5,21 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **文档信息架构**：`AGENTS.md` 从 160 行的"什么都塞"改成 51 行的**入口与索引**
+  （六条不可违反 + 按主题的表），细则按主题拆到 `.agent/rules/`（9 篇：命令 / 包 / 资源 / 产物 /
+  安全 / 测试 / 前端 / 文档 / 环境）。守卫：`AGENTS.md` ≤ 80 行、每篇 rule ≤ 60 行、每篇都必须被
+  `AGENTS.md` 索引到 —— 不然又会长回去。
+- **官网/文档站移到仓库根**：`apps/website/` → `website/`（它是项目门面，不是"某个 app"），
+  同时把 9 篇契约细则也接进站点内容清单，站上可直接浏览（交叉链接自动改写成站内路由）。
+
 ### Added
 
 - **官网与文档站**：`apps/website/`（**Astro 5 + Starlight** + Tailwind CSS 4）——搜索/TOC/上下页/多语言
   内置，静态输出 `dist/`；内容按 `content-manifest.json` 从仓库 markdown 同步（源仍是那些 .md），
   `./scripts/dev.sh website` 起开发服务器。选型对比（依赖 241M vs Next 537M、构建 0.7s vs 3–4s、
-  内置搜索 vs 手写）见 [apps/website/README.md](apps/website/README.md)。
+  内置搜索 vs 手写）见 [website/README.md](website/README.md)。
 - **共享组件包**：`apps/ui/`（`@doc-anonymizer/ui`，npm workspaces）—— velora 组件与设计 token
   只放一份，网站与将来的产品前端共用（[velora-ui](https://github.com/ColorlibHQ/velora-ui)，MIT）。
 

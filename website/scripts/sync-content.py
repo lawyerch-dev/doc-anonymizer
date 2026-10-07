@@ -18,7 +18,7 @@ import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 SITE = HERE.parent
-REPO = SITE.parent.parent
+REPO = SITE.parent
 OUT = SITE / "src" / "content" / "docs"
 
 FRONTMATTER = re.compile(r"\A---\n.*?\n---\n", re.S)
@@ -82,7 +82,7 @@ def main() -> None:
         groups.setdefault(entry["group"], []).append(
             {"label": entry["title"], "slug": f"{entry['group']}/{entry['slug']}"}
         )
-    label_of = {"start": "开始", "dev": "开发", "other": "其他"}
+    label_of = {"start": "开始", "dev": "开发", "agent": "契约细则", "other": "其他"}
     sidebar = [{"label": label_of.get(g, g), "items": items} for g, items in groups.items()]
     sidebar_ts = SITE / "src" / "sidebar.generated.mjs"
     sidebar_ts.write_text(

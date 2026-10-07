@@ -1,6 +1,6 @@
 # apps/website — 官网与文档站
 
-**Astro 5 + Starlight + Tailwind 4**，组件来自共享包 [`apps/ui`](../ui/README.md)（`@doc-anonymizer/ui`，velora）。
+**Astro 5 + Starlight + Tailwind 4**，组件来自共享包 [`apps/ui`](../apps/ui/README.md)（`@doc-anonymizer/ui`，velora）。
 静态输出到 `dist/`，交给任意静态服务器；**运行期不需要 node**。
 
 ![搜索](https://raw.githubusercontent.com/lawyerch/doc-anonymizer/main/docs/images/docs-site-search.png)
@@ -31,7 +31,7 @@ src/sidebar.generated.mjs          ← 侧栏也由同一份清单生成
 
 ## 组件从哪来
 
-通用组件都在 [`apps/ui`](../ui/README.md)：`import { Marquee } from "@doc-anonymizer/ui/marquee";`
+通用组件都在 [`apps/ui`](../apps/ui/README.md)：`import { Marquee } from "@doc-anonymizer/ui/marquee";`
 （内部包直接发 TS 源码，无构建步骤）。只有**页面专属**的组合组件放这里的 `src/components/`
 （例如首页的 `Landing.tsx`）。加新 velora 组件：`cd apps/ui && npx shadcn@latest add @velora/<名字>`。
 
