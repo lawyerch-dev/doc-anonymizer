@@ -5,6 +5,16 @@
 
 ## [Unreleased]
 
+### Added
+
+- **文档站自动部署（仓库唯一的 CI）**：`.github/workflows/deploy-website.yml` —— push `main` 时先跑门禁
+  （文档漂移 + 包边界 + 组件库检查 + 站点构建）再发布 GitHub Pages。
+- **网站支持子路径部署**：站内链接改走 `website/src/lib/site.ts` 的 `url()`（`SITE_BASE` → `base`、
+  `SITE_URL` → sitemap）；新增两条守卫（禁止手写 `href="/…"`、部署 workflow 必须真跑门禁并发布 `website/dist`）。
+  首次就抓到 workflow 里一个真实的 YAML 语法错（`name:` 里带冒号）。
+- **场景操作指引** `docs/cookbook/`（评审改动 / 排查问题 / 构建部署网站）+ `docs/AGENTS.md`；
+  文档站自动收录为新分组「操作指引」。
+
 ### Changed
 
 - **借鉴 DeepSeek Harness 的规范与流程**（同一套里我们只取适合小仓库的部分）：

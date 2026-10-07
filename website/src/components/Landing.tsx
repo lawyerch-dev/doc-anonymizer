@@ -3,6 +3,7 @@ import { BlurFade } from "@doc-anonymizer/ui/blur-fade";
 import { Marquee } from "@doc-anonymizer/ui/marquee";
 import { NumberTicker } from "@doc-anonymizer/ui/number-ticker";
 import { buttonVariants } from "@doc-anonymizer/ui/primitives/button";
+import { url } from "../lib/site";
 import { AnimatedGradientText } from "@doc-anonymizer/ui/animated-gradient-text";
 import { AuroraBackground } from "@doc-anonymizer/ui/aurora-background";
 import { BorderBeam } from "@doc-anonymizer/ui/border-beam";
@@ -66,7 +67,7 @@ export default function Landing({ repo }: { repo: string }) {
           输出与原文格式相同的文件，外加一份可还原的对照表。
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
-          <a href="/start/quickstart/" className={buttonVariants({ size: "lg" })}>
+          <a href={url("/start/quickstart/")} className={buttonVariants({ size: "lg" })}>
             5 分钟快速上手 <ArrowRightIcon className="size-4" />
           </a>
           <a href={repo} className={buttonVariants({ size: "lg", variant: "outline" })}>

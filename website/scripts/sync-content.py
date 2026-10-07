@@ -12,11 +12,14 @@
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import re
 import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
+# 子路径部署(如 GitHub Pages 项目页)时, 仓库 markdown 的相对链接也要带上同样的前缀
+BASE = (os.environ.get("SITE_BASE", "") or "").rstrip("/")
 SITE = HERE.parent
 REPO = SITE.parent
 OUT = SITE / "src" / "content" / "docs"
@@ -85,7 +88,7 @@ def read_page(entry: dict, file_to_route: dict[str, str]) -> str:
         if route is None:
             return match.group(0)
         suffix = f"#{anchor}" if anchor else ""
-        return f"](/{route}/{suffix})"
+        return f"]({BASE}/{route}/{suffix})"
 
     text = re.sub(r"\]\(([^)\s]+)\)", to_route, text)
 
@@ -119,6 +122,12 @@ def discover_extra() -> list[dict]:
             "description": "操作手册（反复发生的事怎么做）",
             "file": skill.relative_to(REPO).as_posix(),
         })
+    for guide in sorted((REPO / "docs" / "cookbook").glob("*.md")):
+        pages.append({
+            "group": "cookbook", "slug": guide.stem, "title": _title_of(guide),
+            "description": "操作指引（每一步都有验证方式）",
+            "file": guide.relative_to(REPO).as_posix(),
+        })
     for agents in sorted((REPO / "packages").glob("docanon-*/AGENTS.md")):
         pages.append({
             "group": "packages", "slug": agents.parent.name, "title": agents.parent.name,
@@ -150,7 +159,7 @@ def main() -> None:
             {"label": entry["title"], "slug": f"{entry['group']}/{entry['slug']}"}
         )
     label_of = {"start": "开始", "dev": "开发", "agent": "契约细则", "packages": "包",
-                "skills": "操作手册", "notes": "决策记录", "other": "其他"}
+                "skills": "操作手册", "notes": "决策记录", "cookbook": "操作指引", "other": "其他"}
     sidebar = [{"label": label_of.get(g, g), "items": items} for g, items in groups.items()]
     sidebar_ts = SITE / "src" / "sidebar.generated.mjs"
     sidebar_ts.write_text(

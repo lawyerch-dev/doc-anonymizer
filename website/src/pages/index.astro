@@ -1,5 +1,6 @@
 ---
 import Landing from "../components/Landing";
+import { url } from "../lib/site";
 import "../styles/global.css";
 
 const repo = "https://github.com/lawyerch/doc-anonymizer";
@@ -15,10 +16,10 @@ const repo = "https://github.com/lawyerch/doc-anonymizer";
   <body class="min-h-full bg-background text-foreground">
     <header class="border-b">
       <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4 text-sm">
-        <a href="/" class="font-medium">doc-anonymizer</a>
+        <a href={url("/")} class="font-medium">doc-anonymizer</a>
         <nav class="flex gap-4 text-muted-foreground">
-          <a href="/start/quickstart/" class="hover:text-foreground">文档</a>
-          <a href="/dev/architecture/" class="hover:text-foreground">架构</a>
+          <a href={url("/start/quickstart/")} class="hover:text-foreground">文档</a>
+          <a href={url("/dev/architecture/")} class="hover:text-foreground">架构</a>
           <a href={repo} class="hover:text-foreground">GitHub</a>
         </nav>
       </div>

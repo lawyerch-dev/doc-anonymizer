@@ -6,11 +6,14 @@ import sidebar from "./src/sidebar.generated.mjs";
 
 // 部署到子路径(如 GitHub Pages 项目页)时: SITE_BASE=/doc-anonymizer npm run build
 const base = process.env.SITE_BASE || "/";
+// 部署时给 SITE_URL(如 https://lawyerch.github.io); 不给就跳过 sitemap
+const site = process.env.SITE_URL || undefined;
 
 export default defineConfig({
   // 静态站: dist/ 交给任意静态服务器, 运行期不需要 node
   output: "static",
   base,
+  site,
   integrations: [
     starlight({
       title: "doc-anonymizer",

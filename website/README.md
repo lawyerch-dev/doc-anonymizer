@@ -63,6 +63,20 @@ React 组件在 Astro 里是 island，记得带指令：`<Landing client:load />
    否则 CHANGELOG 里的历史名字会被误判成"现状文档里的旧名字"。
 4. **Tailwind 4 要显式 `@source` 共享包**（`src/styles/global.css`），否则 kit 里的类名会被摇掉。
 
+## 子路径部署（base）
+
+站内链接必须走 [`src/lib/site.ts`](src/lib/site.ts) 的 `url()`：手写 `href="/…"` 只在根路径部署时成立。
+`SITE_BASE` 决定 Astro 的 `base`，`SITE_URL` 决定 `site`（sitemap）。验证子路径真的成立：
+
+```bash
+SITE_BASE=/doc-anonymizer SITE_URL=https://lawyerch.github.io npm run build
+rm -rf /tmp/pages && mkdir -p /tmp/pages && cp -r dist /tmp/pages/doc-anonymizer
+python3 -m http.server -d /tmp/pages 8080     # → http://127.0.0.1:8080/doc-anonymizer/
+```
+
+自动部署见 [`.github/workflows/deploy-website.yml`](../.github/workflows/deploy-website.yml)
+（push `main` → 门禁 → 构建 → 发布 Pages）。
+
 ## 部署
 
 ```bash

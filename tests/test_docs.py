@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -360,6 +361,27 @@ def test_every_package_documents_itself():
     assert "packages/*/AGENTS.md" in rules, "rules/02-packages.md 里没有索引各包的 AGENTS.md"
 
 
+def test_website_internal_links_go_through_base():
+    """手写 `href="/…"` 在子路径部署(GitHub Pages 项目页)会 404 —— 必须走 website/src/lib/site.ts 的 url()。"""
+    offenders = []
+    for path in [*(REPO / "website" / "src").rglob("*.astro"), *(REPO / "website" / "src").rglob("*.tsx")]:
+        for num, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if 'href="/' in line:
+                offenders.append(f"{path.relative_to(REPO)}:{num}")
+    assert not offenders, f'站内链接要写成 href={{url("/…")}}: {offenders}'
+
+
+def test_deploy_workflow_matches_the_published_site():
+    """唯一的 CI 是"部署文档站": 必须真跑门禁、用 SITE_BASE/SITE_URL 构建、发布 website/dist。"""
+    workflow = REPO / ".github" / "workflows" / "deploy-website.yml"
+    assert workflow.is_file(), "少了部署 workflow"
+    text = workflow.read_text(encoding="utf-8")
+    for needle in ("SITE_BASE", "SITE_URL", "website/dist", "npm ci", "npm run test:web", "actions/deploy-pages"):
+        assert needle in text, f"部署 workflow 里少了 {needle}"
+    config = (REPO / "website" / "astro.config.mjs").read_text(encoding="utf-8")
+    assert "SITE_BASE" in config and "SITE_URL" in config, "astro.config.mjs 没用上 SITE_BASE/SITE_URL"
+
+
 def test_markdown_links_resolve():
     bad = []
     for doc in ALL_DOCS:
@@ -377,15 +399,19 @@ def test_agents_test_count_matches_reality():
     claimed = re.search(r"（(\d+) 项，约 \d+ 秒", (REPO / "AGENTS.md").read_text(encoding="utf-8"))
     assert claimed, "AGENTS.md 里找不到「（N 项，约 M 秒）」那句"
 
+    env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}   # 别在仓库里留下字节码
     proc = subprocess.run(
         [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider"],
         cwd=REPO,
         capture_output=True,
         text=True,
         timeout=300,
+        env=env,
     )
     got = re.search(r"(\d+) tests? collected", proc.stdout)
-    assert got, f"收集测试失败:\n{proc.stdout[-1500:]}\n{proc.stderr[-1500:]}"
+    assert got and proc.returncode == 0, (
+        f"收集测试失败(需要装齐五个包的环境):\n{proc.stdout[-1500:]}\n{proc.stderr[-1500:]}"
+    )
 
     assert int(claimed.group(1)) == int(got.group(1)), (
         f"AGENTS.md 说 {claimed.group(1)} 项, 实际收集到 {got.group(1)} 项 —— 改了测试就同步那句话"

@@ -26,4 +26,8 @@
 - Tailwind 4 要显式 `@source` 共享包源码（`website/src/styles/global.css`），否则 kit 的类名被摇掉
   （踩过：搬家后路径少一层，`sr-only`/aurora/渐变静默失效 —— [复盘](../notes/implemented/bug-fix/2026-10-07-tailwind-source-after-move.md)）。
 - React 组件在 Astro 里是 island：`<Landing client:load />`。
-- 部署：`SITE_BASE=/doc-anonymizer SITE_URL=https://… npm run build`。
+- 部署：`SITE_BASE=/doc-anonymizer SITE_URL=https://… npm run build`（`SITE_BASE` → Astro `base`，
+  `SITE_URL` → `site`/sitemap）。**子路径部署时手写 `href="/…"` 会 404** —— 站内链接一律走
+  `website/src/lib/site.ts` 的 `url()`（守卫会拦）；Starlight 自生成的链接跟着 `base` 走。
+- 唯一的 CI 就是[部署文档站](../../.github/workflows/deploy-website.yml)：先跑门禁再发布 Pages。
+  详细步骤（含子路径预览的验证方法）见 [`docs/cookbook/shipping-the-website.md`](../../docs/cookbook/shipping-the-website.md)。

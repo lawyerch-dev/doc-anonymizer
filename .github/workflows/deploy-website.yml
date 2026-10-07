@@ -1,0 +1,79 @@
+# 唯一的 CI：构建并发布文档站到 GitHub Pages。
+# 它同时是"部署门禁" —— 门禁不过就不发布（本仓库没有 lint/typecheck 流水线，本地门禁是 `npm test`）。
+name: 部署文档站
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - "docs/**"
+      - ".agent/**"
+      - "apps/ui/**"
+      - "README.md"
+      - "CONTRIBUTING.md"
+      - "CHANGELOG.md"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-website.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  # GitHub Pages 项目页的地址形如 https://<owner>.github.io/<repo>/ —— 与 astro.config 的 base/site 对应。
+  # 自定义域名时改这两个值（并把 public/CNAME 一起改）。
+  SITE_BASE: /${{ github.event.repository.name }}
+  SITE_URL: https://${{ github.repository_owner }}.github.io
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: "装前端依赖(npm workspaces: apps/ui + website)"
+        run: npm ci
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 这两个文件是纯静态检查(AST / pyproject / 文档里的路径与链接), 不需要装五个包或模型。
+      # 全量门禁(含引擎)是本地 `npm test`; 部署只关心"要发出去的这份站点与文档是否自洽"。
+      - name: 文档漂移与包边界门禁（不需要引擎/模型依赖）
+        run: |
+          python -m pip install --quiet pytest pyyaml
+          # 默认跳过"AGENTS.md 里那句测试数量"这一条: 它要求装齐五个包才能统计全量(本地 npm test 会查)。
+          python -m pytest tests/test_docs.py tests/test_architecture.py -q \
+            --deselect tests/test_docs.py::test_agents_test_count_matches_reality
+
+      - name: 组件库检查 + 文档站构建(带 SITE_BASE/SITE_URL)
+        run: npm run test:web
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

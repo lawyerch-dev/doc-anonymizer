@@ -88,6 +88,12 @@ npm run dev:website        # → http://127.0.0.1:4321（首次自动 npm instal
 npm run build              # 静态输出到 website/dist/，任意静态服务器都能发
 ```
 
+部署到 GitHub Pages：Settings → Pages → Source 选 **GitHub Actions**，之后 push `main` 会由
+[`.github/workflows/deploy-website.yml`](.github/workflows/deploy-website.yml) 先过门禁再发布
+（这是仓库唯一的 CI，跑的是部署相关的门禁：文档漂移 + 包边界 + 组件库检查 + 站点构建；
+引擎全量测试仍是本地 `npm test`）。子路径部署要 `SITE_BASE=/<仓库名> SITE_URL=https://<用户名>.github.io`，
+完整步骤与验证方式见 [`docs/cookbook/shipping-the-website.md`](docs/cookbook/shipping-the-website.md)。
+
 Astro 5 + Starlight（搜索/TOC/上下页内置），内容直接来自本仓库的 markdown
 （清单 `website/content-manifest.json`）；组件在共享库 [`apps/ui`](apps/ui/README.md)
 （`@doc-anonymizer/ui`：velora **100 个组件 + 31 个区块** + shadcn 基础件，MIT），
