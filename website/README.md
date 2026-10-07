@@ -3,7 +3,7 @@
 **Astro 5 + Starlight + Tailwind 4**，组件来自共享包 [`apps/ui`](../apps/ui/README.md)（`@doc-anonymizer/ui`，velora）。
 静态输出到 `dist/`，交给任意静态服务器；**运行期不需要 node**。
 
-![搜索](https://raw.githubusercontent.com/lawyerch/doc-anonymizer/main/docs/images/docs-site-search.png)
+![搜索](https://raw.githubusercontent.com/lawyerch-dev/doc-anonymizer/main/docs/images/docs-site-search.png)
 
 ## 跑起来
 
@@ -69,7 +69,7 @@ React 组件在 Astro 里是 island，记得带指令：`<Landing client:load />
 `SITE_BASE` 决定 Astro 的 `base`，`SITE_URL` 决定 `site`（sitemap）。验证子路径真的成立：
 
 ```bash
-SITE_BASE=/doc-anonymizer SITE_URL=https://lawyerch.github.io npm run build
+SITE_BASE=/doc-anonymizer SITE_URL=https://lawyerch-dev.github.io npm run build
 rm -rf /tmp/pages && mkdir -p /tmp/pages && cp -r dist /tmp/pages/doc-anonymizer
 python3 -m http.server -d /tmp/pages 8080     # → http://127.0.0.1:8080/doc-anonymizer/
 ```
@@ -80,7 +80,7 @@ python3 -m http.server -d /tmp/pages 8080     # → http://127.0.0.1:8080/doc-an
 ## 部署
 
 ```bash
-SITE_BASE=/doc-anonymizer SITE_URL=https://lawyerch.github.io npm run build
+SITE_BASE=/doc-anonymizer SITE_URL=https://lawyerch-dev.github.io npm run build
 ```
 
 `SITE_BASE` 用于 GitHub Pages 项目页这类子路径；`SITE_URL` 供 sitemap 用（不设则跳过 sitemap 并给提示）。

@@ -32,7 +32,7 @@
 前置：Apple Silicon macOS + Python 3.11/3.12。
 
 ```bash
-git clone https://github.com/lawyerch/doc-anonymizer && cd doc-anonymizer
+git clone https://github.com/lawyerch-dev/doc-anonymizer && cd doc-anonymizer
 npm run setup          # 一键装齐: Python venv + 五个包 + 预览资源 + npm install
 npm run dev            # 产品界面 → http://127.0.0.1:8000
 npm run dev:website    # 官网/文档站 → http://127.0.0.1:4321
@@ -172,7 +172,7 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 | 漏脱敏等安全问题怎么报 | [SECURITY.md](.github/SECURITY.md) |
 | 最初的设计方案（历史） | [docs/specs/2026-10-05-doc-anonymizer-design.md](docs/specs/2026-10-05-doc-anonymizer-design.md) |
 
-[MIT](LICENSE) © 2026 [lawyerch](https://github.com/lawyerch) ·
+[MIT](LICENSE) © 2026 [LawyerCH](https://github.com/LawyerCH) ·
 致谢 [RapidOCR](https://github.com/RapidAI/RapidOCR)、[pypdfium2](https://github.com/pypdfium2-team/pypdfium2)、
 [python-docx](https://github.com/python-openxml/python-docx)、[openpyxl](https://foss.heptapod.net/openpyxl/openpyxl)、
 [llama.cpp](https://github.com/ggml-org/llama.cpp)、[file-viewer](https://github.com/flyfish-dev/file-viewer)、

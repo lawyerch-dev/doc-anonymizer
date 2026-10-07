@@ -121,5 +121,5 @@
 - 引擎起不来时**不产出任何文件**（退出码 1），不会把"少一层检测"的结果报成已处理。
 - `mapping.json` 含全部敏感原文，文档各处明确标注"切勿与脱敏件一起外发"。
 
-[Unreleased]: https://github.com/lawyerch/doc-anonymizer/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/lawyerch/doc-anonymizer/releases/tag/v0.1.0
+[Unreleased]: https://github.com/lawyerch-dev/doc-anonymizer/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/lawyerch-dev/doc-anonymizer/releases/tag/v0.1.0

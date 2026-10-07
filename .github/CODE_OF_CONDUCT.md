@@ -12,7 +12,7 @@
 
 ## 报告
 
-遇到不当行为请联系维护者 [@lawyerch](https://github.com/lawyerch)。所有投诉都会被认真阅读并
+遇到不当行为请联系维护者 [@LawyerCH](https://github.com/LawyerCH)。所有投诉都会被认真阅读并
 保密处理；维护者有权删除评论、关闭讨论或封禁账号。
 
 完整的执行指南见

@@ -11,7 +11,7 @@
 3. **子路径部署**（GitHub Pages 项目页必须）：`base` 由 `SITE_BASE` 决定，`site`（sitemap）由 `SITE_URL` 决定：
 
    ```bash
-   SITE_BASE=/doc-anonymizer SITE_URL=https://lawyerch.github.io npm run build
+   SITE_BASE=/doc-anonymizer SITE_URL=https://lawyerch-dev.github.io npm run build
    ```
 
    验证子路径真的成立（不是只看构建成功）：

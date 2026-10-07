@@ -3,7 +3,7 @@
 ## 报告漏洞
 
 **漏脱敏**（敏感内容出现在产物里，或能被还原/检索）是最严重的一类，**不要开公开 issue**：
-走仓库 **Security → Report a vulnerability**，或联系 [@lawyerch](https://github.com/lawyerch)。
+走仓库 **Security → Report a vulnerability**，或联系 [@LawyerCH](https://github.com/LawyerCH)。
 
 附上：脱敏后的最小片段（真名换占位）、用的配置、`docanon engines` 输出、`git rev-parse --short HEAD`。
 **不要**附真实敏感原文或 `mapping.json`。其他问题走公开 issue 模板即可。

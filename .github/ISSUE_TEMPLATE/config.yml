@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
   - name: 漏脱敏 / 敏感信息可能泄露
-    url: https://github.com/lawyerch/doc-anonymizer/security/advisories/new
+    url: https://github.com/lawyerch-dev/doc-anonymizer/security/advisories/new
     about: 这类问题请走私密漏洞报告，不要在公开 issue 里贴细节
   - name: 快速上手与常见问题
-    url: https://github.com/lawyerch/doc-anonymizer/blob/main/docs/quickstart.md
+    url: https://github.com/lawyerch-dev/doc-anonymizer/blob/main/docs/quickstart.md
     about: 装不上、跑不通、界面空白先看这里
