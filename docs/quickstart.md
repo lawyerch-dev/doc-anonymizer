@@ -11,6 +11,7 @@
 ```
 
 `doctor` 里任何"不可用"都先解决它再往下走 —— 本项目宁可报错，也不产出少一层检测的文件。
+报 `onnx_ner` 缺模型就取一次：`./scripts/dev.sh models`（约 830MB，走 hf-mirror 镜像）。
 
 ## 2. 跑一份文档
 
@@ -47,7 +48,7 @@ ls var/out          # sample.docx.redacted.docx  manifest.json  mapping.json  �
 | 想要 | 配置 | 额外准备 |
 |---|---|---|
 | 只要规则 + 词典（最快） | `configs/default.yaml`（不带 `-c` 就是它） | 无 |
-| 人名/机构/地址（日常推荐） | `-c configs/onnx.yaml` | `var/models/onnx/` 需有模型 |
+| 人名/机构/地址（日常推荐） | `-c configs/onnx.yaml` | `./scripts/dev.sh models` |
 | 更灵活的实体识别 | `-c configs/llm.yaml` | `./scripts/download_model.sh` + `./scripts/serve_llm.sh` |
 
 ## 常见问题

@@ -29,6 +29,8 @@
   命中统计与逐条溯源（`/api/anonymize` 返回 `trace`）。
 - **桌面壳**：Electrobun（系统 WebView）+ Python sidecar。
 - **文档**：快速上手、架构与目录设计、基准与选型、贡献指南、安全策略、更新日志。
+- **一条命令起步**：`scripts/dev.sh`（装环境 / 起 Web / 起桌面壳 / 跑测试 / 取模型 / 环境自检）与
+  `scripts/download_onnx_models.sh`（官方 HF 不可达时默认走 `hf-mirror.com`，`HF_ENDPOINT` 可换）。
 
 ### Changed
 

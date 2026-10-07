@@ -38,7 +38,9 @@ git clone https://github.com/lawyerch/doc-anonymizer && cd doc-anonymizer
 ./scripts/dev.sh desktop    # 桌面壳(需 Hutch)
 ```
 
-`dev.sh` 是开发入口：`setup` `web` `desktop` `test` `cli` `engines` `doctor`（`./scripts/dev.sh help` 看全部）。
+`dev.sh` 是开发入口：`setup` `web` `desktop` `test` `cli` `engines` `models` `doctor`（`./scripts/dev.sh help` 看全部）。
+缺 ONNX 模型（`configs/onnx.yaml` 的中文 NER）时取一次：`./scripts/dev.sh models` —— 约 830MB，
+默认走 `hf-mirror.com`（官方 huggingface.co 在部分网络不可达），`HF_ENDPOINT` 可换端点。
 它只是包装，底层就是 `docanon` / `pytest` / `hutch` —— 下文用的是原始命令，出问题可直接排查。
 逐步走一遍：[docs/quickstart.md](docs/quickstart.md)。
 

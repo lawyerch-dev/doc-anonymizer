@@ -10,7 +10,7 @@
 ## 命令（一律在仓库根执行）
 
 **开发入口**：`./scripts/dev.sh <命令>`（`setup` / `web` / `desktop` / `test` / `cli` / `engines` /
-`doctor`）——一键起 Web、起桌面壳、跑测试；它只是包装，下面这些原始命令都照旧成立，
+`models` / `doctor`）——一键起 Web、起桌面壳、跑测试；它只是包装，下面这些原始命令都照旧成立，
 排查时直接用它们（`dev.sh` 的 `doctor` 会告诉你缺什么）。
 
 - 首次准备：`./scripts/setup_dev.sh`（幂等：venv + 五个包 + 预览资源 + 缓存重定向；脚本注释写了每步在干什么）
@@ -54,6 +54,8 @@
   读不到都直接报错 —— 静默退化成空配置等于"一层引擎都没开"，而它看起来和"没启用"一模一样。
 - **部署契约**：只支持 editable 安装（`requirements-dev.txt`）与打包根两种形态，**不做 wheel 自包含**
   —— 前端 vendor 232MB、模型 GB 级，本来就不该进包。细节写在根 `pyproject.toml`。
+- `configs/onnx.yaml` 需要 `var/models/onnx/{gyr66,pii-engineer}`（约 830MB）：`./scripts/dev.sh models`。
+  官方 `huggingface.co` 在部分网络不可达(本机实测超时)，脚本默认走 `hf-mirror.com`，`HF_ENDPOINT` 可换端点。
 - 不带 `-c` 走 `configs/default.yaml`，其中 `onnx_ner`/`llm_ner` 均为 `false`，只剩规则+词典：
   同一个 `samples/example.txt` 实测少掉 `PERSON` 与 `LOCATION`。桌面壳固定用 `configs/onnx.yaml`，
   `docanon web` 要自己带 `-c`。`configs/llm.yaml` 需先 `./scripts/serve_llm.sh` 把 llama-server 起到 :8080。

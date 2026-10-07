@@ -12,6 +12,7 @@
 | `download_model.sh` | 从 ModelScope 下载 GGUF 到 `var/models/` | curl | `./scripts/download_model.sh [Q4_K_M]` |
 | `serve_llm.sh` | 起 llama-server（OpenAI 兼容 :8080） | brew 的 `llama.cpp` | `./scripts/serve_llm.sh [端口] [模型路径]` |
 | `fetch_file_viewer.sh` | 拉 file-viewer 预构建包到 `var/vendor/file-viewer` | npm | `./scripts/fetch_file_viewer.sh` |
+| `download_onnx_models.sh` | 取两个 ONNX NER 模型到 `var/models/onnx/`（约 830MB；默认走 hf-mirror 镜像） | curl | `./scripts/download_onnx_models.sh [--check] [--only gyr66]` |
 | `bench_models.py` | 逐个 GGUF 跑召回/耗时/内存基准 | 先起 `serve_llm.sh` | `.venv/bin/python scripts/bench_models.py` |
 | `bench_detectors.py` | 各检测器（ONNX / LLM）在样例上的表现 | `var/models/onnx/*` | `.venv/bin/python scripts/bench_detectors.py` |
 
@@ -21,6 +22,8 @@
 
 - `samples/` 不要手改：改 `make_samples.py` 重跑（生成的 PDF 必须内嵌中文 TTF 子集，
   否则 file-viewer 中文预览乱码，详见 [AGENTS.md](../AGENTS.md)）。
-- `download_model.sh` / `fetch_file_viewer.sh` 拉到 `var/`（gitignore），换机器要重跑。
+- `download_model.sh` / `fetch_file_viewer.sh` / `download_onnx_models.sh` 拉到 `var/`（gitignore），
+  换机器要重跑。官方 `huggingface.co` 在部分网络下不可达，所以模型默认从 `hf-mirror.com` 取；
+  换端点用 `HF_ENDPOINT=…`，先探通不通用 `--check`（脚本支持 `--only` 单个模型、`--dest` 换目录）。
 - WebKit 兼容检查在 [tests/e2e/webkit/](../tests/e2e/webkit/)（node + Playwright），不在 `scripts/`。
 - 基准结果与选型结论：[docs/benchmarks.md](../docs/benchmarks.md)。

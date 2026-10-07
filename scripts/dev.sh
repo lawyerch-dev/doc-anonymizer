@@ -25,6 +25,7 @@ usage() {
   test [pytest 参数]   跑测试(默认 -q)
   cli  <docanon 参数>  直接调 docanon, 例: ./scripts/dev.sh cli run ./samples -o var/out
   engines [配置文件]   看这份配置实际加载了哪些引擎(默认 configs/onnx.yaml)
+  models [额外参数]    取 ONNX NER 模型到 var/models/onnx(约 830MB; 默认走 hf-mirror 镜像)
   doctor               环境自检: 缺什么、为什么起不来
 
 例:
@@ -48,9 +49,8 @@ has() { command -v "$1" >/dev/null 2>&1; }
 
 warn_if_no_onnx_models() {
   if [ -z "$(ls -A var/models/onnx 2>/dev/null || true)" ]; then
-    say "提示: var/models/onnx 是空的 —— configs/onnx.yaml 里的 onnx_ner 引擎会起不来。"
-    say "      来源见 docs/specs/2026-10-05-doc-anonymizer-design.md §3.4 列出的两个 HF 仓库"
-    say "      (本机实测 HF 不可达, 请用镜像或从别处拷到 var/models/onnx/)。"
+    say "提示: var/models/onnx 是空的 —— configs/onnx.yaml 的 onnx_ner 会起不来。"
+    say "      取模型(约 830MB, 走 hf-mirror 镜像): ./scripts/dev.sh models"
     say "      只用规则+词典也行: ./scripts/dev.sh web -c configs/default.yaml"
   fi
 }
@@ -68,6 +68,11 @@ cmd_setup() {
     ./scripts/fetch_file_viewer.sh
   else
     say "预览资源缺失且没装 npm —— 跳过。装上 npm 后跑: ./scripts/fetch_file_viewer.sh"
+  fi
+
+  if [ -z "$(ls -A var/models/onnx 2>/dev/null || true)" ]; then
+    say ""
+    say "还没有 ONNX 模型(约 830MB)。要中文人名/机构识别就跑一次: ./scripts/dev.sh models"
   fi
 
   say ""
@@ -125,6 +130,10 @@ cmd_cli() {
   exec .venv/bin/docanon "$@"
 }
 
+cmd_models() {
+  exec ./scripts/download_onnx_models.sh "$@"
+}
+
 cmd_engines() {
   need_venv
   local cfg="${1:-$DEFAULT_CONFIG}"
@@ -170,7 +179,7 @@ PY
     say "     → 预览区会 404: ./scripts/fetch_file_viewer.sh"
   fi
   if [ -z "$(ls -A var/models/onnx 2>/dev/null || true)" ]; then
-    say "     → onnx_ner 起不来: 见 docs/specs/2026-10-05-doc-anonymizer-design.md §3.4 的两个 HF 仓库"
+    say "     → onnx_ner 起不来, 取模型: ./scripts/dev.sh models"
   fi
 
   say "== 引擎(configs/onnx.yaml 实际加载了什么) =="
@@ -193,6 +202,7 @@ case "$cmd" in
   test) cmd_test "$@" ;;
   cli) cmd_cli "$@" ;;
   engines) cmd_engines "$@" ;;
+  models) cmd_models "$@" ;;
   doctor) cmd_doctor ;;
   help | -h | --help) usage ;;
   *) usage; exit 1 ;;
