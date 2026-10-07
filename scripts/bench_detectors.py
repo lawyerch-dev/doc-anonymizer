@@ -16,14 +16,14 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from bench_models import CASES, covered  # noqa: E402  复用样例与覆盖判定
-from docanon.config import load_config  # noqa: E402
-from docanon.detectors.dictionary import DictionaryDetector  # noqa: E402
-from docanon.engines.llm.ner import LLMNERDetector  # noqa: E402
-from docanon.engines.onnx_ner import OnnxNERDetector  # noqa: E402
-from docanon.engines.llm.client import LLMConfig, LLMError  # noqa: E402
-from docanon.detectors.rule import RuleDetector  # noqa: E402
-from docanon.contract import Block  # noqa: E402
-from docanon.resolve import resolve_overlaps  # noqa: E402
+from docanon_core.config import load_config  # noqa: E402
+from docanon_core.detectors.dictionary import DictionaryDetector  # noqa: E402
+from docanon_engine_ner_llm import LLMNERDetector  # noqa: E402
+from docanon_engine_ner_onnx import OnnxNERDetector  # noqa: E402
+from docanon_engine_ner_llm import LLMConfig, LLMError  # noqa: E402
+from docanon_core.detectors.rule import RuleDetector  # noqa: E402
+from docanon_contract import Block  # noqa: E402
+from docanon_core.redaction.resolve import resolve_overlaps  # noqa: E402
 
 
 def rss_mb() -> float:

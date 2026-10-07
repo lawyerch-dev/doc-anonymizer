@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docanon-core"
+version = "0.1.0"
+description = "docanon 核心: 抽取/检测编排、脱敏与回写、账本、CLI 与本地 Web"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "docanon-contract",
+    "docanon-engine-ocr",
+    "docanon-engine-ner-onnx",
+    "docanon-engine-ner-llm",
+    "pyyaml>=6.0",
+    "pypdfium2>=4.20",
+    "python-docx>=1.1",
+    "openpyxl>=3.1",
+    "Pillow>=10.0",
+]
+
+[project.scripts]
+docanon = "docanon_core.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

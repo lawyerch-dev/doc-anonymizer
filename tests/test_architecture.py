@@ -1,43 +1,56 @@
-"""架构约束: **引擎目录即边界**, 契约层只许认识标准库。
+"""包边界: 谁依赖谁, 由目录与 pyproject 机械检查。
 
-`src/docanon/engines/` 下的任何文件都只许 import `docanon.contract` 与 `docanon.engines.*`。
-这条规则由目录机械推出, 不再维护人工文件名单 —— 旧写法只检查写死的 5 个文件, 新加一个引擎
-文件就完全不受检查(实测: 往 detectors/ 扔一个 `from .. import config` 的文件, 旧测试照样全绿)。
+五包结构(见 docs/architecture.md):
+    docanon-contract          引擎与 app 的唯一共享层(只准标准库)
+    docanon-engine-ocr        OCR 引擎
+    docanon-engine-ner-onnx   ONNX NER 引擎
+    docanon-engine-ner-llm    LLM NER 引擎
+    docanon-core              app: 抽取/检测编排、脱敏回写、账本、CLI、Web
 
-方向永远是 **app → 引擎 → 契约**; 反过来(引擎 import 回 config/注册表)一出现, 这个目录就不能
-再整块搬去别的项目, 所以用 AST 锁死。
+规则(方向永远是 **core → 引擎 → 契约**):
+1. 契约层只准 import 标准库, 也不许声明任何运行时依赖。
+2. 引擎包只准 import 标准库/第三方 + `docanon_contract` + **它自己**; 不许碰 core, 也不许碰别的引擎。
+3. app(core) 只许用引擎包的**公开面**(`from docanon_engine_x import Y`), 不许伸手进内部模块
+   (`docanon_engine_x.detector`) —— 否则引擎内部重构会漏到 core 里。
+4. pyproject 的依赖声明要和上面一致: 依赖归属跟着实现走。
 """
 from __future__ import annotations
 
 import ast
 import pathlib
 import sys
+import tomllib
 
 import pytest
 
-SRC = pathlib.Path(__file__).resolve().parents[1] / "src" / "docanon"
-ENGINE_DIR = SRC / "engines"
+REPO = pathlib.Path(__file__).resolve().parents[1]
+
+CONTRACT = "docanon_contract"
+CORE = "docanon_core"
+ENGINES = {
+    "ocr": ("docanon-engine-ocr", "docanon_engine_ocr"),
+    "ner-onnx": ("docanon-engine-ner-onnx", "docanon_engine_ner_onnx"),
+    "ner-llm": ("docanon-engine-ner-llm", "docanon_engine_ner_llm"),
+}
 STDLIB = set(sys.stdlib_module_names)
 
-# 期望住在 engines/ 下的模块(相对 engines/)。列出来是为了防"引擎被挪走/忘了搬"导致下面
-# 那条 parametrize 变成空集而静默通过。
-EXPECTED_ENGINE_MODULES = {
-    "ocr.py",
-    "ocr_image.py",
-    "onnx_ner.py",
-    "llm/client.py",
-    "llm/ner.py",
-}
+
+def _root(dist: str, pkg: str) -> pathlib.Path:
+    return REPO / "packages" / dist / "src" / pkg
 
 
-def _module_of(path: pathlib.Path) -> str:
-    parts = list(path.relative_to(SRC).parts)
-    return ".".join(parts[:-1] + [pathlib.Path(parts[-1]).stem])
+def _files(dist: str, pkg: str) -> list[pathlib.Path]:
+    return sorted(_root(dist, pkg).rglob("*.py"))
 
 
-def _intra_package_imports(path: pathlib.Path, package: str) -> list[str]:
-    """把相对 import 解析成 `docanon.` 之内的模块名(不含 docanon 前缀)。"""
-    out = []
+def _imports(path: pathlib.Path, root: pathlib.Path, pkg: str) -> list[str]:
+    """解析文件里的包内 import; 只返回 `docanon*` 命名空间里的模块名, 其余丢弃。"""
+    parts = list(path.relative_to(root).with_suffix("").parts)
+    if parts[-1] == "__init__":
+        parts = parts[:-1]
+    package = ".".join([pkg, *parts]) if parts else pkg
+    package = package.rsplit(".", 1)[0] if parts else pkg
+    out: list[str] = []
     for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
         if isinstance(node, ast.ImportFrom) and node.level:
             anchor = package
@@ -46,126 +59,79 @@ def _intra_package_imports(path: pathlib.Path, package: str) -> list[str]:
             if node.module:
                 out.append(f"{anchor}.{node.module}" if anchor else node.module)
             else:
-                # `from .. import config` 的每个名字都是一个模块(最容易漏判的写法)
                 for alias in node.names:
                     out.append(f"{anchor}.{alias.name}" if anchor else alias.name)
         elif isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.name == "docanon" or alias.name.startswith("docanon."):
-                    out.append(alias.name[len("docanon"):].lstrip("."))
-    return out
+            out.extend(a.name for a in node.names)
+    return [m for m in out if m.split(".")[0].startswith("docanon")]
 
 
-def _violations(path: pathlib.Path, package: str) -> list[str]:
-    """引擎文件里越界的包内 import; 允许的只有 contract 与 engines.*。"""
-    bad = []
-    for mod in _intra_package_imports(path, package):
-        if mod in {"contract", "engines"} or mod.startswith("engines."):
-            continue
-        bad.append(mod)
-    return bad
+def _norm(name: str) -> str:
+    """PEP 503 那套等价关系: 发行名里的 `-`/`_` 不分家, 比较时统一成下划线。"""
+    return name.strip().lower().replace("-", "_")
 
 
-def _engine_files() -> list[pathlib.Path]:
-    return sorted(p for p in ENGINE_DIR.rglob("*.py") if p.name != "__init__.py")
+def _declared_deps(dist: str) -> set[str]:
+    with (REPO / "packages" / dist / "pyproject.toml").open("rb") as fh:
+        deps = tomllib.load(fh)["project"].get("dependencies", [])
+    return {_norm(d.split()[0].split(">")[0].split("=")[0].split("[")[0]) for d in deps}
 
 
-@pytest.mark.parametrize("path", _engine_files(), ids=lambda p: str(p.relative_to(ENGINE_DIR)))
-def test_engine_does_not_import_app_internals(path: pathlib.Path):
-    package = _module_of(path).rsplit(".", 1)[0]
-    bad = _violations(path, package)
-    assert not bad, (
-        f"{path.relative_to(SRC)} 越界依赖了 {bad}"
-        "（engines/ 下只许 import docanon.contract 与 docanon.engines.*）"
-    )
-
-
-def test_engine_directory_holds_the_known_engines():
-    found = {str(p.relative_to(ENGINE_DIR)) for p in _engine_files()}
-    missing = EXPECTED_ENGINE_MODULES - found
-    assert not missing, f"engines/ 下少了 {sorted(missing)}；引擎搬走了就要同步这份清单"
-
-
-def test_boundary_checker_actually_catches_violations(tmp_path):
-    """检查器本身有效: 越界要报(含最容易漏判的 `from .. import X`), 合法写法不许误报。"""
-    probe = tmp_path / "probe.py"
-
-    # 旧人工名单漏掉的正是这种"新文件 + 越界 import"
-    probe.write_text("from .. import config\n", encoding="utf-8")
-    assert _violations(probe, "engines") == ["config"]
-
-    probe.write_text("from ... import resources\n", encoding="utf-8")
-    assert _violations(probe, "engines.llm") == ["resources"]
-
-    probe.write_text("import docanon.pipeline\n", encoding="utf-8")
-    assert _violations(probe, "engines") == ["pipeline"]
-
-    probe.write_text(
-        "from ...contract import Block\nfrom .client import LLMClient\n",
-        encoding="utf-8",
-    )
-    assert _violations(probe, "engines.llm") == []
-
-
+# ---------- 1) 契约层只准标准库 ----------
 def test_contract_only_uses_stdlib():
-    tree = ast.parse((SRC / "contract.py").read_text(encoding="utf-8"))
-    third_party = [
-        alias.name.split(".")[0]
-        for node in ast.walk(tree)
-        for alias in (node.names if isinstance(node, ast.Import) else [])
-        if not isinstance(node, ast.ImportFrom)
-    ] + [
-        node.module.split(".")[0]
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom) and not node.level and node.module
-    ]
-    assert not [m for m in third_party if m not in STDLIB and m != "__future__"], (
-        f"契约层混进了第三方依赖: {third_party}"
+    third_party: list[str] = []
+    for path in _files("docanon-contract", CONTRACT):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Import):
+                third_party += [a.name.split(".")[0] for a in node.names]
+            elif isinstance(node, ast.ImportFrom) and not node.level and node.module:
+                third_party.append(node.module.split(".")[0])
+    bad = [m for m in third_party if m not in STDLIB and m != "__future__"]
+    assert not bad, f"契约层混进了第三方依赖: {bad}"
+
+
+def test_contract_declares_no_dependencies():
+    assert _declared_deps("docanon-contract") == set(), "契约层不许有运行时依赖"
+
+
+# ---------- 2) 引擎包只认契约 + 自己 ----------
+@pytest.mark.parametrize("key", sorted(ENGINES))
+def test_engine_only_depends_on_contract(key: str):
+    dist, pkg = ENGINES[key]
+    bad = []
+    for path in _files(dist, pkg):
+        for mod in _imports(path, _root(dist, pkg), pkg):
+            if mod.split(".")[0] in {CONTRACT, pkg}:
+                continue
+            bad.append(f"{path.relative_to(REPO)}: {mod}")
+    assert not bad, f"{dist} 越界依赖(只许 docanon_contract 与它自己): {bad}"
+
+
+@pytest.mark.parametrize("key", sorted(ENGINES))
+def test_engine_declares_only_contract_as_docanon_dep(key: str):
+    dist, _ = ENGINES[key]
+    docanon_deps = {d for d in _declared_deps(dist) if d.startswith("docanon")}
+    assert docanon_deps == {CONTRACT}, f"{dist} 的 docanon 依赖应只有契约, 实际 {docanon_deps}"
+
+
+def test_engines_are_exactly_the_three_known_packages():
+    """引擎包清单是锁定的: 新增/改名都要显式改这里, 免得边界检查悄悄少查一个。"""
+    found = {p.name for p in (REPO / "packages").glob("docanon-engine-*")}
+    assert found == {dist for dist, _ in ENGINES.values()}
+
+
+# ---------- 3) core 只用引擎的公开面 ----------
+def test_core_uses_engine_public_surface_only():
+    bad = []
+    for path in _files("docanon-core", CORE):
+        for mod in _imports(path, _root("docanon-core", CORE), CORE):
+            if any(mod.startswith(f"{pkg}.") for _, pkg in ENGINES.values()):
+                bad.append(f"{path.relative_to(REPO)}: {mod}")
+    assert not bad, "core 伸手进了引擎内部模块(只许 `from docanon_engine_x import Y`): " + str(bad)
+
+
+def test_core_declares_the_engines_and_contract():
+    docanon_deps = {d for d in _declared_deps("docanon-core") if d.startswith("docanon")}
+    assert docanon_deps == {CONTRACT, *(pkg for _, pkg in ENGINES.values())}, (
+        f"core 的 docanon 依赖应为契约 + 三个引擎, 实际 {docanon_deps}"
     )
-
-
-def test_entity_map_is_app_supplied_not_engine_default(tmp_path):
-    """引擎自带实体词表 = 词表跟着引擎仓库走, 移植时必然漂移; 现在它是必填参数。"""
-    from docanon.engines import onnx_ner
-    from docanon.engines.onnx_ner import OnnxNERDetector
-
-    assert not hasattr(onnx_ner, "DEFAULT_ENTITY_MAP"), "词表不该住回引擎里"
-    with pytest.raises(ValueError, match="映射表"):
-        OnnxNERDetector(tmp_path, {})
-
-
-def test_config_carries_the_default_entity_map():
-    from docanon.config import DEFAULT_ONNX_ENTITY_MAP, load_config
-
-    cfg = load_config()
-    assert cfg.onnx.entity_map == DEFAULT_ONNX_ENTITY_MAP
-    assert set(cfg.onnx.entity_map.values()) >= {"PERSON", "PHONE", "ORG"}
-
-
-def test_engines_command_reports_unusable_engine(tmp_path, monkeypatch, capsys):
-    """`docanon engines` 的价值就在"不许猜": 起不来的引擎要出现在结果里并给出非零码。"""
-    from docanon.cli import main
-    from docanon.engines.llm.client import LLMClient
-
-    cfg_file = tmp_path / "llm.yaml"
-    cfg_file.write_text(
-        "strategies: {DEFAULT: placeholder}\ndetectors: {rule: true, llm_ner: true}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(LLMClient, "health", lambda self: False)
-
-    code = main(["engines", "-c", str(cfg_file)])
-
-    printed = capsys.readouterr().out
-    assert code == 2
-    assert "llm" in printed and "不可用" in printed
-    assert "rule" in printed and "可用" in printed
-
-
-def test_engines_command_lists_capabilities(tmp_path, capsys):
-    from docanon.cli import main
-
-    assert main(["engines", "-c", "configs/onnx.yaml"]) == 0
-    printed = capsys.readouterr().out
-    assert "ocr_image" in printed, "抽取器清单要能证明扩展名登记齐了"
-    assert "PERSON" in printed, "引擎能力(实体类型)必须列出来"

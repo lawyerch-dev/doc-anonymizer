@@ -1,0 +1,12 @@
+# 开发环境: 五个包都以 editable 装好(本地路径, 不依赖任何包索引)
+#   .venv/bin/pip install -r requirements-dev.txt
+# 各包的运行时依赖写在各自的 pyproject.toml 里(依赖归属跟着实现走)。
+-e ./packages/docanon-contract
+-e ./packages/docanon-engine-ocr
+-e ./packages/docanon-engine-ner-onnx
+-e ./packages/docanon-engine-ner-llm
+-e ./packages/docanon-core
+
+# 只在测试/基准里用到
+pytest>=7.0
+reportlab>=4.0

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docanon-engine-ner-onnx"
+version = "0.1.0"
+description = "docanon ONNX NER 引擎: 编码器式中文 NER(无需 server)"
+requires-python = ">=3.10,<3.14"
+# numpy / tokenizers 以前是隐式依赖(靠 rapidocr 顺带装进来), 这里显式声明
+dependencies = [
+    "docanon-contract",
+    "numpy>=1.26",
+    "onnxruntime>=1.17",
+    "tokenizers>=0.15",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

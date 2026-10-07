@@ -1,35 +1,14 @@
-[build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "doc-anonymizer"
-version = "0.1.0"
-description = "本地文档脱敏工具: 抽取 + 检测 + 按类型脱敏"
-requires-python = ">=3.10,<3.14"
-# 部署契约(与 src/docanon/resources.py 的说明同源): 只支持两种形态 ——
-#   1) editable 安装: pip install -e '.[ocr,dev]', 资源就在源码树里;
-#   2) 打包根: configs/ samples/ apps/web/ 与包同级, 用 DOCANON_ROOT 或 PyInstaller 的 _MEIPASS 指定。
-# **不做 wheel 自包含**: 前端 vendor(232MB)与模型(GB 级)本来就不该进包, 而包外资源由
-# resources.LAYOUT 一张表统一管理。非 editable 安装会以 ResourceRootError 明确报错,
-# 不会静默退化成"读到空配置还装没事"。所有布局路径见 resources.LAYOUT + tests/test_layout.py。
-dependencies = [
-    "pyyaml>=6.0",
-    "pypdfium2>=4.20",
-    "python-docx>=1.1",
-    "openpyxl>=3.1",
-]
-
-[project.optional-dependencies]
-ocr = ["rapidocr>=2.0.0", "onnxruntime>=1.17", "Pillow>=10.0"]
-dev = ["pytest>=7.0"]
-
-[project.scripts]
-docanon = "docanon.cli:main"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
+# 工作区根: 这里没有代码也没有包, 只放工作区级的工具配置。
+#   - 各包: packages/*/pyproject.toml
+#   - 安装: requirements-dev.txt(五个包 editable + 测试依赖)
+#   - 测试: 包内单元测试在 packages/*/tests/, 跨包/端到端在 tests/
 [tool.pytest.ini_options]
-pythonpath = ["src"]
-testpaths = ["tests"]
+testpaths = ["packages", "tests"]
+# 让测试不装包也能跑(装了 editable 也无害): 顺序即 sys.path 顺序
+pythonpath = [
+    "packages/docanon-contract/src",
+    "packages/docanon-engine-ocr/src",
+    "packages/docanon-engine-ner-onnx/src",
+    "packages/docanon-engine-ner-llm/src",
+    "packages/docanon-core/src",
+]

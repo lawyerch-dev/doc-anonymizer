@@ -19,13 +19,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from docanon.config import load_config  # noqa: E402
-from docanon.detectors.dictionary import DictionaryDetector  # noqa: E402
-from docanon.engines.llm.ner import LLMNERDetector  # noqa: E402
-from docanon.engines.llm.client import LLMConfig, LLMError  # noqa: E402
-from docanon.detectors.rule import RuleDetector  # noqa: E402
-from docanon.contract import Block  # noqa: E402
-from docanon.resolve import resolve_overlaps  # noqa: E402
+from docanon_core.config import load_config  # noqa: E402
+from docanon_core.detectors.dictionary import DictionaryDetector  # noqa: E402
+from docanon_engine_ner_llm import LLMNERDetector  # noqa: E402
+from docanon_engine_ner_llm import LLMConfig, LLMError  # noqa: E402
+from docanon_core.detectors.rule import RuleDetector  # noqa: E402
+from docanon_contract import Block  # noqa: E402
+from docanon_core.redaction.resolve import resolve_overlaps  # noqa: E402
 
 # (文本, 必须被识别出的敏感片段)
 CASES: list[tuple[str, set[str]]] = [

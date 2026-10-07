@@ -45,9 +45,10 @@ function python(): string {
 // 拉起 Python 后端(sidecar)。DOCANON_EXIT_WITH_PARENT: 壳被强杀时 JS 没机会收尸,
 // 让后端自己盯着父进程(见 docanon/server.py 的 _watch_parent)。
 const child = spawn({
-	cmd: [python(), "-m", "docanon.cli", "web", "--no-browser", "-p", String(PORT), "-c", CONFIG],
+	cmd: [python(), "-m", "docanon_core.cli", "web", "--no-browser", "-p", String(PORT), "-c", CONFIG],
 	cwd: ROOT,
-	env: { ...process.env, PYTHONPATH: join(ROOT, "src"), DOCANON_EXIT_WITH_PARENT: "1" },
+	// 五个包由 requirements-dev.txt 装进 .venv(editable), 不需要再拼 PYTHONPATH
+	env: { ...process.env, DOCANON_EXIT_WITH_PARENT: "1" },
 	stdout: "inherit",
 	stderr: "inherit",
 });

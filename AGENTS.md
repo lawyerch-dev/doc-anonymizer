@@ -36,7 +36,7 @@
   —— 前端 vendor 232MB、模型 GB 级，本来就不该进包。
 - 不带 `-c` 走 `configs/default.yaml`，其中 `onnx_ner`/`llm_ner` 均为 `false`，只剩规则+词典：
   同一个 `samples/example.txt` 实测少掉 `PERSON` 与 `LOCATION`。桌面壳固定用 `configs/onnx.yaml`，
-  `docanon web` 要自己带 `-c`。`configs/with_llm.yaml` 需先 `./scripts/serve_llm.sh` 把 llama-server 起到 :8080。
+  `docanon web` 要自己带 `-c`。`configs/llm.yaml` 需先 `./scripts/serve_llm.sh` 把 llama-server 起到 :8080。
 
 ## 风险边界
 
