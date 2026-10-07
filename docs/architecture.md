@@ -31,7 +31,7 @@
 doc-anonymizer/
 ├── src/docanon/            代码(见上表); 布局路径集中在 resources.LAYOUT
 ├── apps/
-│   ├── web/index.html      零构建单文件前端(由 server.py 提供)
+│   ├── web/               零构建前端: index.html + app.css + app.js(由 server 直接发出去)
 │   └── desktop/            Electrobun 壳(系统 WebView) + hutch.lock
 ├── configs/                配置(default / onnx / with_llm), 包外, 随资源根走
 ├── samples/                内置样例: Web 预设 + 测试数据(scripts/make_samples.py 生成)
@@ -45,7 +45,7 @@ doc-anonymizer/
 
 | 边界 | 锁在哪 | 违反的后果 |
 |---|---|---|
-| 引擎只认契约 | `tests/test_architecture.py`（遍历 `engines/**`） | 引擎无法整块搬走 |
+| 引擎只认契约（可整块搬走） | `tests/test_architecture.py`（遍历 `engines/**`）+ `tests/test_engine_portability.py`（真的拷到别处导入一遍） | 引擎无法整块搬走 |
 | 资源根可验证、布局只有一处真相 | `tests/test_resources.py`、`tests/test_layout.py` | 非 editable 安装下静默读到空配置 |
 | 产物命名 `<全名>.redacted.<原扩展名>` + 保留子目录 | `tests/test_output_layout.py` | 同名文件互相覆盖 |
 | 账本每文件原子落盘、`--resume` 要求产物仍在 | `tests/test_job.py` | Ctrl+C/崩溃丢记录，或把漏脱敏报成已处理 |
@@ -57,7 +57,7 @@ doc-anonymizer/
 
 | 决策 | 理由 | 代价 |
 |---|---|---|
-| 前端零构建、单文件 `index.html` | 无 node 构建链；预览包(file-viewer)是预构建产物，直接用 | 页面大了不好维护（现在 327 行） |
+| 前端零构建、`index.html + app.css + app.js` 三个静态件 | 无 node 构建链；预览包(file-viewer)是预构建产物，直接用；`app.js` 用 `@ts-check` + JSDoc 换编辑器的类型提示 | 没有打包/压缩，也没有真正的类型检查（等 DOM 复杂度上去再谈） |
 | `configs/` 在包外 + `resources.LAYOUT` | 打包成桌面应用时资源与代码分开搬；模型/前端本来就进不了 wheel | 需要资源根概念；非 editable 安装必须显式报错 |
 | **不做 wheel 自包含** | vendor 232MB、模型 GB 级，不该进包 | `pip install .` 到别处不可用（有明确报错 + `DOCANON_ROOT`） |
 | 引擎放同包内的 `engines/` 目录，不拆独立发行包 | 第二个消费者还没出现；拆包要引入版本与发现机制，而 entry-points 的发现失败天然是静默降级 | 边界靠测试维持，不是靠包系统 |
@@ -73,6 +73,8 @@ doc-anonymizer/
 | `b4ca552` | `job.py` 账本：每文件原子落盘 + `--resume` | 几十页扫描件跑到一半崩掉不能白跑 |
 | `22af2a5` | 资源根改为可验证解析；桌面壳定为 Electrobun（Electron 退场） | 非 editable 安装会静默读空配置；两个壳是纯负担 |
 | `4b3e91b` | 引擎收进 `engines/`，边界改按目录机械检查 | 人工名单会漏：新增引擎文件完全不受检查（实测过） |
+| `fea544b` | 引擎"可搬走"改为被验证的事实；`server.py` 拆成 `server/{__init__,routes,lifecycle}.py` | 承诺要能被跑出来；301 行的单文件混了三种关注点 |
+| `1a2b3c4` | 前端拆 `index.html` + `app.css` + `app.js` | 327 行单文件里 HTML/CSS/JS 混在一起 |
 | `0476003` | `resources.LAYOUT` 一张表 + 打包契约写进 pyproject | 布局知识原本散在 4 处，挪目录没有任何红灯 |
 | `dc479e3` | `var/` 收 models + vendor | 5.9G/232MB 散在三个顶层，"哪些能删"要靠 .gitignore 反推 |
 | `fb92745` | WebKit 兼容检查归位 `tests/e2e/webkit`；测试样板收敛到 `conftest.py` | 它测的是 Web UI 不是壳；样板抄了三遍 |
@@ -80,7 +82,5 @@ doc-anonymizer/
 ## 六、已知欠债（有意留下的）
 
 - `engines/` 仍是同一个包内的目录，不是独立发行包 —— 等第二个项目出现再拆（届时只加 `pyproject.toml`）。
-- `server.py` 301 行，HTTP 细节/路由/上传/API 混在一起；稳态代码，等它再长再拆。
-- `apps/web/index.html` 单文件 327 行，无构建、无类型；DOM 再长就该考虑极简构建。
 - pdf/图片产物是涂黑位图（文字层消失），见 README「已知限制」。
 - 无 lint/typecheck/CI（有意：单人本地工具，测试即门禁）。

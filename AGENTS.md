@@ -1,13 +1,14 @@
 # doc-anonymizer 操作契约
 
-日常开发只碰两处：`.venv` 里的 Python 引擎 `src/docanon/`，和零构建的单文件前端
-`apps/web/index.html`。桌面壳只有一个（`apps/desktop/`，Electrobun + 系统 WebView），不是日常路径
-（`apps/desktop/README.md` 明写「开发时不用它」）。
+日常开发只碰两处：`.venv` 里的 Python 引擎 `src/docanon/`，和零构建的前端
+`apps/web/`（`index.html` + `app.css` + `app.js`，由 `docanon web` 直接发出去，无 node 构建链）。
+桌面壳只有一个（`apps/desktop/`，Electrobun + 系统 WebView），不是日常路径（`apps/desktop/README.md`
+明写「开发时不用它」）。
 
 ## 命令（一律在仓库根执行）
 
 - 首次准备：`python3.12 -m venv .venv && .venv/bin/pip install -e '.[ocr,dev]'`
-- 全量测试：`.venv/bin/python -m pytest -q`（71 项，约 3 秒）
+- 全量测试：`.venv/bin/python -m pytest -q`（73 项，约 3 秒）
 - 单个测试：`.venv/bin/python -m pytest tests/test_pipeline.py::test_pipeline_masks_pii`
 - CLI 脱敏：`.venv/bin/docanon run ./samples -o out -c configs/onnx.yaml`
 - 大卷宗续跑（跳过已脱敏且产物仍在的）：同一条命令加 `--resume`
@@ -72,7 +73,7 @@
   file-viewer 的中文预览乱码（commit `094b863`）。
 - 干净环境起 Web 前先 `./scripts/fetch_file_viewer.sh`；`var/vendor/`（232MB）已 gitignore，
   缺它时预览区所有 `/file-viewer/*` 请求都 404。
-- Web 后端关掉了 HTTP 访问日志（`server.py` 的 `log_message` 是空实现）。命中溯源看 `/api/anonymize`
+- Web 后端关掉了 HTTP 访问日志（`server/routes.py` 的 `log_message` 是空实现）。命中溯源看 `/api/anonymize`
   返回的 `trace`（`extractor`/`detectors`/`timing`/`detections`），前端「运行日志」弹窗消费的就是它。
 - **可再生资产都在 `var/`**（`var/models` 权重、`var/vendor` 预览包；gitignore 一条 `var/` 覆盖），
   产物目录由 `-o` 决定（默认 `out/`，同样 gitignore）。唯一例外是壳的 `apps/desktop/build/`：
