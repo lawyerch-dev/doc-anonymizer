@@ -107,6 +107,24 @@ def test_github_community_files_exist():
     assert not missing, f"缺这些社区标准文件: {missing}"
 
 
+def test_github_yaml_parses():
+    """issue 表单/模板的 YAML 必须能解析 —— 坏一个字符, GitHub 就直接不认这份表单。"""
+    import yaml
+
+    bad = []
+    for path in sorted((REPO / ".github").rglob("*.yml")):
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:
+            bad.append(f"{path.relative_to(REPO)}: {exc}")
+            continue
+        if "body" in (data or {}):  # issue 表单: 字段得有 type, 否则 GitHub 也不认
+            for field in data["body"]:
+                if not isinstance(field, dict) or "type" not in field:
+                    bad.append(f"{path.relative_to(REPO)}: 表单字段缺 type: {field!r}")
+    assert not bad, "\n".join(bad)
+
+
 def test_readme_has_the_product_sections():
     """README 是产品门面: 快速上手、特性、限制、许可这几节不能悄悄消失。"""
     readme = (REPO / "README.md").read_text(encoding="utf-8")

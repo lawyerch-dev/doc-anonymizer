@@ -12,7 +12,7 @@
 - 首次准备：`./scripts/setup_dev.sh`（幂等）—— 建 `.venv`、装五个包 editable + 测试依赖、
   再把字节码缓存重定向到 `var/pycache`。等价的手工版是
   `python3.12 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`，只是少了第 3 步
-- 全量测试：`.venv/bin/python -m pytest -q`（106 项，约 5 秒；这个数字由 `tests/test_docs.py` 盯着，改了测试要同步）
+- 全量测试：`.venv/bin/python -m pytest -q`（107 项，约 5 秒；这个数字由 `tests/test_docs.py` 盯着，改了测试要同步）
 - 单个测试：`.venv/bin/python -m pytest packages/docanon-core/tests/test_pipeline.py::test_pipeline_masks_pii`
 - 包边界与可搬运性：`.venv/bin/python -m pytest tests/test_architecture.py tests/test_engine_portability.py -q`
 - CLI 脱敏：`.venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml`
