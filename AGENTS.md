@@ -102,8 +102,11 @@
 
 | 文件 | 管什么 | 权威性 |
 |---|---|---|
-| `README.md` | 使用者说明书：命令、产物与命名契约、支持范围、已知限制、Web 接口、桌面壳入口 | 现状权威 |
+| `README.md` | 使用者说明书：命令、产物与命名契约、支持范围、已知限制、Web 接口、桌面壳入口、文档导航 | 现状权威 |
 | `AGENTS.md`（本文件） | 操作契约：不能违反的边界、命令、坑 | 现状权威 |
+| `docs/architecture.md` | 分层与目录设计的**为什么**、四条硬边界、决策记录、搬迁历史 | 解释性，与代码同步 |
+| `docs/benchmarks.md` | 模型选型与基准数字（ONNX vs LLM、各 GGUF 对比） | 实测记录 |
+| `scripts/README.md` | 六个脚本各干什么、依赖、用法 | 现状权威 |
 | `apps/desktop/README.md` | 桌面壳的运行方式与三条实测约束 | 现状权威 |
 | `docs/specs/2026-10-05-*.md` | 设计决策的历史记录（选型与理由）+ §10 后续变更 | 历史记录，现状以本文件与 README 为准 |
 
@@ -114,5 +117,7 @@
 
 ## 深度文档（按需读，不要抄进本文件）
 
-- 架构与模型选型：`docs/specs/2026-10-05-doc-anonymizer-design.md`
+- 架构与目录设计、决策与搬迁历史：`docs/architecture.md`
+- 模型选型与基准：`docs/benchmarks.md`
+- 最初的设计方案（历史记录）：`docs/specs/2026-10-05-doc-anonymizer-design.md`
 - 已知限制（漏脱敏、还原失败的权威清单）：`README.md`「已知限制」段

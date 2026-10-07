@@ -3,13 +3,20 @@
 本地文档脱敏工具 —— 在 Apple Silicon Mac 上跑，中文优先。
 输入文档 → 抽取文字(+坐标) → 规则/词典/大模型检测敏感信息 → 按类型替换 → 输出脱敏文件 + 映射表。
 
-设计见 [docs/specs/2026-10-05-doc-anonymizer-design.md](docs/specs/2026-10-05-doc-anonymizer-design.md)。
+| 想了解 | 去哪 |
+|---|---|
+| 怎么用（命令、产物、已知限制、Web/桌面壳） | 本文 |
+| 为什么这么分层/这么摆目录、搬迁历史 | [docs/architecture.md](docs/architecture.md) |
+| 模型选型与基准数字怎么来的 | [docs/benchmarks.md](docs/benchmarks.md) |
+| 开发时的操作契约（改代码前必读） | [AGENTS.md](AGENTS.md) |
+| 每个脚本干什么 | [scripts/README.md](scripts/README.md) |
+| 最初的设计方案（历史记录） | [docs/specs/2026-10-05-doc-anonymizer-design.md](docs/specs/2026-10-05-doc-anonymizer-design.md) |
 
 ## 技术栈
 
 - **OCR**: RapidOCR 2.x (ONNXRuntime, PP-OCRv6 模型, 中文强、带坐标)
 - **大模型**: llama.cpp (`llama-server`, OpenAI 兼容) + **Qwen3.8-4B-Distill** GGUF
-  - 实测选型(见下表): 4B 蒸馏版召回 100%, 仅 3.1G 内存、1.46s/例, 胜过 9B
+  - 实测选型: 4B 蒸馏版召回 100%, 仅 3.1G 内存、1.46s/例, 胜过 9B
   - 量化 `Q4_K_M`(2.8G); 追求更省可换 Qwen3.5-4B / MiniCPM5-2B
   - 模型来源: ModelScope(国内直连 ~16MB/s)
 - **CLI/Web**: Python 标准库 + 极简 Web, 无重依赖
@@ -152,45 +159,18 @@ npm start            # = hutch electrobun dev, 端口 8770
 不留空窗口。三条实测约束（项目根按标记文件向上找、壳被强杀时后端自己了断、只认自己拉起的后端）
 见 [apps/desktop/README.md](apps/desktop/README.md)。
 
-## 多模型对比
-
-```bash
-./scripts/download_model.sh Q4_K_M          # 下载更多模型到 var/models/
-.venv/bin/python scripts/bench_models.py    # 自动扫描 var/models/*.gguf 逐个跑基准
-```
-
-输出每个模型的 **召回率 / 平均耗时 / 内存**。测试样例见 `scripts/bench_models.py` 的 `CASES`。
-
-### 已测基准 (Apple M5 / 32GB, 6 个中文样例, 12 个待识别片段)
-
-| 模型 | 大小 | 召回 | 均耗时 | 内存 |
-|---|---|---|---|---|
-| **Qwen3.8-4B-Distill Q4_K_M** ✅默认 | 2.8G | 100% | 1.46s | 3.1G |
-| Qwen3.5-4B Q4_K_M | 2.7G | 100% | 1.90s | 3.0G |
-| Qwen3.5-9B Q4_K_M | 5.7G | 100% | 2.70s | 5.7G |
-| MiniCPM5-2B Q4_K_M | 1.6G | 91.7% | 0.56s | 1.8G |
-| Anonymizer-1.7B Q4_K_M | 1.1G | 91.7% | 0.62s | 1.6G |
-
-> 6 例样本量小, 差距(100% vs 91.7%)仅 1 个未召回, 仅供参考; 扩大 `CASES` 可提高置信度。
-> 专用脱敏模型 Anonymizer(英文训练)在中文上**未超过通用小模型**, 印证了"中文脱敏仍靠中文 LLM"。
-
-## ONNX 路线(可选, 完全不依赖 llama.cpp)
+## ONNX 路线(默认, 完全不依赖 llama.cpp)
 
 用**编码器式中文 NER 模型**（ONNXRuntime 跑）替代生成式 LLM 做"理解"，更轻、更快、无需 server：
 
 ```bash
-# 模型已下载到 var/models/onnx/ (gyr66 通用中文NER + pii-engineer 中文PII)
+# 模型在 var/models/onnx/ (gyr66 通用中文NER + pii-engineer 中文PII)
 docanon run ./samples -o out_onnx -c configs/onnx.yaml
 ```
 
-| 后端 | 召回 | 均耗时 | 依赖 |
-|---|---|---|---|
-| **ONNX 联合**(gyr66 + pii-engineer) + 规则 | **100%** | **34ms** | onnxruntime, 无 server |
-| LLM Qwen3.8-4B | 100% | 1190ms | llama.cpp + 3G 模型 |
-
-- 两个模型取并集：`gyr66` 出机构/人名，`pii-engineer` 出人名/手机/地址/身份证
-- 金额由规则补（两个 NER 都无 AMOUNT 标签）
-- 代价：标签集固定，不如 LLM 灵活（不能听指令、不能生成自然假名）
+比 LLM 快约 30 倍（34ms vs 1190ms，同为 100% 召回），代价是标签集固定：不能听指令、不能生成自然假名。
+两个模型取并集（gyr66 出机构/人名，pii-engineer 出人名/手机/地址/身份证），金额由规则补。
+实测数字与模型选型过程见 [docs/benchmarks.md](docs/benchmarks.md)。
 
 ## 配置
 

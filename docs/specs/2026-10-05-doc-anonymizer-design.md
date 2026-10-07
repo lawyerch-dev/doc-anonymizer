@@ -153,7 +153,8 @@
 
 ## 10. 后续变更（2026-10-07）
 
-本节只记"设计定稿之后改掉/补上的东西"。**现状以 `README.md` 与 `AGENTS.md` 为准**，本节是索引。
+本节只记"设计定稿之后改掉/补上的东西"。**现状以 `README.md`、`AGENTS.md` 与
+[`docs/architecture.md`](../architecture.md) 为准**，本节只是索引。
 
 - **引擎可移植边界**：新增 `src/docanon/contract.py`（只依赖标准库）作为引擎与 app 之间唯一的共享层，
   由 `tests/test_architecture.py` 用 AST 锁死；实体词表留在 app 侧（`config.py` 的 `DEFAULT_ONNX_ENTITY_MAP`）
