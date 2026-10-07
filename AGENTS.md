@@ -12,7 +12,7 @@
 - 首次准备：`./scripts/setup_dev.sh`（幂等）—— 建 `.venv`、装五个包 editable + 测试依赖、
   再把字节码缓存重定向到 `var/pycache`。等价的手工版是
   `python3.12 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`，只是少了第 3 步
-- 全量测试：`.venv/bin/python -m pytest -q`（104 项，约 5 秒；这个数字由 `tests/test_docs.py` 盯着，改了测试要同步）
+- 全量测试：`.venv/bin/python -m pytest -q`（106 项，约 5 秒；这个数字由 `tests/test_docs.py` 盯着，改了测试要同步）
 - 单个测试：`.venv/bin/python -m pytest packages/docanon-core/tests/test_pipeline.py::test_pipeline_masks_pii`
 - 包边界与可搬运性：`.venv/bin/python -m pytest tests/test_architecture.py tests/test_engine_portability.py -q`
 - CLI 脱敏：`.venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml`
@@ -130,9 +130,18 @@
 
 ## 文档地图（改行为时一起改）
 
+分工：**面向用户的说明文档**在 `README.md` 与 `docs/`（产品门面）；
+**面向开发者的契约**在 `AGENTS.md` 与 `CONTRIBUTING.md`（改代码前必读）。
+社区标准文件（`LICENSE`、`SECURITY.md`、`CHANGELOG.md`、`CODE_OF_CONDUCT.md`、`.github/` 模板）
+由 `tests/test_docs.py` 盯着是否还在，别删。
+
 | 文件 | 管什么 | 权威性 |
 |---|---|---|
-| `README.md` | 使用者说明书：安装、命令、产物与命名契约、支持范围、已知限制、Web 接口、桌面壳入口 | 现状权威 |
+| `README.md` | 产品门面：定位、特性、快速上手、用法（CLI/Web/壳）、支持格式与产物、已知限制、文档导航、许可 | 现状权威 |
+| `docs/quickstart.md` | 5 分钟上手 + 常见问题（面向第一次用的人） | 现状权威 |
+| `CONTRIBUTING.md` | 开发指南：环境、常用命令、代码在哪、硬规矩、提交与 PR、非目标 | 现状权威 |
+| `SECURITY.md` | 安全问题（漏脱敏）怎么报、已有的安全边界、不提供什么保证 | 现状权威 |
+| `CHANGELOG.md` | 版本变更（Keep a Changelog）；**记录类文档**，允许出现旧名字与旧路径 | 随版本更新 |
 | `AGENTS.md`（本文件） | 操作契约：不能违反的边界、命令、坑 | 现状权威 |
 | `docs/architecture.md` | 五包结构与**为什么**、硬边界、决策记录、搬迁历史 | 解释性，与代码同步 |
 | `docs/benchmarks.md` | 模型选型与基准数字（ONNX vs LLM、各 GGUF 对比） | 实测记录 |

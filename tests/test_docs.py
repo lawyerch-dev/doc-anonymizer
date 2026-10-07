@@ -19,16 +19,34 @@ import sys
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 
-CURRENT_DOCS = [
-    REPO / "README.md",
-    REPO / "AGENTS.md",
-    REPO / "docs" / "architecture.md",
-    REPO / "docs" / "benchmarks.md",
-    REPO / "scripts" / "README.md",
-    REPO / "apps" / "desktop" / "README.md",
+# 记录类文档: 它们本来就要写"当时是什么、后来改成了什么", 所以允许出现旧名字与旧路径。
+#   - 设计文档: 带日期的历史记录;
+#   - CHANGELOG: 记录"改名前叫什么、迁移前的安装命令是什么"。
+RECORDS = [
+    REPO / "docs" / "specs" / "2026-10-05-doc-anonymizer-design.md",
+    REPO / "CHANGELOG.md",
 ]
-HISTORICAL = REPO / "docs" / "specs" / "2026-10-05-doc-anonymizer-design.md"
-ALL_DOCS = [*CURRENT_DOCS, HISTORICAL]
+
+# 现状文档: 扫全部 .md(新写的文档自动纳入检查, 不用来改这份清单)
+CURRENT_DOCS = sorted(
+    {*REPO.glob("*.md"), *(REPO / "docs").rglob("*.md"), *(REPO / ".github").rglob("*.md")}
+    - set(RECORDS)
+)
+ALL_DOCS = [*CURRENT_DOCS, *RECORDS]
+
+# GitHub 社区标准要求存在的文件(社区档案页会按这几项打分)
+COMMUNITY_FILES = [
+    "README.md",
+    "LICENSE",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "CODE_OF_CONDUCT.md",
+    "CHANGELOG.md",
+    ".github/PULL_REQUEST_TEMPLATE.md",
+    ".github/ISSUE_TEMPLATE/bug_report.yml",
+    ".github/ISSUE_TEMPLATE/feature_request.yml",
+    ".github/ISSUE_TEMPLATE/config.yml",
+]
 
 TOP_LEVEL = {"packages", "apps", "configs", "samples", "scripts", "tests", "docs", "var"}
 # 运行时才存在的东西: var/(权重、预览包、默认产物)、用户自选产物目录、壳的构建产物
@@ -48,10 +66,10 @@ REMOVED_NAMES = {
 def test_documented_repo_paths_exist():
     """反引号里点名的仓库路径必须是真存在的(否则就是文档在说旧世界)。"""
     missing = []
-    for doc in ALL_DOCS:
+    for doc in CURRENT_DOCS:  # 记录类文档不查(它们要写旧路径)
         for token in re.findall(r"`([^`\n]+)`", doc.read_text(encoding="utf-8")):
             t = token.strip().rstrip("/")
-            if not t or any(c in t for c in "*{}") or " " in t or t.startswith(RUNTIME_PREFIXES):
+            if not t or any(c in t for c in "*{}…") or " " in t or t.startswith(RUNTIME_PREFIXES):
                 continue
             if "/" not in t or t.split("/")[0] not in TOP_LEVEL:
                 continue
@@ -81,6 +99,19 @@ def test_documented_test_file_names_exist():
             if token not in known:
                 bad.append(f"{doc.relative_to(REPO)} 提到 {token}, 但仓库里没有这个测试文件")
     assert not bad, "\n".join(bad)
+
+
+def test_github_community_files_exist():
+    """开源项目的门面文件: 少一个, GitHub 的社区档案页就会提示缺项。"""
+    missing = [f for f in COMMUNITY_FILES if not (REPO / f).exists()]
+    assert not missing, f"缺这些社区标准文件: {missing}"
+
+
+def test_readme_has_the_product_sections():
+    """README 是产品门面: 快速上手、特性、限制、许可这几节不能悄悄消失。"""
+    readme = (REPO / "README.md").read_text(encoding="utf-8")
+    for heading in ("## 快速上手", "## 特性", "## 已知限制", "## 文档", "## 贡献与许可"):
+        assert heading in readme, f"README 里少了「{heading}」这一节"
 
 
 def test_markdown_links_resolve():

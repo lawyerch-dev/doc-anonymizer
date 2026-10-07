@@ -1,233 +1,209 @@
-# doc-anonymizer
+<h1 align="center">doc-anonymizer</h1>
 
-本地文档脱敏工具 —— 在 Apple Silicon Mac 上跑，中文优先。
-输入文档 → 抽取文字(+坐标) → 规则/词典/大模型检测敏感信息 → 按类型替换 → 输出脱敏文件 + 映射表。
+<p align="center"><b>本地文档脱敏工具</b> · 中文优先 · 全离线 · 保留原格式</p>
 
-| 想了解 | 去哪 |
-|---|---|
-| 怎么用（命令、产物、已知限制、Web/桌面壳） | 本文 |
-| 为什么这么分层/这么摆目录、搬迁历史 | [docs/architecture.md](docs/architecture.md) |
-| 模型选型与基准数字怎么来的 | [docs/benchmarks.md](docs/benchmarks.md) |
-| 开发时的操作契约（改代码前必读） | [AGENTS.md](AGENTS.md) |
-| 每个脚本干什么 | [scripts/README.md](scripts/README.md) |
-| 最初的设计方案（历史记录） | [docs/specs/2026-10-05-doc-anonymizer-design.md](docs/specs/2026-10-05-doc-anonymizer-design.md) |
+<p align="center">
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg">
+  <img alt="Platform: macOS arm64" src="https://img.shields.io/badge/platform-macOS%20arm64-lightgrey.svg">
+  <img alt="Python 3.10–3.13" src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg">
+  <img alt="No network" src="https://img.shields.io/badge/network-offline%20by%20design-success.svg">
+</p>
 
-## 技术栈
+<p align="center">
+  <img src="docs/images/web-ui.png" width="900" alt="Web 界面：左侧选文档，中间预览原文，点「开始脱敏」后右侧预览保留原格式的脱敏件">
+</p>
 
-- **OCR**: RapidOCR（ONNXRuntime 后端；中文强、带 bbox。具体模型版本随 pip 装的走，
-  能力边界用 `docanon engines` 看）
-- **大模型**: llama.cpp (`llama-server`, OpenAI 兼容) + **Qwen3.8-4B-Distill** GGUF
-  - 实测选型: 4B 蒸馏版召回 100%, 仅 3.1G 内存、1.46s/例, 胜过 9B
-  - 量化 `Q4_K_M`(2.8G); 追求更省可换 Qwen3.5-4B / MiniCPM5-2B
-  - 模型来源: ModelScope(国内直连 ~16MB/s)
-- **CLI/Web**: Python 标准库 + 极简 Web, 无重依赖
-
-## 安装
-
-> 建议 Python 3.11/3.12。3.14 目前 onnxruntime/rapidocr 可能无轮子。
+把一份中文文档丢进去，**人名、手机号、身份证、银行卡、邮箱、IP、统一社会信用代码、密钥、自定义敏感词**
+会被识别并抹掉，输出**与原文相同格式**的文件，外加一份可还原的对照表。
+全过程在本机完成：**不联网、不上传、不依赖云端 API**。
 
 ```bash
-./scripts/setup_dev.sh    # 幂等: 建 .venv + 装五个包 editable + 把字节码缓存收到 var/pycache
+git clone https://github.com/lawyerch/doc-anonymizer && cd doc-anonymizer
+./scripts/setup_dev.sh                                             # 建环境 + 装依赖
+.venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml    # 跑一遍内置样例
 ```
 
-代码分五个包（`packages/`）：`docanon-contract`（引擎契约）、`docanon-core`（app 与 CLI/Web）、
-以及三个引擎包 `docanon-engine-ocr` / `-ner-onnx` / `-ner-llm`。依赖归属跟着实现走 ——
-每个包自己的运行时依赖写在它的 `pyproject.toml` 里。
+第一次用建议看 **[5 分钟快速上手](docs/quickstart.md)**（含界面截图与常见问题）。
 
-## 下载并启动本地大模型
+## 特性
+
+- **中文优先**：规则 + 中文词典 + 中文 NER 模型（ONNX）三路并用，专治中文文档里的姓名/机构/地址。
+- **全离线**：没有任何云端调用。可选的"本地大模型"路线也只连本机的 `llama-server`。
+- **保留原格式**：docx 按 run 改写、xlsx/csv 改写单元格、pdf/图片涂黑 —— 前后可以左右对照着看。
+- **召回优先（宁多勿漏）**：拿不准的一律标出来；命中位置与来源都在运行日志里可查。
+- **可还原**：`mapping.json` 记住"原文 ↔ 替换值"，`docanon restore` 能把文本产物还原回去。
+- **不许静默少一层**：任何引擎起不来，跑之前就报错退出（退出码 1），不会给你一份"少了实体识别"的脱敏件。
+- **大卷宗能续跑**：账本每处理完一个文件就落盘，Ctrl+C 或崩溃之后 `--resume` 接着跑，不重做已完成的部分。
+- **三种用法**：命令行、浏览器界面、桌面窗口（Electrobun 壳），同一套引擎与同一份配置。
+
+## 快速上手
 
 ```bash
-./scripts/download_model.sh Q4_K_M     # 从 ModelScope 下载 (~6 分钟)
-./scripts/serve_llm.sh                 # 启动 llama-server :8080
-# 另开一个终端, 用已经开好 LLM 检测器的 configs/llm.yaml（它就是 default.yaml + llm_ner: true）
+# 1) 环境（Apple Silicon macOS；Python 3.11/3.12 建议）
+./scripts/setup_dev.sh
+
+# 2) 处理单个文件或整个目录
+.venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml
+
+# 3) 打开界面（浏览器访问 http://127.0.0.1:8000）
+.venv/bin/docanon web -p 8000 -c configs/onnx.yaml
 ```
 
-## 快速开始
+> 不带 `-c` 时走 `configs/default.yaml`，其中 ONNX/LLM 检测器默认关闭（只剩规则 + 词典）。
+> 要人名/机构/地名，请带上 `-c configs/onnx.yaml`。
+
+## 用法
+
+### 命令行
 
 ```bash
-# 处理单个文件或目录
-docanon run ./samples -o ./var/out -c configs/onnx.yaml
+# 处理目录（保留相对子目录结构）
+.venv/bin/docanon run ./案件 -o var/out -c configs/onnx.yaml
 
-# 大卷宗跑到一半 Ctrl+C 或某个文件失败 —— 接着跑, 不重来
-docanon run ./案件 -o ./var/out -c configs/onnx.yaml --resume
+# 跑到一半中断/有文件失败 —— 接着跑，已完成的不重做
+.venv/bin/docanon run ./案件 -o var/out -c configs/onnx.yaml --resume
 
-# 启动轻量 Web
-docanon web --port 8000 -c configs/onnx.yaml
+# 这份配置到底跑了几层检测？别猜，列出来（每个引擎: 可用/不可用带原因 + 实际能力）
+.venv/bin/docanon engines -c configs/onnx.yaml
 
-# 这份配置到底跑哪几层检测, 别猜(可用/不可用(带原因) + 实际能力)
-docanon engines -c configs/onnx.yaml
-
-# 还原(只支持文本产物, 见「已知限制」)
-docanon restore ./var/out/sample.md.redacted.md --mapping ./var/out/mapping.json
+# 还原（只支持文本产物: txt/md/csv）
+.venv/bin/docanon restore var/out/sample.md.redacted.md --mapping var/out/mapping.json
 ```
 
-`-c` 省略时走 `configs/default.yaml`：只有规则+词典（`onnx_ner`/`llm_ner` 均为 `false`），
-同一个 `samples/example.txt` 实测会少掉 `PERSON` 与 `LOCATION`。**要人名/机构/地名就带上 `-c`。**
-桌面壳固定用 `configs/onnx.yaml`；`docanon web` 得自己带上 `-c configs/onnx.yaml`。
+退出码：`0` 全部处理 · `1` 输入/配置/引擎有问题（一个文件都不写）· `2` 有文件没产出结果
+（格式不支持、抽取失败、被中断）—— `2` 是提示，不是"跑坏了"。
 
-示例文档由 `scripts/make_samples.py` 生成, 覆盖 txt/md/docx/pdf(文字)/pdf(扫描)/png/xlsx/csv。
-
-### 产物与清单
-
-产物命名 `<源文件全名>.redacted.<原扩展名>`, 并按源文件的相对路径建子树, 因此同名不同类型的文件不会互相覆盖:
-
-```
-docs/告知书/明细.docx   ->   var/out/告知书/明细.docx.redacted.docx
-docs/债权人/明细.txt    ->   var/out/债权人/明细.txt.redacted.txt
-```
-
-| 源格式 | 产物 | 怎么脱敏 |
-|---|---|---|
-| docx | `x.docx.redacted.docx` | 按 run 改写文字, 保留格式与表格 |
-| xlsx / csv | `x.xlsx.redacted.xlsx` / `x.csv.redacted.csv` | 改写单元格, 保留表结构 |
-| pdf | `x.pdf.redacted.pdf` | 整页渲染成图后涂黑（**文字层没了**, 见「已知限制」） |
-| png / jpg / tiff… | `x.png.redacted.png` | 按字符宽度比例（CJK=2/ASCII=1）只涂黑敏感片段 |
-| txt / md / text | `x.txt.redacted.txt` | 按行替换纯文本 |
-
-每次 run 还会更新两个文件(按源文件累加, 不覆盖上一次的记录 —— 同一个 `-o` 目录可以分批增量跑, 重复跑同一个文件只更新它那一条):
-
-- `manifest.json` —— 每个源文件一条记录: `ok`(含产物路径与命中数) / `error`(含原因) / `unsupported`(格式不支持)。**只有 manifest 里标 `ok` 的文件才是脱敏过的。**
-- `mapping.json` —— 原文↔脱敏值对照表, 含全部敏感信息原件, **切勿与脱敏文件一起外发**。
-
-断点续跑: 清单与映射表**每处理完一个文件就落盘**(原子写), 所以几十页扫描件跑到一半 Ctrl+C 或崩掉,
-已完成的部分不会丢、也不会被重做:
+### Web 界面
 
 ```bash
-docanon run ./案件 -o ./var/out -c configs/onnx.yaml --resume
+./scripts/fetch_file_viewer.sh                  # 首次: 拉预览资源(约 232MB, 已 gitignore)
+.venv/bin/docanon web -p 8000 -c configs/onnx.yaml
 ```
 
-`--resume` 判定"这个文件已经脱过敏"的条件是账本里标 `ok` **且产物文件仍在** —— 账本说做过而文件不见了
-(被删了、被移走了、或 `-o` 换了目录)会重做, 不会当成已完成。续跑要用同一个 `-o`, 否则路径核对不上。
+左侧选内置示例或上传文件 → 中间预览原文 → 点「开始脱敏」→ 右侧预览脱敏件，并给出命中统计与下载。
+「运行日志」弹窗里是逐条命中溯源（哪个引擎在哪个位置命中了什么）。
 
-退出码: `0` 全部处理; `2` 有文件未产出结果(格式不支持、抽取失败, 或跑到一半被中断); `1` 输入路径不存在、配置读不到、引擎起不来, 或 `-o` 目录里已有的清单/映射表读不出来(为不覆盖上次记录而拒绝执行)。
-
-### 已知限制
-
-- **命中敏感信息的 PDF 页是涂黑位图**：该页文字层会消失（不可选中/搜索/再编辑）——这是**安全保证**，
-  不是偷懒：给文字层盖黑块的话原文照样能复制出来，等于没脱敏。没命中的页原样保留矢量文字与体积，
-  所以只有出问题的页才变大。要可再编辑的产物请用 docx / xlsx / csv（原格式改写）。
-- **docx 的页眉、页脚、脚注、文本框不抽取** = 不脱敏（正文段落与表格单元格已覆盖）。
-- **`restore` 只支持文本产物**（txt/md/csv）。docx/xlsx/pdf/图片产物是原格式回写，没有可按映射表替换的
-  纯文本；`remove` 策略删掉的原文没有锚点，无法还原（会明确提示有几条还原不了）。
-- 打码后相同的值（两个号码都 mask 成同形）会还原成错的原文。
-- `.doc` / `.xls` / `.wps` 暂不支持（清单里记 `unsupported` 并返回退出码 2）；GBK 编码的 CSV 需转成 UTF-8 再跑。
-- 输出目录不要放在输入目录里面, 否则下一次 run 会把上一次的 `.redacted.*` 当成新文档再脱敏一遍。
-- `mapping.json` 含全部敏感原文, 绝不与脱敏产物一起外发或提交。
-
-> 混排 PDF（文字页 + 扫描页）**已支持**：逐页判断，有文字层的页按 charbox 涂黑，没有的页先 OCR 再涂黑。
-> 扫描件质量差导致的 OCR 错字仍会传导到脱敏结果，所以原则是"召回优先"。
-
-## 友好 Web 界面(推荐给非技术同事)
-
-```bash
-./scripts/fetch_file_viewer.sh                # 首次: 拉取 file-viewer 预览资源(约 232MB, 已 gitignore)
-docanon web --port 8000 -c configs/onnx.yaml   # 浏览器打开 http://127.0.0.1:8000
-```
-
-流程：**左侧选内置示例(或上传) → 中间 file-viewer 预览原文 → 点「开始脱敏」→ 右侧同一查看器预览保留原格式的脱敏件**，并给出命中统计与下载。
-
-- 预览基于 [file-viewer](https://github.com/flyfish-dev/file-viewer)（浏览器端只读预览，Apache-2.0）
-- 脱敏**保持原格式**：docx→docx、xlsx→xlsx、pdf→pdf、图片→图片，便于左右对比
-- 零构建：`index.html` + `app.css` + `app.js` 三个静态件，直接引用 file-viewer 预构建包，无 node 构建链
-- 预览窗格铺满高度；默认**浅色模式**；已隐藏 file-viewer 自带工具栏（搜索/缩放/下载…），避免控件溢出
-- 图片/扫描件按**字符宽度比例（CJK=2/ASCII=1）只涂黑敏感片段**，不再整行涂黑
-
-### Web 接口
-
-只监听 `127.0.0.1`，无鉴权（本地单机工具）。请求/响应都是 JSON（上传用 base64）：
+仅监听 `127.0.0.1`、无鉴权（本机自用），接口很小：
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/`、`/app.css`、`/app.js` | 前端（`apps/web/`：结构 / 样式 / 逻辑，零构建静态件） |
-| GET | `/health` | `{ok, pid}` —— 桌面壳用它确认后端是自己拉起的那个 |
-| GET | `/api/presets` | 内置示例清单 `{presets:[{name,url,size,preview}]}` |
-| GET | `/samples/*`、`/file-viewer/*`、`/uploads/*`、`/outputs/*` | 静态资源（预置样例、预览器、上传件、脱敏产物） |
-| POST | `/api/upload` | `{filename, content_b64}` → `{token, filename, url}`；上限 50MB |
-| POST | `/api/anonymize` | `{preset}` 或 `{token}` → `{output_name, output_url, counts, kind, trace}`；`trace` 含 `extractor`/`detectors`/`timing`/`detections`（命中溯源） |
+| GET | `/`、`/app.css`、`/app.js` | 前端页面（零构建静态件） |
+| GET | `/health` | `{ok, pid}` |
+| GET | `/api/presets` | 内置示例清单 |
+| GET | `/samples/*`、`/file-viewer/*`、`/uploads/*`、`/outputs/*` | 静态资源 |
+| POST | `/api/upload` | `{filename, content_b64}` → `{token, filename, url}`（上限 50MB） |
+| POST | `/api/anonymize` | `{preset}` 或 `{token}` → `{output_name, output_url, counts, kind, trace}` |
 
-后端关掉了 HTTP 访问日志（`docanon_core/server/routes.py` 的 `log_message` 是空实现）；排查问题看 `/api/anonymize` 返回的 `trace`，
-前端「运行日志」弹窗消费的就是它。
+### 桌面壳（可选）
 
-## 桌面壳 (Electrobun, 可选)
-
-把同一套 Web UI 装进原生窗口（macOS = 系统 WebView，不内置 Chromium，体积小一个数量级）。
-**日常开发不用它** —— 直接 `docanon web` 用浏览器迭代更快。
+把同一套界面装进原生窗口（系统 WebView，不内置 Chromium）。开发与测试都不需要它。
 
 ```bash
-curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh   # 首次: 装 Hutch 工具链
-cd apps/desktop
-hutch install        # 装依赖(生成 hutch.lock)
-npm start            # = hutch electrobun dev, 端口 8770
+cd apps/desktop && hutch install && npm start    # 端口 8770
 ```
 
-壳会拉起 `.venv` 的 Python 跑 `docanon web`，等 `/health` 就绪后开窗；后端起不来会打印原因并非零退出，
-不留空窗口。三条实测约束（项目根按标记文件向上找、壳被强杀时后端自己了断、只认自己拉起的后端）
-见 [apps/desktop/README.md](apps/desktop/README.md)。
+细节（含三条实测约束）见 [apps/desktop/README.md](apps/desktop/README.md)。
 
-## ONNX 路线(日常推荐, 完全不依赖 llama.cpp)
+## 支持的文件与产物
 
-用**编码器式中文 NER 模型**（ONNXRuntime 跑）替代生成式 LLM 做"理解"，更轻、更快、无需 server：
+产物命名 `<源文件全名>.redacted.<原扩展名>`，并保留源文件的相对子目录（同名不同类型的文件不会互相覆盖）。
 
-```bash
-# 模型在 var/models/onnx/ (gyr66 通用中文NER + pii-engineer 中文PII)
-docanon run ./samples -o var/out -c configs/onnx.yaml
-```
+| 输入 | 产物 | 脱敏方式 |
+|---|---|---|
+| `.docx` | `x.docx.redacted.docx` | 按 run 改写文字，保留格式与表格 |
+| `.xlsx` / `.csv` | `x.xlsx.redacted.xlsx` | 改写单元格，保留表结构 |
+| `.pdf`（文字层） | `x.pdf.redacted.pdf` | 命中页涂黑（**该页变位图**，见「已知限制」） |
+| `.pdf`（扫描件）/ `.png` `.jpg` `.tiff` … | 同上 / `x.png.redacted.png` | OCR 定位后按字符宽度比例涂黑 |
+| `.txt` / `.md` | `x.txt.redacted.txt` | 按行替换纯文本 |
 
-注意区分两件事：不带 `-c` 时走 `configs/default.yaml`（只有规则+词典）；上面这条命令走的是
-`configs/onnx.yaml`（规则+词典+ONNX NER），也是 Web 与桌面壳用的那份。
+每个 `-o` 目录里还会更新两个账本（按源文件**累加**，可分批往同一个目录跑）：
 
-比 LLM 快约 30 倍（34ms vs 1190ms，同为 100% 召回），代价是标签集固定：不能听指令、不能生成自然假名。
-两个模型取并集（gyr66 出机构/人名，pii-engineer 出人名/手机/地址/身份证），金额由规则补。
-实测数字与模型选型过程见 [docs/benchmarks.md](docs/benchmarks.md)。
+- `manifest.json` —— 每个源文件一条记录：`ok`（含产物路径与命中数）/ `error`（含原因）/ `unsupported`。
+  **只有标 `ok` 的才是脱敏过的。**
+- `mapping.json` —— 原文 ↔ 替换值对照表（含全部敏感原文）。**切勿与脱敏件一起外发或提交。**
 
 ## 配置
 
-见 [configs/default.yaml](configs/default.yaml)：敏感词表、各类型脱敏策略、LLM 地址。
+见 [`configs/`](configs)：`default.yaml`（规则+词典）、`onnx.yaml`（+ONNX 中文 NER，Web 与桌面壳默认）、
+`llm.yaml`（+本地大模型，需先 `./scripts/serve_llm.sh` 把 `llama-server` 起到 :8080）。
 
-- 配置里的相对路径(`onnx.model_dirs`、`-c` 的配置文件)按**仓库根/安装根**解析, 与你在哪个目录敲命令无关;
-  打包成桌面应用后同一套规则成立(可用 `DOCANON_ROOT` 指定资源根)。命令行上的输入/输出路径仍按当前目录。
-- 资源根是**找出来的, 不是猜出来的**: 从 `docanon_core/resources.py` 逐级向上找含
-  `configs/default.yaml` 的目录。
-  找不到(例如 `pip install` 到了别处、不是 editable 安装)会直接报错并告诉你设 `DOCANON_ROOT`,
-  而不是退回一个不存在的路径 —— 那样只会读到空配置, 看起来却像"引擎都没启用"。同理, 默认配置读不到
-  (不带 `-c`)也报错, 不再静默退化。
-- **布局只有一处真相**: `resources.LAYOUT`(键 → 相对路径)。要挪 `configs/`、`apps/web/`、`samples/`、
-  `var/models` 这些目录, 改这张表就行, `packages/docanon-core/tests/test_layout.py` 会立刻指出哪里对不上。
-- **部署契约**: 只支持 editable 安装(`requirements-dev.txt`)与打包根两种形态; 不做 wheel 自包含
-  (前端 vendor 232MB、模型 GB 级, 不该进包)。细节写在根 `pyproject.toml`。
-- 检测引擎在 `detectors/base.py` 的注册表里按名字启用。引擎装不起来或端点没应答时, `run` 与 `web` 都会在
-  写任何文件之前报错退出(退出码 1), 不会带着少一层检测的产物报告成功。
-- 想确认"这份配置到底跑了几层检测", 别猜, 直接列出来:
+- 每种实体类型用哪种策略，在 `strategies` 里配：`pseudonym`（同类同实体固定假名）/ `placeholder`
+  （`<PHONE_1>`）/ `mask`（`138****0000`）/ `remove`（直接删）。
+- 自定义敏感词写在 `dictionary` 里，命中记为 `CUSTOM`。
+- 配置文件里的相对路径（如 `onnx.model_dirs`）按**资源根**解析，与你当前在哪个目录敲命令无关；
+  命令行上的输入/输出路径仍按当前目录。资源根靠 `configs/default.yaml` 逐级向上找，找不到会直接报错
+  （可用 `DOCANON_ROOT` 指定）。
 
-  ```bash
-  docanon engines -c configs/onnx.yaml   # 每个引擎: 可用/不可用(带原因) + 实际能力(实体类型或扩展名)
-  ```
-- ONNX 各模型标签 → 本项目实体类型的映射表在 `config.py` 的 `DEFAULT_ONNX_ENTITY_MAP`(app 侧词汇表);
-  想在 yaml 里整表覆盖就写 `onnx.entity_map`。引擎本身不认识任何实体类型名, 映射表是它必填的构造参数。
+## 检测引擎
 
-## 目录结构
+引擎在 `packages/` 里各自成包，跑前会逐个 `ready()` 自检；想确认"这份配置到底跑了几层"，用
+`docanon engines`。
+
+| 引擎 | 做什么 | 依赖 |
+|---|---|---|
+| `rule` | 正则：身份证/手机/银行卡/邮箱/IP/统一社会信用代码/密钥/金额 | 无 |
+| `dictionary` | 自定义业务敏感词 → `CUSTOM` | 无 |
+| `onnx_ner` | 中文 NER（人名/机构/地址等），34ms/例、无需 server | `var/models/onnx/*` |
+| `llm_ner` | 本地大模型 NER，能听指令、生成自然假名 | `llama-server` + GGUF |
+
+模型怎么选的、基准数字怎么来的：[docs/benchmarks.md](docs/benchmarks.md)。
+
+## 已知限制
+
+- **命中敏感信息的 PDF 页会整页变位图**（该页文字层消失，不可选中/搜索/再编辑）。这是**安全保证**：
+  给文字层盖黑块的话原文照样能复制出来。没命中的页保持原样。
+- **docx 的页眉、页脚、脚注、文本框不抽取**（正文段落与表格单元格已覆盖）。
+- **`restore` 只支持文本产物**（txt/md/csv）；docx/xlsx/pdf/图片是回写产物，没有可替换的纯文本。
+  `remove` 策略删掉的原文没有锚点，也无法还原（会提示有几条还原不了）。
+- 打码后相同的值（两个号码都 mask 成同形）会还原成错的原文。
+- `.doc` / `.xls` / `.wps` 不支持（清单里记 `unsupported` 并返回退出码 2）；GBK 的 CSV 需先转 UTF-8。
+- 输出目录不能放在输入目录里面，否则下一次 run 会把上次的 `.redacted.*` 当新文档再脱敏一遍。
+- **它是辅助人工复核的工具，不是"绝对安全"的保证**：OCR 错字、罕见写法都可能漏检。
+  交付前请人工过一遍，尤其是扫描件与表格。
+
+## 架构一览
 
 ```
-doc-anonymizer/
-├── packages/               五个包(见「安装」; 每个包自带 tests/)
-│   ├── docanon-contract/       引擎契约: Block/Span/Detection + 引擎 ABC(只标准库)
-│   ├── docanon-engine-ocr/     OCR 引擎: RapidOCR + 图片/扫描页抽取
-│   ├── docanon-engine-ner-onnx/ ONNX 中文 NER 引擎(构造即加载)
-│   ├── docanon-engine-ner-llm/  LLM NER 引擎: llama-server 客户端 + 检测器
-│   └── docanon-core/           app: extractors/ detectors/ redaction/ + pipeline/job/cli/server
-├── apps/
-│   ├── web/                前端: index.html + app.css + app.js(零构建; 预览包在 var/vendor)
-│   └── desktop/            Electrobun 桌面壳: src/bun 主进程 + src/mainview + hutch.lock
-├── configs/                配置(default / onnx / llm)
-├── samples/                内置样例(Web 预设 + 测试数据)
-├── scripts/                开发者脚本(见 scripts/README.md)
-├── tests/                  跨包测试: 包边界 + 可搬运性 + e2e/webkit(node, 不进 pytest)
-├── docs/                   架构与目录设计 / 基准 / specs(设计历史)
-└── var/                    下载或构建得到的资产(gitignore): models 权重 + vendor 预览包 + out 默认产物
+packages/
+├── docanon-contract/          引擎与 app 之间唯一的共享层（只依赖标准库）
+├── docanon-engine-ocr/        OCR 引擎（RapidOCR）
+├── docanon-engine-ner-onnx/   ONNX 中文 NER 引擎
+├── docanon-engine-ner-llm/    本地大模型 NER 引擎
+└── docanon-core/              app：抽取 → 检测 → 替换回写 + 账本 + CLI + Web
+
+依赖方向永远是 core → 引擎 → 契约，由测试机械检查；三个引擎包各自独立、可整块搬走。
 ```
 
+为什么这么分、目录为什么这么摆：[docs/architecture.md](docs/architecture.md)。
 
-## 非目标
+## 文档
 
-不依赖 Ollama / 云端；不做完美版式还原，不做多用户与权限系统（可还原的映射表先用本地文件，
-见[设计方案](docs/specs/2026-10-05-doc-anonymizer-design.md) §6）。
+| 我想… | 看 |
+|---|---|
+| 5 分钟跑通、常见问题 | [docs/quickstart.md](docs/quickstart.md) |
+| 参与开发（环境、测试、边界、提交规范） | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| 改代码前必须知道的契约与坑 | [AGENTS.md](AGENTS.md) |
+| 五包结构、决策记录、搬迁历史 | [docs/architecture.md](docs/architecture.md) |
+| 模型选型与基准数字 | [docs/benchmarks.md](docs/benchmarks.md) |
+| 脚本都有哪些 | [scripts/README.md](scripts/README.md) |
+| 版本变更 | [CHANGELOG.md](CHANGELOG.md) |
+| 漏脱敏等安全问题怎么报 | [SECURITY.md](SECURITY.md) |
+| 最初的设计方案（历史记录） | [docs/specs/2026-10-05-doc-anonymizer-design.md](docs/specs/2026-10-05-doc-anonymizer-design.md) |
+
+## 环境要求
+
+- **Apple Silicon macOS**（OCR/模型选型都按这个平台实测）。
+- **Python 3.10–3.13**（建议 3.11/3.12；3.14 目前 `onnxruntime`/`rapidocr` 可能没有轮子）。
+- 可选：`llama.cpp`（LLM 路线）、`npm`（拉预览资源）、Hutch+Bun（桌面壳）。
+
+## 贡献与许可
+
+欢迎 issue 与 PR —— 先读 [CONTRIBUTING.md](CONTRIBUTING.md)（含"没有 CI，所以请贴测试输出"这类约定）。
+安全问题请走 [SECURITY.md](SECURITY.md) 的私密渠道。
+
+[MIT](LICENSE) © 2026 [lawyerch](https://github.com/lawyerch)
+
+致谢：[RapidOCR](https://github.com/RapidAI/RapidOCR)、[pypdfium2](https://github.com/pypdfium2-team/pypdfium2)、
+[python-docx](https://github.com/python-openxml/python-docx)、[openpyxl](https://foss.heptapod.net/openpyxl/openpyxl)、
+[llama.cpp](https://github.com/ggml-org/llama.cpp)、[file-viewer](https://github.com/flyfish-dev/file-viewer)、
+[Electrobun](https://github.com/blackboardsh/electrobun)。

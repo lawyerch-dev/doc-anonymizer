@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "docanon-contract"
 version = "0.1.0"
 description = "docanon 引擎契约: Block/Span/Detection + 引擎 ABC(只依赖标准库)"
+authors = [{ name = "lawyerch" }]
 requires-python = ">=3.10,<3.14"
 # 故意为空: 契约层只准标准库, 这是"引擎能整块搬走"的前提
 dependencies = []

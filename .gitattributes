@@ -1,0 +1,16 @@
+# 统一行尾: 脚本与源码在各平台检出为 LF(仓库里也是 LF)
+* text=auto eol=lf
+
+# 二进制: 别做行尾转换, 也别在 diff 里当文本显示
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary
+*.docx binary
+*.xlsx binary
+*.gguf binary
+*.onnx binary
+
+# 生成的样例与截图在语言统计里不计入
+samples/** linguist-generated=true
+docs/images/** linguist-generated=true

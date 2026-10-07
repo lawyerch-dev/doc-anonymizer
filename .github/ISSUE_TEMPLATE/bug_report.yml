@@ -1,0 +1,53 @@
+name: Bug 报告
+description: 崩溃、报错、格式不支持、界面问题（安全问题请走 Security 私密渠道）
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。**如果是"漏脱敏"或敏感内容可能被还原，请不要在这里贴细节**，
+        按 [SECURITY.md](../SECURITY.md) 走私密渠道。
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么
+      description: 实际结果 vs 你期望的结果
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 命令或界面操作；能复现的最小文件最有帮助（请用假数据，例如张三/13800000000）
+      placeholder: |
+        1. .venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml
+        2. ...期望...实际...
+    validations:
+      required: true
+  - type: textarea
+    id: engines
+    attributes:
+      label: docanon engines 输出
+      description: 跑 `.venv/bin/docanon engines -c <你的配置>` 并粘贴结果——它能证明每层引擎到底起没起来
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: `git rev-parse --short HEAD` 的输出
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及哪一层
+      multiple: true
+      options:
+        - 抽取（docx / pdf / 表格 / 图片 OCR）
+        - 检测（规则 / 词典 / ONNX NER / LLM NER）
+        - 脱敏与回写（产物格式、涂黑位置）
+        - 账本与续跑（manifest / mapping / --resume）
+        - CLI
+        - Web 界面 / 接口
+        - 桌面壳（Electrobun）
+        - 文档

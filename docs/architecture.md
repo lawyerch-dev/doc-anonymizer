@@ -59,7 +59,9 @@ doc-anonymizer/
 ├── var/                 本地可再生状态(gitignore): models 权重 / vendor 预览包 / out 默认产物 / pycache 字节码
 ├── pyproject.toml       工作区根: 只有 pytest 配置(这里没有包, 也没有代码)
 ├── requirements-dev.txt 一条命令装好五个包(editable) + 测试依赖
-└── conftest.py          共享 fixture(仓库根, 所有包的测试都能用)
+├── conftest.py          共享 fixture(仓库根, 所有包的测试都能用)
+└── 开源项目门面          LICENSE / CONTRIBUTING.md / SECURITY.md / CHANGELOG.md /
+                          CODE_OF_CONDUCT.md / .github/(issue 与 PR 模板) / .gitattributes
 ```
 
 `configs/` 与 `samples/` 故意留在仓库根而不是塞进包：它们是**资源根**的内容（打包成桌面应用时
@@ -93,7 +95,11 @@ doc-anonymizer/
 共同原则：**"少一层宁可报错，也不许静默"**（`prepare_detectors` 预检、`ResourceRootError`、
 `load_config` 读不到就抛、`manifest` 三态、`LLMError`、PDF 栅格化）。
 
-## 五、关键决策记录
+## 五、关键决策记录（本项目的 ADR）
+
+这一节就是本项目的架构决策记录：每条都写了**理由**和**代价**，也包括被否掉的方案。
+故意**不**另开 docs/decisions/ 这层目录 —— 同一个决策有两个出处，早晚会互相矛盾
+（这类漂移 `tests/test_docs.py` 抓不到，只能靠"只有一个真相"避免）。
 
 | 决策 | 理由 | 代价 |
 |---|---|---|

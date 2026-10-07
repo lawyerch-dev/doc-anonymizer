@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "docanon-engine-ner-onnx"
 version = "0.1.0"
 description = "docanon ONNX NER 引擎: 编码器式中文 NER(无需 server)"
+authors = [{ name = "lawyerch" }]
 requires-python = ">=3.10,<3.14"
 # numpy / tokenizers 以前是隐式依赖(靠 rapidocr 顺带装进来), 这里显式声明
 dependencies = [
