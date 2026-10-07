@@ -128,8 +128,9 @@ def test_github_yaml_parses():
 def test_readme_has_the_product_sections():
     """README 是产品门面: 快速上手、特性、限制、许可这几节不能悄悄消失。"""
     readme = (REPO / "README.md").read_text(encoding="utf-8")
-    for heading in ("## 快速上手", "## 特性", "## 已知限制", "## 文档", "## 贡献与许可"):
+    for heading in ("## 特性", "## 快速上手", "## 用法", "## 已知限制", "## 文档"):
         assert heading in readme, f"README 里少了「{heading}」这一节"
+    assert "[MIT](LICENSE)" in readme, "README 末尾的许可链接没了"
 
 
 def test_dev_sh_subcommands_are_documented():
@@ -142,13 +143,30 @@ def test_dev_sh_subcommands_are_documented():
     cmds = re.findall(r"^  ([a-z][a-z-]*)\)", dispatch, re.M)
     assert cmds, "没解析出 dev.sh 的子命令(脚本结构变了?)"
 
-    missing = []
-    for doc in ("README.md", "docs/quickstart.md"):
-        body = (REPO / doc).read_text(encoding="utf-8")
-        for cmd in cmds:
-            if f"./scripts/dev.sh {cmd}" not in body:
-                missing.append(f"{doc} 没写 ./scripts/dev.sh {cmd}")
-    assert not missing, "\n".join(missing)
+    readme = (REPO / "README.md").read_text(encoding="utf-8")
+    missing = [c for c in cmds if f"`{c}`" not in readme]
+    assert not missing, f"README 里没提这些 dev.sh 子命令: {missing}"
+
+
+# 同一个主题只允许一个出处: 其余文档用链接指过来。冗余是文档互相矛盾的起点。
+SINGLE_OWNER = [
+    ("五包目录树", "├── docanon-contract/", "docs/architecture.md"),
+    ("已知限制小节", "## 已知限制", "README.md"),
+    ("硬边界表", "| 边界 | 锁在哪 |", "docs/architecture.md"),
+    ("一键命令清单", "`./scripts/dev.sh help`", "README.md"),
+]
+
+
+def test_each_topic_has_one_owner():
+    bad = []
+    for what, needle, owner in SINGLE_OWNER:
+        if needle not in (REPO / owner).read_text(encoding="utf-8"):
+            bad.append(f"{what}: 在 {owner} 里找不到(改名或删了?)")
+        for doc in CURRENT_DOCS:
+            rel = str(doc.relative_to(REPO))
+            if rel != owner and needle in doc.read_text(encoding="utf-8"):
+                bad.append(f"{what}: 也出现在 {rel} —— 只该在 {owner}, 其余用链接")
+    assert not bad, "\n".join(bad)
 
 
 def test_markdown_links_resolve():

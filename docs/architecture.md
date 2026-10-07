@@ -68,18 +68,11 @@ doc-anonymizer/
 与代码分开搬），路径全部由 `resources.LAYOUT` 一张表管理。默认产物也落在 `var/out`，
 所以"跑一次工具"不会在根目录留下垃圾。
 
-## 三、开发与测试：不需要启动桌面壳
+## 三、开发与测试不需要启动桌面壳
 
-壳只是把同一套 Web UI 装进原生窗口。日常改代码用这三条：
-
-```bash
-.venv/bin/python -m pytest -q                                       # 全量测试(含真模型/OCR/浏览器端 e2e)
-.venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml     # CLI 端到端
-.venv/bin/docanon web -p 8000 -c configs/onnx.yaml                  # Web 端到端(浏览器里点)
-```
-
-壳只在验证"系统 WebView 下预览是否正常"时才需要；`tests/e2e/webkit/` 用 Playwright 的 WebKit
-内核覆盖同一件事，不必开窗口。
+日常就是 `./scripts/dev.sh setup|web|test|desktop`（命令含义见 [README](../README.md)）。
+壳只是把同一套 Web UI 装进原生窗口，而壳里的渲染由 `tests/e2e/webkit/`（Playwright 的 WebKit 内核）
+覆盖，所以改界面不必开窗口。
 
 ## 四、六条硬边界（都有测试锁着，别绕过）
 

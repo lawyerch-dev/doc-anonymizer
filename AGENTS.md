@@ -13,10 +13,8 @@
 `doctor`）——一键起 Web、起桌面壳、跑测试；它只是包装，下面这些原始命令都照旧成立，
 排查时直接用它们（`dev.sh` 的 `doctor` 会告诉你缺什么）。
 
-- 首次准备：`./scripts/setup_dev.sh`（幂等）—— 建 `.venv`、装五个包 editable + 测试依赖、
-  再把字节码缓存重定向到 `var/pycache`。等价的手工版是
-  `python3.12 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`，只是少了第 3 步
-- 全量测试：`.venv/bin/python -m pytest -q`（108 项，约 5 秒；这个数字由 `tests/test_docs.py` 盯着，改了测试要同步）
+- 首次准备：`./scripts/setup_dev.sh`（幂等：venv + 五个包 + 预览资源 + 缓存重定向；脚本注释写了每步在干什么）
+- 全量测试：`.venv/bin/python -m pytest -q`（109 项，约 5 秒；这个数字由 `tests/test_docs.py` 盯着，改了测试要同步）
 - 单个测试：`.venv/bin/python -m pytest packages/docanon-core/tests/test_pipeline.py::test_pipeline_masks_pii`
 - 包边界与可搬运性：`.venv/bin/python -m pytest tests/test_architecture.py tests/test_engine_portability.py -q`
 - CLI 脱敏：`.venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml`
@@ -40,7 +38,7 @@
 一起查）。core 里再按流水线分层：`extractors/` → `detectors/` → `redaction/`，外加
 `pipeline.py`/`job.py` 与 `server/`。
 
-## 三个会让结果失真的坑
+## 会让结果失真的坑
 
 - 测试必须用 `.venv/bin/python -m pytest`。PATH 上的 `pytest` 跑在 Homebrew Python 3.14 上，缺
   `rapidocr`，会静默 skip 掉扫描件测试 —— OCR 回归根本测不出来。各包的 `requires-python` 都限到 `<3.14`，
@@ -134,33 +132,22 @@
 
 ## 文档地图（改行为时一起改）
 
-分工：**面向用户的说明文档**在 `README.md` 与 `docs/`（产品门面）；
-**面向开发者的契约**在 `AGENTS.md` 与 `CONTRIBUTING.md`（改代码前必读）。
-社区标准文件（`LICENSE`、`SECURITY.md`、`CHANGELOG.md`、`CODE_OF_CONDUCT.md`、`.github/` 模板）
-由 `tests/test_docs.py` 盯着是否还在，别删。
+**一个主题只有一个出处**，其余文档一律用链接 —— 冗余是文档互相矛盾的起点，`tests/test_docs.py`
+的 `test_each_topic_has_one_owner` 会盯着几条最容易被复述的内容。
 
-| 文件 | 管什么 | 权威性 |
+| 谁 | 管什么 | 权威性 |
 |---|---|---|
-| `README.md` | 产品门面：定位、特性、快速上手、用法（CLI/Web/壳）、支持格式与产物、已知限制、文档导航、许可 | 现状权威 |
-| `docs/quickstart.md` | 5 分钟上手 + 常见问题（面向第一次用的人） | 现状权威 |
-| `CONTRIBUTING.md` | 开发指南：环境、常用命令、代码在哪、硬规矩、提交与 PR、非目标 | 现状权威 |
-| `SECURITY.md` | 安全问题（漏脱敏）怎么报、已有的安全边界、不提供什么保证 | 现状权威 |
-| `CHANGELOG.md` | 版本变更（Keep a Changelog）；**记录类文档**，允许出现旧名字与旧路径 | 随版本更新 |
+| `README.md` | 产品门面与唯一使用手册：定位、命令、产物、配置、引擎、已知限制、文档导航 | 现状权威 |
+| `docs/quickstart.md` | 第一次跑通（一步步）+ 常见问题 | 现状权威 |
 | `AGENTS.md`（本文件） | 操作契约：不能违反的边界、命令、坑 | 现状权威 |
-| `docs/architecture.md` | 五包结构与**为什么**、硬边界、决策记录、搬迁历史 | 解释性，与代码同步 |
-| `docs/benchmarks.md` | 模型选型与基准数字（ONNX vs LLM、各 GGUF 对比） | 实测记录 |
-| `scripts/README.md` | 八个脚本各干什么、依赖、用法（`dev.sh` 是开发入口） | 现状权威 |
-| `apps/desktop/README.md` | 桌面壳的运行方式与三条实测约束 | 现状权威 |
-| `docs/specs/2026-10-05-*.md` | 设计决策的历史记录（选型与理由）+ §10 后续变更 | 历史记录，现状以本文件与 README 为准 |
+| `CONTRIBUTING.md` | 参与开发：环境、测试、提交与 PR | 现状权威 |
+| `docs/architecture.md` | 五包结构与**为什么**、硬边界索引、决策记录、搬迁历史 | 解释性，与代码同步 |
+| `docs/benchmarks.md` | 模型选型与基准数字 | 实测记录 |
+| `scripts/README.md` · `apps/desktop/README.md` · `SECURITY.md` | 脚本清单 · 壳的三条实测约束 · 安全报告流程 | 现状权威 |
+| `CHANGELOG.md` · `docs/specs/2026-10-05-*.md` | **记录类**：版本变更 · 最初的设计方案（允许出现旧名字与旧路径） | 历史，现状以本文件与 README 为准 |
+| `LICENSE` · `CODE_OF_CONDUCT.md` · `.github/` | 协议 · 行为准则 · issue/PR 模板（社区标准文件，被测试盯着别删） | — |
 
-- 改行为 → 同步 README 的「产物 / 已知限制 / Web 接口」段与对应测试；改边界 → 改本文件。
+- 改行为 → 同步 README 的「产物 / 已知限制 / 用法」段与对应测试；改边界 → 改本文件。
 - 写进 README 的每条命令都要真跑一遍再说它成立，不许写"理论上"。
-- **能力边界不要手写进文档**（哪些引擎认识哪些实体、起不起得来），让 `docanon engines` 自己报——
+- **能力边界不要手写进文档**（哪些引擎认识哪些实体、起不起得来），让 `docanon engines` 自己报 ——
   写死的清单一定会漂移。
-
-## 深度文档（按需读，不要抄进本文件）
-
-- 架构与目录设计、决策与搬迁历史：`docs/architecture.md`
-- 模型选型与基准：`docs/benchmarks.md`
-- 最初的设计方案（历史记录）：`docs/specs/2026-10-05-doc-anonymizer-design.md`
-- 已知限制（漏脱敏、还原失败的权威清单）：`README.md`「已知限制」段
