@@ -9,6 +9,7 @@
 ├── rules/          ← 分类细则（现状权威，"是什么/不许怎样"）
 ├── notes/          ← 决策与修复记录（"为什么"，`{状态}/{类别}/日期-主题.md`）
 ├── skills/         ← 操作手册（"怎么做"，`<名字>/SKILL.md`）
+├── postmortem/     ← 事故复盘（"为什么没兜住"，`NNNN-slug.md`）
 （另有 `docs/cookbook/` = 场景操作指引，属 docs/ 的地盘）
     ├── 01-commands.md      命令、脚本、dev.sh 入口
     ├── 02-packages.md      Python 五包边界、引擎注册、可搬运性
@@ -46,5 +47,8 @@
 | 每个 `packages/docanon-*` 都有自己的 `AGENTS.md` 且被规则索引 | `tests/test_docs.py` |
 | 网站站内链接必须走 `url()`（子路径部署才不会 404） | `tests/test_docs.py` |
 | 部署 workflow 必须真的跑门禁、带 SITE_BASE/SITE_URL、发 `website/dist` | `tests/test_docs.py` |
+| 复盘路径必须是 `NNNN-slug.md`、首行编号一致、先给「执行摘要」、含「根因」与「护栏」，且被 README 索引 | `tests/test_docs.py` |
+| 声明环境齐备(`DOCANON_REQUIRE_ENGINES=1`)后不许有任何 skip | `tests/test_dev_env.py` |
+| `check_scope.py` 的建议要对（按范围选最小集） | `tests/test_check_scope.py` |
 
 > 面向用户的说明文档在 `README.md` 与 `docs/`；这里是**面向开发者的操作契约**，两者不混。

@@ -122,6 +122,12 @@ def discover_extra() -> list[dict]:
             "description": "操作手册（反复发生的事怎么做）",
             "file": skill.relative_to(REPO).as_posix(),
         })
+    for post in sorted((REPO / ".agent" / "postmortem").glob("[0-9][0-9][0-9][0-9]-*.md")):
+        pages.append({
+            "group": "postmortem", "slug": post.stem, "title": _title_of(post),
+            "description": "事故复盘（为什么没兜住、补了什么护栏）",
+            "file": post.relative_to(REPO).as_posix(),
+        })
     for guide in sorted((REPO / "docs" / "cookbook").glob("*.md")):
         pages.append({
             "group": "cookbook", "slug": guide.stem, "title": _title_of(guide),
@@ -159,7 +165,7 @@ def main() -> None:
             {"label": entry["title"], "slug": f"{entry['group']}/{entry['slug']}"}
         )
     label_of = {"start": "开始", "dev": "开发", "agent": "契约细则", "packages": "包",
-                "skills": "操作手册", "notes": "决策记录", "cookbook": "操作指引", "other": "其他"}
+                "skills": "操作手册", "notes": "决策记录", "cookbook": "操作指引", "postmortem": "事故复盘", "other": "其他"}
     sidebar = [{"label": label_of.get(g, g), "items": items} for g, items in groups.items()]
     sidebar_ts = SITE / "src" / "sidebar.generated.mjs"
     sidebar_ts.write_text(

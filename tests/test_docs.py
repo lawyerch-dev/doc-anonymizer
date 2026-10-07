@@ -52,15 +52,16 @@ def _markdown_under(*roots: str) -> set[pathlib.Path]:
     }
 
 
-# 笔记是记录类: 写的是"当时是什么样", 允许旧名字与旧路径(与 CHANGELOG/设计历史同待遇)
-NOTE_DOCS = [(REPO / ".agent" / "notes"), ]
+# 记录类目录: 写的是"当时是什么样", 允许旧名字与旧路径(与 CHANGELOG/设计历史同待遇)
+RECORD_DIRS = (REPO / ".agent" / "notes", REPO / ".agent" / "postmortem")
+RECORD_FILES = [p for d in RECORD_DIRS for p in d.rglob("*.md")]
 
 CURRENT_DOCS = sorted(
     {*REPO.glob("*.md"), *_markdown_under("docs", ".github", "apps", ".agent", "packages")}
     - set(RECORDS)
-    - {p for p in (REPO / ".agent" / "notes").rglob("*.md")}
+    - set(RECORD_FILES)
 )
-ALL_DOCS = [*CURRENT_DOCS, *RECORDS, *(REPO / ".agent" / "notes").rglob("*.md")]
+ALL_DOCS = [*CURRENT_DOCS, *RECORDS, *RECORD_FILES]
 
 # GitHub 社区标准要求存在的文件(社区档案页会按这几项打分)
 COMMUNITY_FILES = [
@@ -380,6 +381,38 @@ def test_deploy_workflow_matches_the_published_site():
         assert needle in text, f"部署 workflow 里少了 {needle}"
     config = (REPO / "website" / "astro.config.mjs").read_text(encoding="utf-8")
     assert "SITE_BASE" in config and "SITE_URL" in config, "astro.config.mjs 没用上 SITE_BASE/SITE_URL"
+
+
+POSTMORTEM_NAME = re.compile(r"^(\d{4})-[a-z0-9-]+\.md$")
+
+
+def test_postmortems_follow_the_format():
+    """复盘必须是 NNNN-slug.md、首行编号一致、先给「执行摘要」、含「根因」与「护栏」, 并被 README 索引。"""
+    root = REPO / ".agent" / "postmortem"
+    posts = sorted(p for p in root.glob("*.md") if p.name != "README.md")
+    assert posts, "一篇事故复盘都没有?"
+    index = (root / "README.md").read_text(encoding="utf-8")
+    bad = []
+    numbers = []
+    for post in posts:
+        match = POSTMORTEM_NAME.match(post.name)
+        if not match:
+            bad.append(f"{post.name}: 文件名必须是 NNNN-slug.md")
+            continue
+        numbers.append(match.group(1))
+        text = post.read_text(encoding="utf-8")
+        if not text.startswith(f"# 事故复盘 {match.group(1)}："):
+            bad.append(f"{post.name}: 首行必须是 '# 事故复盘 {match.group(1)}：<标题>'")
+        for section in ("## 执行摘要", "## 根因", "## 护栏"):
+            if section not in text:
+                bad.append(f"{post.name}: 缺 {section}")
+        if "## 影响" in text and text.index("## 执行摘要") > text.index("## 影响"):
+            bad.append(f"{post.name}: 「执行摘要」必须排在「影响」之前")
+        if post.name not in index:
+            bad.append(f"{post.name}: 没有被 .agent/postmortem/README.md 索引到")
+    if len(set(numbers)) != len(numbers):
+        bad.append(f"编号重复: {numbers}")
+    assert not bad, "\n".join(bad)
 
 
 def test_markdown_links_resolve():

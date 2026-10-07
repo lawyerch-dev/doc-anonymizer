@@ -11,7 +11,10 @@
 """
 from __future__ import annotations
 
+import os
 import pathlib
+import re
+import sys
 import threading
 from http.server import ThreadingHTTPServer
 from typing import Iterator
@@ -19,6 +22,27 @@ from typing import Iterator
 import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent  # 本文件就在仓库根
+
+# 反假绿开关: 引擎测试在缺模型/缺可选依赖时会 skip, 于是"全绿"可能掩盖"引擎一次都没跑"。
+# 设成 1 表示"这个环境的模型与可选依赖是齐备的", 那任何跳过都按失败处理(`npm run test:strict`)。
+# 借鉴 DeepSeek Harness: 自跳过的套件必须有人证明它真的跑了, 不能靠"绿"。
+REQUIRE_FULL_ENV = "DOCANON_REQUIRE_ENGINES"
+_SKIPS: list[tuple[str, str]] = []
+
+
+def _skip_reason(report) -> str:
+    """把 pytest 的 longrepr 压成一句人话(它有时是 ('路径', 行号, 'Skipped: 原因') 这种元组)。"""
+    text = str(report.longrepr or "")
+    match = re.search(r"Skipped:[^\]'\")]*", text) or re.search(r"skip[^\]'\")]*", text, re.I)
+    if match:
+        return match.group(0).strip()
+    tail = [line.strip() for line in text.splitlines() if line.strip()]
+    return tail[-1] if tail else "skipped"
+
+
+def pytest_runtest_logreport(report) -> None:
+    if report.skipped:
+        _SKIPS.append((report.nodeid, _skip_reason(report)))
 
 
 @pytest.fixture(scope="session")
@@ -49,3 +73,23 @@ def ephemeral_server(tmp_path, monkeypatch) -> Iterator[str]:
         httpd.shutdown()
         httpd.server_close()
         thread.join(timeout=5)
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish(session, exitstatus) -> None:
+    """DOCANON_REQUIRE_ENGINES=1 时, 任何 skip 都让整轮失败(并说清是哪几条、为什么跳)。"""
+    if os.environ.get(REQUIRE_FULL_ENV) != "1" or not _SKIPS:
+        return
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+    lines = [f"{REQUIRE_FULL_ENV}=1 声明了环境齐备, 但有 {len(_SKIPS)} 条测试被跳过 —— 这是假绿:"]
+    lines += [f"  - {nodeid}\n      {reason}" for nodeid, reason in _SKIPS[:20]]
+    if len(_SKIPS) > 20:
+        lines.append(f"  …还有 {len(_SKIPS) - 20} 条")
+    lines.append("  装齐模型与可选依赖(`npm run models` / `npm run setup`)后重跑; 或去掉这个环境变量。")
+    text = "\n".join(lines)
+    if reporter is not None:
+        reporter.write_sep("=", "反假绿门禁", red=True)
+        reporter.write_line(text, red=True)
+    else:  # pragma: no cover - 只在没有终端插件时走到
+        print(text, file=sys.stderr)
+    session.exitstatus = pytest.ExitCode.TESTS_FAILED

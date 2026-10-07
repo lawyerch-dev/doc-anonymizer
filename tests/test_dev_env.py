@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import os
 import pathlib
+import subprocess
+import sys
 import stat
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
@@ -65,3 +67,34 @@ def test_venv_carries_the_pycache_hook():
     hook = pathlib.Path(sysconfig.get_paths()["purelib"]) / "sitecustomize.py"
     assert hook.is_file(), "venv 里没有 sitecustomize.py —— 跑 ./scripts/setup_dev.sh 装它"
     assert "pycache_prefix" in hook.read_text(encoding="utf-8")
+
+
+def _run_pytest(repo_root, path, require_full=False):
+    """在仓库里跑一次 pytest(用当前解释器), 返回 CompletedProcess。"""
+    env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+    env.pop("DOCANON_REQUIRE_ENGINES", None)          # 先清掉, 保证下面两种情形互不干扰
+    if require_full:
+        env["DOCANON_REQUIRE_ENGINES"] = "1"
+    return subprocess.run(
+        [sys.executable, "-m", "pytest", str(path), "-q", "-p", "no:cacheprovider"],
+        cwd=repo_root, capture_output=True, text=True, timeout=120, env=env,
+    )
+
+def test_false_green_gate_fails_on_skips(repo_root):
+    """反假绿门禁本身要被验证: DOCANON_REQUIRE_ENGINES=1 时, 有 skip 就必须失败。
+
+    用一个临时用例(写在 tests/ 里, 否则仓库根的 conftest 不参与)验证端到端行为。
+    """
+    probe = repo_root / "tests" / "test_falsegreen_probe_tmp.py"
+    probe.write_text(
+        "import pytest\n\n\ndef test_will_skip():\n    pytest.skip('模拟: 缺模型')\n",
+        encoding="utf-8",
+    )
+    try:
+        proc = _run_pytest(repo_root, probe, require_full=True)
+        assert proc.returncode != 0, f"设了开关却仍然绿:\n{proc.stdout[-800:]}"
+        assert "反假绿门禁" in proc.stdout, f"没有给出反假绿提示:\n{proc.stdout[-800:]}"
+        # 不设开关时, 同样的跳过应该正常通过(skip 是合法状态)
+        assert _run_pytest(repo_root, probe).returncode == 0
+    finally:
+        probe.unlink()

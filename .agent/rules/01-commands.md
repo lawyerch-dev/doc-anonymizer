@@ -10,6 +10,8 @@
 | `npm run dev:website` | 起官网/文档站 → :4321 |
 | `npm run dev:desktop` | 起桌面壳（首次自动 `hutch install`） |
 | `npm test` | 一键全测：Python 全量 + 组件库导入检查 + 文档站构建 |
+| `npm run test:strict` | 反假绿：声明环境齐备后**任何 skip 都算失败**（装了模型的机器/发版本前跑） |
+| `npm run check:scope` | 按改动范围算出**最小**该跑的检查（不是无脑全量；详见 06-testing） |
 | `npm run test:py` / `test:web` | 只跑其中一半 |
 | `npm run build` | 构建静态站 → `website/dist/` |
 | `npm run cli -- <参数>` | 直接调 docanon（注意 npm 的 `--`） |

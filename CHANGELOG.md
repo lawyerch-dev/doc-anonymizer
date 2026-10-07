@@ -7,6 +7,18 @@
 
 ### Added
 
+- **反假绿门禁**：`npm run test:strict`（`DOCANON_REQUIRE_ENGINES=1`）声明"环境齐备"后，
+  **任何 skip 都算失败**，并在终端点名是哪几条、为什么跳 —— 引擎测试缺模型时会 skip，
+  否则"全绿"可能只是"引擎一次都没跑"。门禁自身有测试（`test_false_green_gate_fails_on_skips`）。
+- **最小检查集**：`npm run check:scope` 按改动范围（committed / 工作区 / 未跟踪）算出该跑哪几条；
+  跨层契约改动与无法归类的路径一律回到全量 `npm test`；没有自动化覆盖的目录（`apps/web`、`apps/desktop`）
+  会明说要手工验证。配推送前手册 [`.agent/skills/before-you-push/SKILL.md`](.agent/skills/before-you-push/SKILL.md)，
+  脚本自身有测试（`tests/test_check_scope.py`）。
+- **事故复盘层** `.agent/postmortem/`：与"决策笔记"分工 —— 复盘写"漏到线上的东西为什么没兜住、补了什么护栏"，
+  准入条件是隐蔽 + 系统性 + 重学成本高（三者都要）；门禁锁路径编号、执行摘要、根因、护栏与 README 索引。
+  第一篇 [0001（Tailwind 类名被静默摇掉）](.agent/postmortem/0001-tailwind-source-dropped-classes.md)
+  由 `notes/bug-fix` 改判而来 —— 笔记记决策，复盘记失败。
+
 - **文档站自动部署（仓库唯一的 CI）**：`.github/workflows/deploy-website.yml` —— push `main` 时先跑门禁
   （文档漂移 + 包边界 + 组件库检查 + 站点构建）再发布 GitHub Pages。
 - **网站支持子路径部署**：站内链接改走 `website/src/lib/site.ts` 的 `url()`（`SITE_BASE` → `base`、

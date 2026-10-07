@@ -46,6 +46,8 @@ npm test               # 一键全测（Python 全量 + 组件库检查 + 文档
 | `npm run setup` | 幂等装齐环境；`npm run doctor` 告诉你缺什么、为什么起不来 |
 | `npm run dev` / `dev:website` / `dev:desktop` | 产品界面 / 官网文档站 / 桌面壳 |
 | `npm test` | 一键全测（`test:py` 只跑 Python，`test:web` 只跑前端） |
+| `npm run test:strict` | 反假绿：声明环境齐备后**任何 skip 都算失败**（装了模型再跑，见 `docs/cookbook/reviewing-a-change.md`） |
+| `npm run check:scope` | 按改动范围算出**最小**该跑的检查（不是无脑全量） |
 | `npm run build` | 构建静态站 → `website/dist/` |
 | `npm run cli -- <参数>` | 直接调 docanon（注意 npm 的 `--`） |
 | `npm run engines` / `models` / `doctor` | 引擎自检 / 取模型 / 环境自检 |

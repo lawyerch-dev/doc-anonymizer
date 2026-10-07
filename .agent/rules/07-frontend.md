@@ -24,7 +24,7 @@
   生成 `src/content/docs/**` 与侧栏（生成物 gitignore，**源始终是仓库里的 markdown**）。
   加一页 = 清单加一行，别改生成目录，也别在 `astro.config.mjs` 里手写侧栏。
 - Tailwind 4 要显式 `@source` 共享包源码（`website/src/styles/global.css`），否则 kit 的类名被摇掉
-  （踩过：搬家后路径少一层，`sr-only`/aurora/渐变静默失效 —— [复盘](../notes/implemented/bug-fix/2026-10-07-tailwind-source-after-move.md)）。
+  （踩过：搬家后路径少一层，`sr-only`/aurora/渐变静默失效 —— [复盘](../postmortem/0001-tailwind-source-dropped-classes.md)）。
 - React 组件在 Astro 里是 island：`<Landing client:load />`。
 - 部署：`SITE_BASE=/doc-anonymizer SITE_URL=https://… npm run build`（`SITE_BASE` → Astro `base`，
   `SITE_URL` → `site`/sitemap）。**子路径部署时手写 `href="/…"` 会 404** —— 站内链接一律走

@@ -17,6 +17,6 @@
    `tests/test_docs.py` 真实校验。没有测试保护的行为变更 = 不算完成。
 5. **盯住"配置类静默失效"**：`@source`、别名、`base`、路径、环境变量这类东西错了往往不报错，
    必须真跑一遍（构建产物里 grep、或浏览器里看计算样式）。踩过的例子：
-   [Tailwind `@source`](../../.agent/notes/implemented/bug-fix/2026-10-07-tailwind-source-after-move.md)。
+   [Tailwind `@source` 事故复盘](../../.agent/postmortem/0001-tailwind-source-dropped-classes.md)。
 6. **通过标准**：全绿；每条结论后面都有命令与输出；未验证或已知取舍写在提交信息/笔记里，
    不写"应该没问题"。

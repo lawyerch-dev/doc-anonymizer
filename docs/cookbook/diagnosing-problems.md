@@ -7,7 +7,7 @@
 | 漏脱敏 / 引擎起不来 / 跑一半退 | `npm run doctor`、`npm run engines` | 每层的"可用"与原因；缺模型、缺依赖、配置没启用 |
 | 跑完没有产物 / 只处理了一部分 | `cat var/out/manifest.json` | 每个文件的 `status`（`ok`/`error`/`unsupported`）与错误原文 |
 | 还原对不上 | `cat var/out/mapping.json` | `strategy: remove` 的条目**不可还原**（见[笔记](../../.agent/notes/implemented/bug-fix/2026-10-06-restore-empty-string.md)） |
-| 网页显示不对（数字重复/背景透明） | 浏览器控制台 + 计算样式 | Tailwind 类名有没有被生成（`@source` 指错会静默摇掉） |
+| 网页显示不对（数字重复/背景透明） | 浏览器控制台 + 计算样式 | Tailwind 类名有没有被生成（`@source` 指错会静默摇掉；[复盘](../../.agent/postmortem/0001-tailwind-source-dropped-classes.md)） |
 | 网站构建失败 | `npm run build` | 第一条 error：Starlight 对 frontmatter/侧栏最挑 |
 | 子路径部署后 404 | 打开 `/doc-anonymizer/…` | 站内链接是不是写死了 `href="/…"`（要走 `url()`） |
 | PDF 涂黑了还能复制 | `python -c "…"` 抽文字，或 `pdftotext` | 命中页必须**整页栅格化**，不许留文字层 |
