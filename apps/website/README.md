@@ -39,7 +39,8 @@ React 组件在 Astro 里是 island，记得带指令：`<Landing client:load />
 
 ## 为什么是 Astro/Starlight（实测对比）
 
-集成时在同样条件下量过（同样读仓库 markdown、同样用 velora 组件）：
+集成时在同样条件下量过（各自独立安装的 app、同样读仓库 markdown、同样用 velora 组件）：
+> 口径说明：下表体积是**探针里那个 app 自己的 node_modules**。本仓库用 workspaces 提升依赖，根 `node_modules` 约 393 M（含共享 kit 的依赖），两边的实际安装都会比这个数字大一些。
 
 | | Astro + Starlight | Next.js（先试了一版） |
 |---|---|---|
