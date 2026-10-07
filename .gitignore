@@ -39,8 +39,9 @@ out*/
 *.swo
 .DS_Store
 
+# ---- 前端工作区(npm workspaces: apps/ui + website) ----
 node_modules/
-.webout/
+# 网站构建产物与生成的内容副本由 website/.gitignore 管(dist/ .astro/ src/content/docs/)
 
 # 桌面壳(Electrobun/Hutch)的下载缓存与运行期临时目录
 apps/desktop/.hutch/
