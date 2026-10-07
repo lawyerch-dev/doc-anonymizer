@@ -202,6 +202,10 @@ docanon run ./samples -o out_onnx -c configs/onnx.yaml
   找不到(例如 `pip install` 到了别处、不是 editable 安装)会直接报错并告诉你设 `DOCANON_ROOT`,
   而不是退回一个不存在的路径 —— 那样只会读到空配置, 看起来却像"引擎都没启用"。同理, 默认配置读不到
   (不带 `-c`)也报错, 不再静默退化。
+- **布局只有一处真相**: `resources.LAYOUT`(键 → 相对路径)。要挪 `configs/`、`apps/web/`、`samples/`、
+  `models/` 这些目录, 改这张表就行, `tests/test_layout.py` 会立刻指出哪里对不上。
+- **部署契约**: 只支持 editable 安装(`pip install -e .`)与打包根两种形态; 不做 wheel 自包含
+  (前端 vendor 232MB、模型 GB 级, 不该进包)。细节写在 `pyproject.toml`。
 - 检测引擎在 `detectors/base.py` 的注册表里按名字启用。引擎装不起来或端点没应答时, `run` 与 `web` 都会在
   写任何文件之前报错退出(退出码 1), 不会带着少一层检测的产物报告成功。
 - 想确认"这份配置到底跑了几层检测", 别猜, 直接列出来:

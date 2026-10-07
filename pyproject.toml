@@ -7,6 +7,12 @@ name = "doc-anonymizer"
 version = "0.1.0"
 description = "本地文档脱敏工具: 抽取 + 检测 + 按类型脱敏"
 requires-python = ">=3.10,<3.14"
+# 部署契约(与 src/docanon/resources.py 的说明同源): 只支持两种形态 ——
+#   1) editable 安装: pip install -e '.[ocr,dev]', 资源就在源码树里;
+#   2) 打包根: configs/ samples/ apps/web/ 与包同级, 用 DOCANON_ROOT 或 PyInstaller 的 _MEIPASS 指定。
+# **不做 wheel 自包含**: 前端 vendor(232MB)与模型(GB 级)本来就不该进包, 而包外资源由
+# resources.LAYOUT 一张表统一管理。非 editable 安装会以 ResourceRootError 明确报错,
+# 不会静默退化成"读到空配置还装没事"。所有布局路径见 resources.LAYOUT + tests/test_layout.py。
 dependencies = [
     "pyyaml>=6.0",
     "pypdfium2>=4.20",

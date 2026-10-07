@@ -7,7 +7,7 @@
 ## 命令（一律在仓库根执行）
 
 - 首次准备：`python3.12 -m venv .venv && .venv/bin/pip install -e '.[ocr,dev]'`
-- 全量测试：`.venv/bin/python -m pytest -q`（62 项，约 3 秒）
+- 全量测试：`.venv/bin/python -m pytest -q`（71 项，约 3 秒）
 - 单个测试：`.venv/bin/python -m pytest tests/test_pipeline.py::test_pipeline_masks_pii`
 - CLI 脱敏：`.venv/bin/docanon run ./samples -o out -c configs/onnx.yaml`
 - 大卷宗续跑（跳过已脱敏且产物仍在的）：同一条命令加 `--resume`
@@ -24,10 +24,15 @@
 - 相对路径按**资源根**解析，不按 cwd：`-c` 的配置文件、`configs/*.yaml` 里的 `onnx.model_dirs` 都以仓库根
   为基准（打包后是 bundle 根，`DOCANON_ROOT` 可覆盖）—— 统一走 `src/docanon/resources.py`。
   命令行上的输入/输出路径仍按调用者 cwd。
+  **布局只有一处真相**：`resources.LAYOUT`（键→相对路径）。要挪目录就改这张表，`tests/test_layout.py`
+  会立刻报出哪里对不上；访问器（`config_path`/`web_index`/`vendor_dir`/`samples_dir`/`models_dir`）
+  一律走 `path(key)`，不许再自己拼路径。
   资源根是**逐级向上找**出来的（标记是 `configs/default.yaml`），不是用 `parents[N]` 猜的：找不到就抛
   `ResourceRootError` 让你设 `DOCANON_ROOT`。同样，`-c` 指向的文件、以及不带 `-c` 时的 `default.yaml`
   读不到都直接报错 —— 静默退化成空配置等于"一层引擎都没开"，而它看起来和"没启用"一模一样
   （`tests/test_resources.py` 锁这两条）。
+- **部署契约**（写在 `pyproject.toml` 里）：只支持 editable 安装与打包根两种形态，**不做 wheel 自包含**
+  —— 前端 vendor 232MB、模型 GB 级，本来就不该进包。
 - 不带 `-c` 走 `configs/default.yaml`，其中 `onnx_ner`/`llm_ner` 均为 `false`，只剩规则+词典：
   同一个 `samples/example.txt` 实测少掉 `PERSON` 与 `LOCATION`。桌面壳固定用 `configs/onnx.yaml`，
   `docanon web` 要自己带 `-c`。`configs/with_llm.yaml` 需先 `./scripts/serve_llm.sh` 把 llama-server 起到 :8080。
