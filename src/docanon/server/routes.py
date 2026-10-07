@@ -1,35 +1,30 @@
-"""轻量 Web: 选文档(预设/上传) → file-viewer 预览 → 脱敏 → 原格式前后对比。
+"""HTTP 面: Handler 与它用到的路径/类型工具。
 
-仅标准库; 预览资源来自 vendor/file-viewer(file-viewer 预构建包)。
-启动: docanon web --port 8000
+只负责"请求怎么被回答"; 服务怎么起、什么时候该自杀在 `lifecycle.py`, 编排在 `__init__.py`。
 """
 from __future__ import annotations
 
-import argparse
 import base64
-import io
 import json
 import mimetypes
 import os
-import sys
 import tempfile
-import threading
-import time
 import uuid
-import webbrowser
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import resources
-from .config import load_config
-from .mapping import MappingStore
-from .pipeline import prepare_detectors, process_file
+from .. import resources
+from ..mapping import MappingStore
+from ..pipeline import process_file
 
 _MAX_BYTES = 50 * 1024 * 1024
 
-
 # 资源位置都从 resources 取(调用者的 cwd 与安装布局都无关), 所以用函数而不是导入期常量
+def _web() -> Path:
+    return resources.path("web")
+
+
 def _index() -> Path:
     return resources.web_index()
 
@@ -40,6 +35,7 @@ def _vendor() -> Path:
 
 def _samples() -> Path:
     return resources.samples_dir()
+
 
 _CTYPES = {
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -61,6 +57,9 @@ _CTYPES = {
 }
 
 _PREVIEWABLE = {".docx", ".xlsx", ".pdf", ".png", ".jpg", ".jpeg", ".txt", ".md", ".csv"}
+
+# 前端自己的静态件(app.css / app.js): 零构建, 直接由本服务发出去
+_WEB_ASSETS = {"/app.css": "app.css", "/app.js": "app.js"}
 
 
 def _ctype(path: Path) -> str:
@@ -103,7 +102,6 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send(200, path.read_bytes(), _ctype(path))
 
-    # ---------- GET / POST ----------
     def _path(self) -> str:
         """请求路径(去掉 query)。
 
@@ -112,6 +110,7 @@ class Handler(BaseHTTPRequestHandler):
         """
         return unquote(self.path.split("?", 1)[0])
 
+    # ---------- GET ----------
     def do_GET(self) -> None:  # noqa: N802
         p = self._path()
         if p in ("/", "/index.html"):
@@ -121,17 +120,20 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"ok": True, "pid": os.getpid()})
         elif p == "/api/presets":
             self._json(200, {"presets": self._presets()})
+        elif p in _WEB_ASSETS:
+            self._send_file(_web() / _WEB_ASSETS[p])
         elif p.startswith("/samples/"):
-            f = _safe_join(_samples(), p[len("/samples/"):])
-            self._send_file(f) if f else self._send(404, b"bad path", "text/plain")
+            self._serve_static(_samples(), p[len("/samples/"):])
         elif p.startswith("/file-viewer/"):
-            f = _safe_join(_vendor(), p[len("/file-viewer/"):])
-            self._send_file(f) if f else self._send(404, b"bad path", "text/plain")
+            self._serve_static(_vendor(), p[len("/file-viewer/"):])
         elif p.startswith("/uploads/") or p.startswith("/outputs/"):
-            f = _safe_join(self.out_root, p[1:])
-            self._send_file(f) if f else self._send(404, b"bad path", "text/plain")
+            self._serve_static(self.out_root, p[1:])
         else:
             self._send(404, b"not found", "text/plain")
+
+    def _serve_static(self, base: Path, rel: str) -> None:
+        f = _safe_join(base, rel)
+        self._send_file(f) if f else self._send(404, b"bad path", "text/plain")
 
     @staticmethod
     def _presets() -> list[dict]:
@@ -225,77 +227,3 @@ class Handler(BaseHTTPRequestHandler):
 
     def log_message(self, fmt: str, *args) -> None:  # 静默默认日志
         pass
-
-
-ENV_EXIT_WITH_PARENT = "DOCANON_EXIT_WITH_PARENT"
-
-
-def _watch_parent(origin: int, interval: float = 1.0) -> None:
-    """父进程没了就自我了断(Ctrl+C / 正常退出都不走这里, 只有被强杀时才会触发)。
-
-    桌面壳把本服务当 sidecar 拉起。壳被 SIGKILL、崩溃或走 Electrobun 自己的 SIGTERM quit 序列时,
-    JS 侧的 child.kill() 根本没机会执行(实测会留下一个占着端口的孤儿后端)。POSIX 没有
-    "父死子亡"的通用机制, 但父进程消失后本进程会被 reparent, getppid() 随之改变 —— 盯住它就够了。
-    """
-    while True:
-        time.sleep(interval)
-        if os.getppid() != origin:
-            os._exit(0)
-
-
-def _start_parent_watch() -> bool:
-    """按环境变量决定是否开启父进程监视; 返回是否开启。默认关, 不影响交互式 `docanon web`。"""
-    if os.environ.get(ENV_EXIT_WITH_PARENT, "").strip().lower() not in {"1", "true", "yes"}:
-        return False
-    threading.Thread(
-        target=_watch_parent, args=(os.getppid(),), name="parent-watch", daemon=True
-    ).start()
-    return True
-
-
-def serve(port: int = 8000, config_path: str | None = None, open_browser: bool = True) -> None:
-    # 前端页面是资源根下的静态文件: 先确认它在, 否则起个只能返回 404 的服务等于骗人
-    if not _index().is_file():
-        print(
-            f"Web 未启动: 缺前端页面 {_index()}(资源根解析错了? 可用 DOCANON_ROOT 指定)",
-            file=sys.stderr,
-        )
-        raise SystemExit(1)
-    try:
-        Handler.config = load_config(config_path)
-        # 预检: 引擎没准备好就别说"打开窗口点一下就知道失败了"
-        prepare_detectors(Handler.config)
-    except Exception as exc:  # noqa: BLE001
-        print(f"Web 未启动: {exc}", file=sys.stderr)
-        raise SystemExit(1) from exc
-    _start_parent_watch()
-    if not _vendor().is_dir():
-        print(
-            f"警告: 缺预览资源 {_vendor()} —— 页面能开但预览区全空白。"
-            "先跑 ./scripts/fetch_file_viewer.sh",
-            file=sys.stderr,
-        )
-    httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
-    url = f"http://127.0.0.1:{port}"
-    print(f"doc-anonymizer Web: {url}  (Ctrl+C 退出)")
-    if open_browser:
-        webbrowser.open(url)
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\n已停止")
-    finally:
-        httpd.server_close()
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(prog="docanon-web")
-    parser.add_argument("-p", "--port", type=int, default=8000)
-    parser.add_argument("-c", "--config", default=None)
-    parser.add_argument("--no-browser", action="store_true")
-    args = parser.parse_args()
-    serve(args.port, args.config, not args.no_browser)
-
-
-if __name__ == "__main__":
-    main()

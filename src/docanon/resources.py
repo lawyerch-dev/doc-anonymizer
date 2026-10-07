@@ -24,7 +24,7 @@ ENV_ROOT = "DOCANON_ROOT"
 # 仓库/打包根下的布局: 键 -> 相对资源根的路径。相对路径一律以 / 分隔(POSIX 风格)。
 LAYOUT: dict[str, str] = {
     "configs": "configs",                     # 配置(default / onnx / with_llm)
-    "web_index": "apps/web/index.html",       # Web 前端页面(单文件)
+    "web": "apps/web",                        # 前端静态件(index.html / app.css / app.js)
     "vendor": "var/vendor/file-viewer",  # file-viewer 预览资源(可选, fetch_file_viewer.sh 下载)
     "samples": "samples",                     # 内置样例(Web 预设 + 测试数据)
     "models": "var/models",                      # 模型权重(可选, 下载得到)
@@ -32,7 +32,7 @@ LAYOUT: dict[str, str] = {
 }
 
 # 任何一份能用的源码树/打包根都必须有的资源; 其余(vendor/models)是下载得到的, 缺了只影响功能。
-REQUIRED: tuple[str, ...] = ("configs", "web_index", "samples")
+REQUIRED: tuple[str, ...] = ("configs", "web", "samples")
 
 # 资源根的标记文件: 用 configs 里的默认配置认根, 所以它必须在 LAYOUT 里且保持是个文件。
 MARKER = Path(LAYOUT["configs"]) / "default.yaml"
@@ -94,7 +94,7 @@ def config_path(name: str) -> Path:
 
 
 def web_index() -> Path:
-    return path("web_index")
+    return path("web") / "index.html"
 
 
 def vendor_dir() -> Path:

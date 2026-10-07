@@ -14,11 +14,12 @@ from docanon import resources
 def test_required_layout_is_present_in_this_checkout():
     """源码树必须资源齐全 —— 打包契约的第一步(editable 安装 / bundle 根都以此为准)。"""
     assert resources.missing() == [], f"缺必需资源: {resources.missing()}"
+    assert resources.web_index().is_file(), "前端页面必须在 REQUIRED 覆盖的 web 目录里"
 
 
 def test_accessors_go_through_the_layout_table():
     """访问器不许再自己拼路径, 否则改 LAYOUT 就有漏网的。"""
-    assert resources.web_index() == resources.path("web_index")
+    assert resources.web_index() == resources.path("web") / "index.html"
     assert resources.vendor_dir() == resources.path("vendor")
     assert resources.samples_dir() == resources.path("samples")
     assert resources.config_path("default.yaml") == resources.path("configs") / "default.yaml"
