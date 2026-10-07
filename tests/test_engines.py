@@ -10,8 +10,8 @@ from docanon.cli import main
 from docanon.config import load_config
 from docanon.contract import Block
 from docanon.detectors import build_detectors, clear_detector_cache
-from docanon.detectors.llm_ner import LLMNERDetector
-from docanon.llm.client import LLMClient, LLMConfig, LLMError
+from docanon.engines.llm.ner import LLMNERDetector
+from docanon.engines.llm.client import LLMClient, LLMConfig, LLMError
 
 REPO = resources.root()
 ONNX_DIRS = ("models/onnx/gyr66", "models/onnx/pii-engineer")

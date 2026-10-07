@@ -12,7 +12,7 @@ def extractor_classes() -> tuple[type[Extractor], ...]:
     函数而不是模块级常量: 各抽取器会拖进 pypdfium2 / python-docx / RapidOCR,
     import 本模块不该把整条依赖链一起拉进来。
     """
-    from .ocr_image import ImageExtractor
+    from ..engines.ocr_image import ImageExtractor
     from .pdf import PDFExtractor
     from .table import TableExtractor
     from .text_file import DocxExtractor, TextFileExtractor

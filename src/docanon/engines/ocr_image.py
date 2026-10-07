@@ -7,7 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..contract import Block, ExtractedDoc, Extractor
-from ._ocr import run_ocr
+from .ocr import run_ocr
 
 
 class ImageExtractor(Extractor):

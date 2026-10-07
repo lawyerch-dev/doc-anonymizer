@@ -7,7 +7,7 @@ from pathlib import Path
 import yaml
 
 from . import resources
-from .llm.client import LLMConfig
+from .engines.llm.client import LLMConfig
 
 # 各模型自己的标签 -> 本项目的实体类型。这是 app 的词汇表, 所以放在 app 侧:
 # 引擎只收一张映射表进来, 它不认识 PERSON/ORG/CUSTOM 这些名字。

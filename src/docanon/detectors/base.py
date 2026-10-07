@@ -20,7 +20,7 @@ def _build_dictionary(config) -> list[Detector]:
 
 
 def _build_onnx(config) -> list[Detector]:
-    from .onnx_ner import OnnxNERDetector
+    from ..engines.onnx_ner import OnnxNERDetector
 
     # 模型目录写在配置里, 是相对资源根的路径(不是调用者的 cwd), 打包后同样成立
     return [
@@ -30,7 +30,7 @@ def _build_onnx(config) -> list[Detector]:
 
 
 def _build_llm(config) -> list[Detector]:
-    from .llm_ner import LLMNERDetector
+    from ..engines.llm.ner import LLMNERDetector
 
     return [LLMNERDetector(config.llm)]
 

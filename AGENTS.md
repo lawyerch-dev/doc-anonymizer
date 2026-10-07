@@ -73,18 +73,20 @@
   父进程监视自尽（壳被强杀时 JS 收不了尸）、`/health` 带 pid 以免认错端口上的旧孤儿。
   细节见 `apps/desktop/README.md`，行为由 `tests/test_server.py` 锁定。
 
-## 引擎可移植边界（`tests/test_architecture.py` 用 AST 锁死，别绕过）
+## 引擎可移植边界（**目录即边界**，`tests/test_architecture.py` 用 AST 锁死）
 
-- `contract.py` 是引擎与 app 之间唯一的共享层，只准 import 标准库。
-- 引擎文件（`extractors/_ocr.py`、`extractors/ocr_image.py`、`detectors/onnx_ner.py`、
-  `detectors/llm_ner.py`、`llm/client.py`）只准 import `docanon.contract` 和它自己那一个子包；
-  `base`/`config`/`resources`/`pipeline`/`cli`/`server` 这些 app 侧模块一个都不许碰。
-  方向永远是 **app → 引擎 → 契约**，反了就没法整块搬走。
+- `src/docanon/engines/` 下的一切只准 import `docanon.contract` 与 `docanon.engines.*`。
+  规则按**目录机械遍历**，新加引擎文件自动纳入 —— 旧写法是人工维护 5 个文件的名单，
+  新加的引擎文件完全不受检查（实测：往 `detectors/` 扔一个 `from .. import config` 的文件，旧测试照样全绿）。
+- `contract.py` 是两边唯一的共享层，只准 import 标准库。
+- 方向永远是 **app → 引擎 → 契约**：app 侧（`config.py`、`detectors/base.py`、`extractors/base.py`）
+  可以 import 引擎，引擎反过来一个都不许碰。整块搬走 = 拷 `engines/` + `contract.py`。
 - 实体词表属于 app：标签→`PERSON/ORG/...` 在 `config.py` 的 `DEFAULT_ONNX_ENTITY_MAP`，
   `OnnxNERDetector(model_dir, entity_map)` 把它当必填参数收，`llm_ner` 只认 `_VALID_TYPES`。别把实体名写回引擎。
-- 引擎参数也属于引擎：`LLMConfig` 住在 `llm/client.py`，`config.py` 反过来 import 它。
+- 引擎参数也属于引擎：`LLMConfig` 住在 `engines/llm/client.py`，`config.py` 反过来 import 它。
 - 新引擎要实现 `capabilities()`（实际能识别什么）和 `ready()`（起不来给原因）——`docanon engines` 与跑前
   预检都吃这两个自述；缺任一方法时基类的默认值会让该引擎在清单里显示"什么都不认识"，这是故意的。
+- `docanon engines` 的实现住在 `inventory.py`（**不是** `engines.py`：包会遮蔽同名模块，两个不能并存）。
 - 真要拆成独立 pip 包（entry points 发现）等第二个项目出现再做，届时只加 `pyproject.toml`；现在别预拆。
 
 ## 文档地图（改行为时一起改）

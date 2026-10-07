@@ -8,8 +8,8 @@ from __future__ import annotations
 import json
 import re
 
-from ..contract import Block, Detection, Detector, Span
-from ..llm.client import LLMClient, LLMConfig, LLMError
+from ...contract import Block, Detection, Detector, Span
+from .client import LLMClient, LLMConfig, LLMError
 
 _SYSTEM = (
     "你是文档脱敏助手。从给定文本中找出所有敏感实体, 只返回 JSON 数组, "

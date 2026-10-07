@@ -15,7 +15,7 @@ class PDFExtractor(Extractor):
     def extract(self, path: Path) -> ExtractedDoc:
         import pypdfium2 as pdfium
 
-        from ._ocr import run_ocr
+        from ..engines.ocr import run_ocr
 
         pdf = pdfium.PdfDocument(str(path))
         blocks: list[Block] = []

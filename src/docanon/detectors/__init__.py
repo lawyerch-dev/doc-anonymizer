@@ -2,7 +2,7 @@
 from ..contract import Detector
 from .base import DETECTORS, build_detectors, clear_detector_cache
 from .dictionary import DictionaryDetector
-from .onnx_ner import OnnxNERDetector
+from ..engines.onnx_ner import OnnxNERDetector
 from .rule import RuleDetector
 
 __all__ = [

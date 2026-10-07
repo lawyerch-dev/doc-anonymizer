@@ -218,11 +218,11 @@ docanon run ./samples -o out_onnx -c configs/onnx.yaml
 doc-anonymizer/
 ├── src/docanon/            # Python 包(CLI / Web / 桌面壳共用)
 │   ├── contract.py         引擎契约: Block/Span/Detection + 引擎 ABC(只依赖标准库)
-│   ├── extractors/         抽取器(按类型可插拔; `_ocr.py` 是 RapidOCR 引擎)
-│   ├── detectors/          检测器(规则/词典/ONNX NER/LLM), 注册表在 base.py
-│   ├── llm/                本地大模型引擎的传输层(OpenAI 兼容)
-│   ├── resources.py        资源根: 配置/模型/静态资源的相对路径基准
-│   ├── engines.py          引擎自检清单(`docanon engines`)
+│   ├── engines/            ★ 可整块搬走的引擎(目录即边界): OCR / ONNX NER / LLM
+│   ├── extractors/         抽取器(文本/PDF/表格) + 按扩展名路由
+│   ├── detectors/          规则/词典检测器 + 注册表(base.py)
+│   ├── inventory.py        引擎自检清单(`docanon engines`)
+│   ├── resources.py        资源根 + 仓库布局表(所有相对路径的唯一出处)
 │   ├── writers.py          原位回写(docx/xlsx/csv/pdf/图片)
 │   ├── strategies.py       脱敏策略(pseudonym/placeholder/mask/remove)
 │   ├── resolve.py          重叠合并

@@ -162,7 +162,7 @@ def cmd_restore(args: argparse.Namespace) -> int:
 
 def cmd_engines(args: argparse.Namespace) -> int:
     """列出这份配置下实际加载得起来的引擎(含不可用的原因)。"""
-    from .engines import list_engines
+    from .inventory import list_engines
 
     try:
         config = load_config(args.config)
