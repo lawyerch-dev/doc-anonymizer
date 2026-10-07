@@ -122,6 +122,7 @@ doc-anonymizer/
 | `3866afe` | 文档拆 `docs/{architecture,benchmarks}.md` + `scripts/README.md` | README 职责变清楚 |
 | `8acfe7a` | PDF 只栅格化命中的页 | 整份变位图：干净的页也丢文字层、体积翻倍 |
 | `73cf1aa` | **拆成五包 monorepo**；测试按包分；默认产物落 `var/out` | 依赖方向由包表达；根目录只留"包 + 资源 + 工具" |
+| `4a55f92` | 修掉 12 处文档矛盾 + 补 `tests/test_docs.py`；修 `bench_models.py` 扫错目录 | 代码搬了文档还写旧的；"别再矛盾"得靠测试而不是自觉 |
 
 ## 七、有意不做的三件事（不是欠债，是带理由的选择）
 
