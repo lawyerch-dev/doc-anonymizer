@@ -30,8 +30,8 @@ hutch electrobun dev        # 或 npm start / npm run build
    现在和 Python 侧一样，从本文件逐级向上找带 `configs/default.yaml` 的目录；找不到直接报错退出。
 2. **壳被强杀时后端必须自己了断**。Electrobun 的 SIGTERM quit 序列不触发窗口 close / `process.exit`，
    实测会留下孤儿后端占住 8770。spawn 时带上 `DOCANON_EXIT_WITH_PARENT=1`，由
-   `docanon/server.py` 的 `_watch_parent` 盯住 `getppid()`（父进程一死就被 reparent），
-   SIGKILL 壳也照样回收（`tests/test_server.py` 锁这条）。
+   `docanon_core/server/lifecycle.py` 的 `_watch_parent` 盯住 `getppid()`（父进程一死就被 reparent），
+   SIGKILL 壳也照样回收（`packages/docanon-core/tests/test_server.py` 锁这条）。
 3. **只认自己拉起的那个后端**。端口上要是蹲着别人的 docanon（旧孤儿），`/health` 会回它自己的 pid，
    壳发现对不上就直接报错退出，不会用别人的服务开出一个假窗口。
 

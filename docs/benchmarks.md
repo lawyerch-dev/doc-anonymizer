@@ -7,7 +7,7 @@
 
 | 路线 | 依赖 | 定位 |
 |---|---|---|
-| **ONNX**(编码器式中文 NER) | onnxruntime，无 server | 快、轻、标签集固定；默认路线（`configs/onnx.yaml`） |
+| **ONNX**(编码器式中文 NER) | onnxruntime，无 server | 快、轻、标签集固定；推荐路线（`-c configs/onnx.yaml`） |
 | **LLM**(生成式，llama.cpp) | llama-server + 3G 模型 | 灵活（能听指令、能生成自然假名），但慢 30 倍 |
 
 两者可以同时开（配置里都置 `true`），检测结果取并集再去重（`resolve.py`）。

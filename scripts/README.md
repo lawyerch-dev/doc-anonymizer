@@ -1,8 +1,13 @@
 # scripts/ 一览
 
-一律在**仓库根**执行。脚本里的相对路径按资源根解析
-（`packages/docanon-core/src/docanon_core/resources.py` 的 `LAYOUT`），
-所以从别的目录调用会指错地方。
+一律在**仓库根**执行，但两种脚本的定位方式不同：
+
+- **按调用者 cwd**：`download_model.sh`、`serve_llm.sh`（脚本里写的就是 `var/models/...`）——
+  换目录执行会指错地方。
+- **按脚本自身位置**（`Path(__file__).parents[1]` / `dirname $0`）：`make_samples.py`、`bench_*.py`、
+  `fetch_file_viewer.sh` —— 从哪儿调用都找得到仓库根。
+
+这与 `docanon` 本身又不同：它的相对路径按**资源根**解析（见 `resources.LAYOUT`）。
 
 | 脚本 | 干什么 | 依赖 | 用法 |
 |---|---|---|---|

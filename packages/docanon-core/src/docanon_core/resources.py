@@ -9,7 +9,7 @@
 **所有布局知识都在下面的 LAYOUT 里** —— 谁要挪目录, 只改这一处; `tests/test_layout.py`
 会立刻告诉你哪里对不上, 而不是等运行时在别处炸。
 
-部署契约(与 pyproject.toml 的说明同源): 只支持 **editable 安装** 与 **打包根** 两种形态,
+部署契约(与根 pyproject.toml 的说明同源): 只支持 **editable 安装** 与 **打包根** 两种形态,
 不做 wheel 自包含(前端 vendor 232MB、模型 GB 级, 本来就不该进包)。非 editable 安装由
 `ResourceRootError` 明确报错, 而不是退化成"读到空配置还装没事"(见 `config.load_config`)。
 """

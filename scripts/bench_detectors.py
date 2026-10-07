@@ -11,9 +11,8 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "scripts"))
+ROOT = Path(__file__).resolve().parents[1]  # 脚本自己定位仓库根(不按 cwd)
+sys.path.insert(0, str(ROOT / "scripts"))  # 复用 bench_models 的样例
 
 from bench_models import CASES, covered  # noqa: E402  复用样例与覆盖判定
 from docanon_core.config import load_config  # noqa: E402

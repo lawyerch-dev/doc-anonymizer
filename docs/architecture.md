@@ -79,7 +79,7 @@ doc-anonymizer/
 壳只在验证"系统 WebView 下预览是否正常"时才需要；`tests/e2e/webkit/` 用 Playwright 的 WebKit
 内核覆盖同一件事，不必开窗口。
 
-## 四、五条硬边界（都有测试锁着，别绕过）
+## 四、六条硬边界（都有测试锁着，别绕过）
 
 | 边界 | 锁在哪 | 违反的后果 |
 |---|---|---|
@@ -88,6 +88,7 @@ doc-anonymizer/
 | 资源根可验证、布局只有一处真相 | `packages/docanon-core/tests/test_{resources,layout}.py` | 非 editable 安装下静默读到空配置 |
 | 产物命名 `<全名>.redacted.<原扩展名>` + 保留子目录；账本每文件原子落盘、`--resume` 要求产物仍在 | `test_output_layout.py`、`test_job.py` | 同名覆盖；崩溃丢记录；把漏脱敏报成已处理 |
 | PDF 命中页不留可提取文字（未命中页原样保留） | `test_pdf_output.py` | 给文字层盖黑块 = 原文仍可复制 = 没脱敏 |
+| **文档不与代码漂移**（路径、链接、测试文件名、AGENTS 里的测试数量） | `tests/test_docs.py` | 代码搬了文档还写旧的 —— 前后矛盾，读文档的人被带到沟里 |
 
 共同原则：**"少一层宁可报错，也不许静默"**（`prepare_detectors` 预检、`ResourceRootError`、
 `load_config` 读不到就抛、`manifest` 三态、`LLMError`、PDF 栅格化）。

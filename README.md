@@ -14,7 +14,8 @@
 
 ## 技术栈
 
-- **OCR**: RapidOCR 2.x (ONNXRuntime, PP-OCRv6 模型, 中文强、带坐标)
+- **OCR**: RapidOCR（ONNXRuntime 后端；中文强、带 bbox。具体模型版本随 pip 装的走，
+  能力边界用 `docanon engines` 看）
 - **大模型**: llama.cpp (`llama-server`, OpenAI 兼容) + **Qwen3.8-4B-Distill** GGUF
   - 实测选型: 4B 蒸馏版召回 100%, 仅 3.1G 内存、1.46s/例, 胜过 9B
   - 量化 `Q4_K_M`(2.8G); 追求更省可换 Qwen3.5-4B / MiniCPM5-2B
@@ -39,7 +40,7 @@ python3.12 -m venv .venv
 ```bash
 ./scripts/download_model.sh Q4_K_M     # 从 ModelScope 下载 (~6 分钟)
 ./scripts/serve_llm.sh                 # 启动 llama-server :8080
-# 另开一个终端, 打开 configs/default.yaml 里 detectors.llm_ner: true
+# 另开一个终端, 用已经开好 LLM 检测器的 configs/llm.yaml（它就是 default.yaml + llm_ner: true）
 ```
 
 ## 快速开始
@@ -145,7 +146,7 @@ docanon web --port 8000 -c configs/onnx.yaml   # 浏览器打开 http://127.0.0.
 | POST | `/api/upload` | `{filename, content_b64}` → `{token, filename, url}`；上限 50MB |
 | POST | `/api/anonymize` | `{preset}` 或 `{token}` → `{output_name, output_url, counts, kind, trace}`；`trace` 含 `extractor`/`detectors`/`timing`/`detections`（命中溯源） |
 
-后端关掉了 HTTP 访问日志（`server.py` 的 `log_message` 是空实现）；排查问题看 `/api/anonymize` 返回的 `trace`，
+后端关掉了 HTTP 访问日志（`docanon_core/server/routes.py` 的 `log_message` 是空实现）；排查问题看 `/api/anonymize` 返回的 `trace`，
 前端「运行日志」弹窗消费的就是它。
 
 ## 桌面壳 (Electrobun, 可选)
@@ -164,7 +165,7 @@ npm start            # = hutch electrobun dev, 端口 8770
 不留空窗口。三条实测约束（项目根按标记文件向上找、壳被强杀时后端自己了断、只认自己拉起的后端）
 见 [apps/desktop/README.md](apps/desktop/README.md)。
 
-## ONNX 路线(默认, 完全不依赖 llama.cpp)
+## ONNX 路线(日常推荐, 完全不依赖 llama.cpp)
 
 用**编码器式中文 NER 模型**（ONNXRuntime 跑）替代生成式 LLM 做"理解"，更轻、更快、无需 server：
 
@@ -172,6 +173,9 @@ npm start            # = hutch electrobun dev, 端口 8770
 # 模型在 var/models/onnx/ (gyr66 通用中文NER + pii-engineer 中文PII)
 docanon run ./samples -o var/out -c configs/onnx.yaml
 ```
+
+注意区分两件事：不带 `-c` 时走 `configs/default.yaml`（只有规则+词典）；上面这条命令走的是
+`configs/onnx.yaml`（规则+词典+ONNX NER），也是 Web 与桌面壳用的那份。
 
 比 LLM 快约 30 倍（34ms vs 1190ms，同为 100% 召回），代价是标签集固定：不能听指令、不能生成自然假名。
 两个模型取并集（gyr66 出机构/人名，pii-engineer 出人名/手机/地址/身份证），金额由规则补。
@@ -183,12 +187,13 @@ docanon run ./samples -o var/out -c configs/onnx.yaml
 
 - 配置里的相对路径(`onnx.model_dirs`、`-c` 的配置文件)按**仓库根/安装根**解析, 与你在哪个目录敲命令无关;
   打包成桌面应用后同一套规则成立(可用 `DOCANON_ROOT` 指定资源根)。命令行上的输入/输出路径仍按当前目录。
-- 资源根是**找出来的, 不是猜出来的**: 从 `resources.py` 逐级向上找含 `configs/default.yaml` 的目录。
+- 资源根是**找出来的, 不是猜出来的**: 从 `docanon_core/resources.py` 逐级向上找含
+  `configs/default.yaml` 的目录。
   找不到(例如 `pip install` 到了别处、不是 editable 安装)会直接报错并告诉你设 `DOCANON_ROOT`,
   而不是退回一个不存在的路径 —— 那样只会读到空配置, 看起来却像"引擎都没启用"。同理, 默认配置读不到
   (不带 `-c`)也报错, 不再静默退化。
 - **布局只有一处真相**: `resources.LAYOUT`(键 → 相对路径)。要挪 `configs/`、`apps/web/`、`samples/`、
-  `var/models` 这些目录, 改这张表就行, `tests/test_layout.py` 会立刻指出哪里对不上。
+  `var/models` 这些目录, 改这张表就行, `packages/docanon-core/tests/test_layout.py` 会立刻指出哪里对不上。
 - **部署契约**: 只支持 editable 安装(`requirements-dev.txt`)与打包根两种形态; 不做 wheel 自包含
   (前端 vendor 232MB、模型 GB 级, 不该进包)。细节写在根 `pyproject.toml`。
 - 检测引擎在 `detectors/base.py` 的注册表里按名字启用。引擎装不起来或端点没应答时, `run` 与 `web` 都会在
