@@ -1,7 +1,7 @@
 # 文档脱敏工具 (doc-anonymizer) — 设计方案
 
 - 日期: 2026-10-05
-- 状态: 待评审
+- 状态: 已落地（2026-10-07 复核；定稿后的改动见 §10）
 - 路线: 方案 B —— 混合管道 + 可插拔抽取器
 
 ## 1. 目标与范围
@@ -102,7 +102,7 @@
   - 图片: 涂黑 bbox
 - **友好 Web**(零构建): 基于 [file-viewer](https://github.com/flyfish-dev/file-viewer) 预构建包
   - 流程: 选示例/上传 → 预览原文 → 脱敏 → **同查看器预览原件与脱敏件**
-  - 资源: `scripts/fetch_file_viewer.sh` 拉取到 `web/vendor/file-viewer`(gitignore)
+  - 资源: `scripts/fetch_file_viewer.sh` 拉取到 `apps/web/vendor/file-viewer`(gitignore)
   - 后端: `GET /api/presets`、`POST /api/upload`、`POST /api/anonymize`、`/file-viewer/*`
 
 ## 4. 数据模型
@@ -145,6 +145,30 @@
   - 假名一致性: 张三→崔禾、李四→苏舟, 全文一致
 - Web: `/health`、首页、`/api/anonymize`(文本与图片)均通过
 
-## 9. 风险- Python 3.14 尚无 onnxruntime 轮子 → 用 3.11/3.12 虚拟环境
+## 9. 风险
+
+- Python 3.14 尚无 onnxruntime 轮子 → 用 3.11/3.12 虚拟环境
 - 扫描件 OCR 错误会传导到脱敏 → 召回优先 + 可评测
 - 大模型判断有幻觉 → 规则保底 + 后置护栏
+
+## 10. 后续变更（2026-10-07）
+
+本节只记"设计定稿之后改掉/补上的东西"。**现状以 `README.md` 与 `AGENTS.md` 为准**，本节是索引。
+
+- **引擎可移植边界**：新增 `src/docanon/contract.py`（只依赖标准库）作为引擎与 app 之间唯一的共享层，
+  由 `tests/test_architecture.py` 用 AST 锁死；实体词表留在 app 侧（`config.py` 的 `DEFAULT_ONNX_ENTITY_MAP`）
+  当引擎的必填构造参数；引擎按配置指纹在进程内缓存；`docanon engines` 与跑前 `prepare_detectors`
+  保证"少一层检测必须报错，不许静默"。
+- **资源根**：相对路径不再依赖 cwd，统一走 `resources.py`；资源根靠标记文件（`configs/default.yaml`）
+  逐级向上找，找不到直接报错（`DOCANON_ROOT` 可覆盖）—— 旧的 `parents[2]` 猜法在非 editable 安装下
+  会读到空配置，而空配置看起来就像"一层引擎都没启用"。
+- **账本与续跑**：`job.py` 的 `manifest.json`/`mapping.json` 每处理完一个文件就原子落盘；
+  `run --resume` 以"标 `ok` **且产物文件仍在**"为跳过条件；退出码 0/1/2 见 README。
+- **原位回写**（设计 §3.5 落地）：docx 按 run 改写、xlsx/csv 改写单元格、pdf 与图片涂黑。
+  代价是 **pdf/图片产物是位图**（文字层消失），这条补进了 README「已知限制」。
+- **桌面壳**：定为 **Electrobun**（系统 WebView）。Tauri 因 WKWebView 下 PDF 抖动被弃（commit `67330ba`），
+  Electron 因体积被弃。壳侧三条实测约束（项目根按标记文件找、壳被强杀时 sidecar 自己了断、
+  只认自己拉起的后端）见 `apps/desktop/README.md`。
+- **还原（`restore`）**：只支持文本产物；`remove` 策略的原文不可还原（替换值为空串，不是锚点）。
+- **测试**：从设计期的 7 项长到 62 项；`samples/` 由 `scripts/make_samples.py` 生成（PDF 必须内嵌中文 TTF 子集）。
+

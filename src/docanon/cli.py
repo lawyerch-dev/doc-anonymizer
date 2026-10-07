@@ -120,13 +120,43 @@ def cmd_web(args: argparse.Namespace) -> int:
 
 
 def cmd_restore(args: argparse.Namespace) -> int:
-    store = MappingStore.load(args.mapping)
-    text = Path(args.input).read_text(encoding="utf-8")
-    for repl, original in sorted(store._reverse.items(), key=lambda x: -len(x[0])):
+    """按映射表还原**文本**产物。
+
+    docx/xlsx/pdf/图片的产物是原格式回写(替换 run/单元格, 或涂黑), 没有可按映射表替换的纯文本,
+    所以只接受 UTF-8 文本; 二进制进来时给明确原因, 而不是抛 UnicodeDecodeError 的栈。
+    """
+    try:
+        store = MappingStore.load(args.mapping)
+    except (OSError, ValueError) as exc:
+        print(f"还原失败: 读不了映射表 {args.mapping}: {exc}", file=sys.stderr)
+        return EXIT_INPUT
+
+    src = Path(args.input)
+    try:
+        text = src.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        print(
+            f"还原失败: {src} 不是 UTF-8 文本。restore 只支持文本产物(txt/md/csv);"
+            " docx/xlsx/pdf/图片产物是原格式回写, 没有可替换的纯文本。",
+            file=sys.stderr,
+        )
+        return EXIT_INPUT
+    except OSError as exc:
+        print(f"还原失败: 读不了 {src}: {exc}", file=sys.stderr)
+        return EXIT_INPUT
+
+    for repl, original in store.restorable_items():
         text = text.replace(repl, original)
-    out = Path(args.out) if args.out else Path(args.input).with_suffix(".restored.txt")
+    out = Path(args.out) if args.out else src.with_suffix(".restored.txt")
     out.write_text(text, encoding="utf-8")
     print(f"已还原 -> {out}")
+    skipped = store.unrestorable_count()
+    if skipped:
+        print(
+            f"提示: 映射表里 {skipped} 条原文是 remove 策略删掉的(替换值为空串), 无法定位还原 ——"
+            " 它们不会出现在还原结果里。",
+            file=sys.stderr,
+        )
     return 0
 
 

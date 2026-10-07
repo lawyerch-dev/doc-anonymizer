@@ -34,29 +34,44 @@ pip install -e '.[ocr,dev]'
 ## 快速开始
 
 ```bash
-# 处理单个文件或目录 (默认规则+词典)
-docanon run ./samples -o ./out
+# 处理单个文件或目录
+docanon run ./samples -o ./out -c configs/onnx.yaml
 
 # 大卷宗跑到一半 Ctrl+C 或某个文件失败 —— 接着跑, 不重来
 docanon run ./案件 -o ./out -c configs/onnx.yaml --resume
 
 # 启动轻量 Web
-docanon web --port 8000
+docanon web --port 8000 -c configs/onnx.yaml
 
-# 还原
-docanon restore ./out/sample.md.redacted.txt --mapping ./out/mapping.json
+# 这份配置到底跑哪几层检测, 别猜(可用/不可用(带原因) + 实际能力)
+docanon engines -c configs/onnx.yaml
+
+# 还原(只支持文本产物, 见「已知限制」)
+docanon restore ./out/sample.md.redacted.md --mapping ./out/mapping.json
 ```
+
+`-c` 省略时走 `configs/default.yaml`：只有规则+词典（`onnx_ner`/`llm_ner` 均为 `false`），
+同一个 `samples/example.txt` 实测会少掉 `PERSON` 与 `LOCATION`。**要人名/机构/地名就带上 `-c`。**
+桌面壳固定用 `configs/onnx.yaml`；`docanon web` 得自己带上 `-c configs/onnx.yaml`。
 
 示例文档由 `scripts/make_samples.py` 生成, 覆盖 txt/md/docx/pdf(文字)/pdf(扫描)/png/xlsx/csv。
 
 ### 产物与清单
 
-输出目录按源文件的相对路径建子树, 文件名保留源扩展名, 因此同名不同类型的文件不会互相覆盖:
+产物命名 `<源文件全名>.redacted.<原扩展名>`, 并按源文件的相对路径建子树, 因此同名不同类型的文件不会互相覆盖:
 
 ```
-docs/告知书/明细.docx   ->   out/告知书/明细.docx.redacted.txt
+docs/告知书/明细.docx   ->   out/告知书/明细.docx.redacted.docx
 docs/债权人/明细.txt    ->   out/债权人/明细.txt.redacted.txt
 ```
+
+| 源格式 | 产物 | 怎么脱敏 |
+|---|---|---|
+| docx | `x.docx.redacted.docx` | 按 run 改写文字, 保留格式与表格 |
+| xlsx / csv | `x.xlsx.redacted.xlsx` / `x.csv.redacted.csv` | 改写单元格, 保留表结构 |
+| pdf | `x.pdf.redacted.pdf` | 整页渲染成图后涂黑（**文字层没了**, 见「已知限制」） |
+| png / jpg / tiff… | `x.png.redacted.png` | 按字符宽度比例（CJK=2/ASCII=1）只涂黑敏感片段 |
+| txt / md / text | `x.txt.redacted.txt` | 按行替换纯文本 |
 
 每次 run 还会更新两个文件(按源文件累加, 不覆盖上一次的记录 —— 同一个 `-o` 目录可以分批增量跑, 重复跑同一个文件只更新它那一条):
 
@@ -77,11 +92,18 @@ docanon run ./案件 -o ./out -c configs/onnx.yaml --resume
 
 ### 已知限制
 
-- 输出是纯文本(`.redacted.txt`)或图片, 不是可回交的 DOCX/PDF; 表格的行列结构在转换中丢失。
-- `.doc` / `.xls` / `.wps` 暂不支持(会明确报出, 不再静默跳过); GBK 编码的 CSV 需要转成 UTF-8 再跑。
-- DOCX 里的表格单元格、页眉页脚、脚注当前不抽取 = 不脱敏; 文字页+扫描页混排的 PDF 会整份失败。
-- `restore` 在 `remove` 策略命中后不可用, 两个号码打码后相同时会还原成错的原文。
-- 输出目录不要放在输入目录里面, 否则下一次 run 会把上一次的 `.redacted.txt` 当成新文档再脱敏一遍。
+- **pdf / 图片产物是涂黑位图**：前后可对比、可直接交付，但 PDF 的文字层没了（不可选中/搜索/再编辑），
+  体积也变大。要可再编辑的产物请用 docx / xlsx / csv（原格式改写）。
+- **docx 的页眉、页脚、脚注、文本框不抽取** = 不脱敏（正文段落与表格单元格已覆盖）。
+- **`restore` 只支持文本产物**（txt/md/csv）。docx/xlsx/pdf/图片产物是原格式回写，没有可按映射表替换的
+  纯文本；`remove` 策略删掉的原文没有锚点，无法还原（会明确提示有几条还原不了）。
+- 打码后相同的值（两个号码都 mask 成同形）会还原成错的原文。
+- `.doc` / `.xls` / `.wps` 暂不支持（清单里记 `unsupported` 并返回退出码 2）；GBK 编码的 CSV 需转成 UTF-8 再跑。
+- 输出目录不要放在输入目录里面, 否则下一次 run 会把上一次的 `.redacted.*` 当成新文档再脱敏一遍。
+- `mapping.json` 含全部敏感原文, 绝不与脱敏产物一起外发或提交。
+
+> 混排 PDF（文字页 + 扫描页）**已支持**：逐页判断，有文字层的页按 charbox 涂黑，没有的页先 OCR 再涂黑。
+> 扫描件质量差导致的 OCR 错字仍会传导到脱敏结果，所以原则是"召回优先"。
 
 ## 友好 Web 界面(推荐给非技术同事)
 
@@ -97,6 +119,38 @@ docanon web --port 8000 -c configs/onnx.yaml   # 浏览器打开 http://127.0.0.
 - 零构建：直接引用 file-viewer 预构建包，无 node 构建链
 - 预览窗格铺满高度；默认**浅色模式**；已隐藏 file-viewer 自带工具栏（搜索/缩放/下载…），避免控件溢出
 - 图片/扫描件按**字符宽度比例（CJK=2/ASCII=1）只涂黑敏感片段**，不再整行涂黑
+
+### Web 接口
+
+只监听 `127.0.0.1`，无鉴权（本地单机工具）。请求/响应都是 JSON（上传用 base64）：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/` | 单文件前端页面（`apps/web/index.html`） |
+| GET | `/health` | `{ok, pid}` —— 桌面壳用它确认后端是自己拉起的那个 |
+| GET | `/api/presets` | 内置示例清单 `{presets:[{name,url,size,preview}]}` |
+| GET | `/samples/*`、`/file-viewer/*`、`/uploads/*`、`/outputs/*` | 静态资源（预置样例、预览器、上传件、脱敏产物） |
+| POST | `/api/upload` | `{filename, content_b64}` → `{token, filename, url}`；上限 50MB |
+| POST | `/api/anonymize` | `{preset}` 或 `{token}` → `{output_name, output_url, counts, kind, trace}`；`trace` 含 `extractor`/`detectors`/`timing`/`detections`（命中溯源） |
+
+后端关掉了 HTTP 访问日志（`server.py` 的 `log_message` 是空实现）；排查问题看 `/api/anonymize` 返回的 `trace`，
+前端「运行日志」弹窗消费的就是它。
+
+## 桌面壳 (Electrobun, 可选)
+
+把同一套 Web UI 装进原生窗口（macOS = 系统 WebView，不内置 Chromium，体积小一个数量级）。
+**日常开发不用它** —— 直接 `docanon web` 用浏览器迭代更快。
+
+```bash
+curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh   # 首次: 装 Hutch 工具链
+cd apps/desktop
+hutch install        # 装依赖(生成 hutch.lock)
+npm start            # = hutch electrobun dev, 端口 8770
+```
+
+壳会拉起 `.venv` 的 Python 跑 `docanon web`，等 `/health` 就绪后开窗；后端起不来会打印原因并非零退出，
+不留空窗口。三条实测约束（项目根按标记文件向上找、壳被强杀时后端自己了断、只认自己拉起的后端）
+见 [apps/desktop/README.md](apps/desktop/README.md)。
 
 ## 多模型对比
 
@@ -162,24 +216,25 @@ docanon run ./samples -o out_onnx -c configs/onnx.yaml
 
 ```
 doc-anonymizer/
-├── src/docanon/            # Python 包(web 与桌面壳共用)
+├── src/docanon/            # Python 包(CLI / Web / 桌面壳共用)
 │   ├── contract.py         引擎契约: Block/Span/Detection + 引擎 ABC(只依赖标准库)
 │   ├── extractors/         抽取器(按类型可插拔; `_ocr.py` 是 RapidOCR 引擎)
 │   ├── detectors/          检测器(规则/词典/ONNX NER/LLM), 注册表在 base.py
 │   ├── llm/                本地大模型引擎的传输层(OpenAI 兼容)
 │   ├── resources.py        资源根: 配置/模型/静态资源的相对路径基准
 │   ├── engines.py          引擎自检清单(`docanon engines`)
-│   ├── writers.py          原位回写(原格式)
-│   ├── strategies.py       脱敏策略
+│   ├── writers.py          原位回写(docx/xlsx/csv/pdf/图片)
+│   ├── strategies.py       脱敏策略(pseudonym/placeholder/mask/remove)
 │   ├── resolve.py          重叠合并
-│   ├── mapping.py          全局映射表(一致 + 可还原)
-│   ├── pipeline.py         编排
-│   ├── server.py           本地 HTTP 服务(前端/壳共用)
-│   └── cli.py              命令行
+│   ├── mapping.py          全局映射表(全文一致 + 可还原)
+│   ├── job.py              账本: manifest/mapping 每文件原子落盘, --resume 的依据
+│   ├── pipeline.py         编排: 抽取 → 检测 → 合并 → 替换 → 回写
+│   ├── server.py           本地 HTTP 服务(前端/桌面壳共用)
+│   └── cli.py              命令行(run / restore / engines / web)
 ├── apps/
-│   ├── web/                前端静态资源(index.html + vendor/file-viewer)
-│   └── desktop/            Electrobun 桌面壳(系统 WebView; 拉起 server + 开窗)
-├── configs/                配置(default/onnx/with_llm)
+│   ├── web/                前端: 单文件 index.html + vendor/file-viewer(232MB, gitignore)
+│   └── desktop/            Electrobun 桌面壳: src/bun 主进程 + compat/ WebKit 兼容检查
+├── configs/                配置(default / onnx / with_llm)
 ├── scripts/  samples/  tests/  docs/
 └── models/                 模型权重(gitignore)
 ```
@@ -187,4 +242,5 @@ doc-anonymizer/
 
 ## 非目标
 
-不依赖 Ollama / 云端；一期不做完美版式还原与权限系统。
+不依赖 Ollama / 云端；不做完美版式还原，不做多用户与权限系统（可还原的映射表先用本地文件，
+见[设计方案](docs/specs/2026-10-05-doc-anonymizer-design.md) §6）。

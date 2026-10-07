@@ -7,11 +7,12 @@
 ## 命令（一律在仓库根执行）
 
 - 首次准备：`python3.12 -m venv .venv && .venv/bin/pip install -e '.[ocr,dev]'`
-- 全量测试：`.venv/bin/python -m pytest -q`（55 项，约 3 秒）
+- 全量测试：`.venv/bin/python -m pytest -q`（62 项，约 3 秒）
 - 单个测试：`.venv/bin/python -m pytest tests/test_pipeline.py::test_pipeline_masks_pii`
 - CLI 脱敏：`.venv/bin/docanon run ./samples -o out -c configs/onnx.yaml`
 - 大卷宗续跑（跳过已脱敏且产物仍在的）：同一条命令加 `--resume`
 - 看这份配置实际加载了哪些引擎（含起不来的原因）：`.venv/bin/docanon engines -c configs/onnx.yaml`
+- 还原（**只吃文本产物**）：`.venv/bin/docanon restore out/sample.md.redacted.md --mapping out/mapping.json`
 - Web：`.venv/bin/docanon web -p 8000 -c configs/onnx.yaml`
 - 仓库没有 lint、typecheck、CI、pre-commit。不要假定 `ruff`/`mypy`/`npm run lint` 存在，也不要顺手加。
 
@@ -28,8 +29,8 @@
   读不到都直接报错 —— 静默退化成空配置等于"一层引擎都没开"，而它看起来和"没启用"一模一样
   （`tests/test_resources.py` 锁这两条）。
 - 不带 `-c` 走 `configs/default.yaml`，其中 `onnx_ner`/`llm_ner` 均为 `false`，只剩规则+词典：
-  同一个 `samples/example.txt` 实测少掉 `PERSON` 与 `LOCATION`。Web 与桌面壳都用 `configs/onnx.yaml`。
-  `configs/with_llm.yaml` 需先 `./scripts/serve_llm.sh` 把 llama-server 起到 :8080。
+  同一个 `samples/example.txt` 实测少掉 `PERSON` 与 `LOCATION`。桌面壳固定用 `configs/onnx.yaml`，
+  `docanon web` 要自己带 `-c`。`configs/with_llm.yaml` 需先 `./scripts/serve_llm.sh` 把 llama-server 起到 :8080。
 
 ## 风险边界
 
@@ -51,6 +52,10 @@
 - 账本的写入纪律（`src/docanon/job.py`）：**每处理完一个文件就落盘**，先写 `.tmp` 再 `os.replace`。
   改成"整批跑完再写"就等于让 Ctrl+C/崩溃丢掉已完成部分的原文与记录。`--resume` 判定"已脱敏"必须同时要求
   产物文件仍在；账本读不出来就拒绝执行（退出码 1、一个文件都不碰），不许静默当成空目录重来。
+- `restore` 只吃 UTF-8 文本产物（txt/md/csv）。`remove` 策略的替换值是**空串**，不是可定位的锚点：
+  它只进正向表，绝不进 `MappingStore._reverse`，还原走 `restorable_items()`（过滤空键）。
+  谁把空串塞回反向表，`str.replace("")` 就会把原文插到每个字符之间——还原动作反而把敏感信息撒满全篇。
+  回归测试：`tests/test_restore.py`。
 - 非目标：不接云端 API、不依赖 Ollama（`docs/specs/2026-10-05-doc-anonymizer-design.md` §6）。
 
 ## 改动前后
@@ -81,6 +86,20 @@
 - 新引擎要实现 `capabilities()`（实际能识别什么）和 `ready()`（起不来给原因）——`docanon engines` 与跑前
   预检都吃这两个自述；缺任一方法时基类的默认值会让该引擎在清单里显示"什么都不认识"，这是故意的。
 - 真要拆成独立 pip 包（entry points 发现）等第二个项目出现再做，届时只加 `pyproject.toml`；现在别预拆。
+
+## 文档地图（改行为时一起改）
+
+| 文件 | 管什么 | 权威性 |
+|---|---|---|
+| `README.md` | 使用者说明书：命令、产物与命名契约、支持范围、已知限制、Web 接口、桌面壳入口 | 现状权威 |
+| `AGENTS.md`（本文件） | 操作契约：不能违反的边界、命令、坑 | 现状权威 |
+| `apps/desktop/README.md` | 桌面壳的运行方式与三条实测约束 | 现状权威 |
+| `docs/specs/2026-10-05-*.md` | 设计决策的历史记录（选型与理由）+ §10 后续变更 | 历史记录，现状以本文件与 README 为准 |
+
+- 改行为 → 同步 README 的「产物 / 已知限制 / Web 接口」段与对应测试；改边界 → 改本文件。
+- 写进 README 的每条命令都要真跑一遍再说它成立，不许写"理论上"。
+- **能力边界不要手写进文档**（哪些引擎认识哪些实体、起不起得来），让 `docanon engines` 自己报——
+  写死的清单一定会漂移。
 
 ## 深度文档（按需读，不要抄进本文件）
 

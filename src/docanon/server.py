@@ -19,6 +19,7 @@ import uuid
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import unquote
 
 from . import resources
 from .config import load_config
@@ -102,9 +103,17 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send(200, path.read_bytes(), _ctype(path))
 
-    # ---------- GET ----------
+    # ---------- GET / POST ----------
+    def _path(self) -> str:
+        """请求路径(去掉 query)。
+
+        必须 unquote: 浏览器会把中文等非 ASCII 文件名按 %XX 编码送来, BaseHTTPRequestHandler
+        给的 `self.path` 是原样的百分号串 —— 不还原就找不到文件, 中文上传件在预览/下载处一律 404。
+        """
+        return unquote(self.path.split("?", 1)[0])
+
     def do_GET(self) -> None:  # noqa: N802
-        p = self.path.split("?", 1)[0]
+        p = self._path()
         if p in ("/", "/index.html"):
             self._send(200, _index().read_bytes(), "text/html; charset=utf-8")
         elif p == "/health":
@@ -141,7 +150,7 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---------- POST ----------
     def do_POST(self) -> None:  # noqa: N802
-        p = self.path.split("?", 1)[0]
+        p = self._path()
         try:
             length = int(self.headers.get("Content-Length", 0))
             payload = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}

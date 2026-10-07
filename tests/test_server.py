@@ -16,6 +16,7 @@ import threading
 import time
 import urllib.request
 from http.server import ThreadingHTTPServer
+from urllib.parse import quote
 
 import pytest
 
@@ -61,6 +62,31 @@ def test_health_reports_its_own_pid():
         thread.join(timeout=5)
     assert body["ok"] is True
     assert body["pid"] == os.getpid()
+
+
+def test_get_unquotes_percent_encoded_paths(tmp_path, monkeypatch):
+    """浏览器把中文文件名按 %XX 发来; 不 unquote 就 404 —— 中文上传件在预览/下载处打不开。
+
+    接口发给前端的 `output_url` 就是原样带中文的路径, 所以这条是端到端契约。
+    """
+    monkeypatch.setattr(server.Handler, "out_root", tmp_path)
+    name = "上传测试.txt"
+    (tmp_path / "uploads" / "tok").mkdir(parents=True)
+    (tmp_path / "uploads" / "tok" / name).write_text("hi", encoding="utf-8")
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+    thread = threading.Thread(target=srv.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = srv.server_address[1]
+        url = f"http://127.0.0.1:{port}/uploads/tok/{quote(name)}"
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            assert resp.status == 200
+            assert resp.read().decode("utf-8") == "hi"
+    finally:
+        srv.shutdown()
+        srv.server_close()
+        thread.join(timeout=5)
 
 
 def test_sidecar_dies_when_its_parent_is_killed(tmp_path):
