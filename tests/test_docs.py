@@ -30,13 +30,25 @@ RECORDS = [
 
 # 现状文档: 扫全部 .md(新写的文档自动纳入检查, 不用来改这份清单)。
 # apps/ 下也扫(桌面壳与文档站的 README 同样是现状文档), 但别把 node_modules 里的包文档卷进来。
+# 构建产物不是"文档": 同步出来的内容副本、依赖、打包输出都跳过
+GENERATED_PARTS = ("node_modules", ".astro", "dist", "out")
+
+
+def _is_generated(path: pathlib.Path) -> bool:
+    rel = path.relative_to(REPO)
+    if any(part in GENERATED_PARTS for part in rel.parts):
+        return True
+    # apps/website/src/content/docs/** 是 sync-content.py 从仓库 markdown 生成的副本
+    return rel.parts[:3] == ("apps", "website", "src") and "content" in rel.parts
+
+
 def _markdown_under(*roots: str) -> set[pathlib.Path]:
-    found: set[pathlib.Path] = set()
-    for root in roots:
-        for path in (REPO / root).rglob("*.md"):
-            if "node_modules" not in path.parts:
-                found.add(path)
-    return found
+    return {
+        path
+        for root in roots
+        for path in (REPO / root).rglob("*.md")
+        if not _is_generated(path)
+    }
 
 
 CURRENT_DOCS = sorted(
@@ -60,7 +72,7 @@ COMMUNITY_FILES = [
 
 TOP_LEVEL = {"packages", "apps", "configs", "samples", "scripts", "tests", "docs", "var"}
 # 运行时才存在的东西: var/(权重、预览包、默认产物)、用户自选产物目录、壳的构建产物
-RUNTIME_PREFIXES = ("var/", "out/", "apps/docs/out", "apps/desktop/build")
+RUNTIME_PREFIXES = ("var/", "out/", "apps/website/dist", "apps/desktop/build")
 
 # 名字一旦删掉/改名, 现状文档里就不该再有它
 REMOVED_NAMES = {
@@ -180,26 +192,28 @@ def test_each_topic_has_one_owner():
 
 
 def test_docs_site_is_wired_correctly():
-    """官网(apps/website)接得对不对, 不用跑 npm 也能查一半 —— 另一半靠构建命令。"""
-    import re
-
+    """官网(apps/website = Astro + Starlight)接得对不对, 不用跑 npm 也能查一半。"""
     site = REPO / "apps" / "website"
     assert (site / "package.json").is_file(), "apps/website 不见了"
     pkg = json.loads((site / "package.json").read_text(encoding="utf-8"))
-    assert "build" in pkg.get("scripts", {}), "apps/docs 少了 build 脚本"
+    deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
+    for need in ("astro", "@astrojs/starlight", "@astrojs/react", "@doc-anonymizer/ui"):
+        assert need in deps, f"apps/website 少了依赖 {need}"
+    assert "sync" in pkg.get("scripts", {}), "构建前必须先同步内容(sync)"
 
-    cfg = (site / "next.config.ts").read_text(encoding="utf-8")
-    assert 'output: "export"' in cfg, "文档站必须静态导出(运行期不发 node)"
-    # 这两条与静态导出冲突, 构建会以 "PPR cannot be enabled in export mode" 失败
-    # (注释里提到它们没关系, 这里查的是"真的被打开")
-    assert "cacheComponents:" not in cfg and "ppr: true" not in cfg, "别打开 cacheComponents/PPR"
+    cfg = (site / "astro.config.mjs").read_text(encoding="utf-8")
+    assert 'output: "static"' in cfg, "官网必须静态输出(运行期不发 node)"
+    assert "sidebar" in cfg, "侧栏应来自生成的清单, 不是在 config 里手写"
 
-    # 侧栏清单指向的 markdown 必须真的存在(否则文档站点进去是 404)
-    listing = (site / "src" / "lib" / "docs.ts").read_text(encoding="utf-8")
-    files = re.findall(r'file:\s*"([^"]+)"', listing)
-    assert len(files) >= 5, f"文档站清单只解析出 {len(files)} 条, 是不是格式变了?"
-    missing = [f for f in files if not (REPO / f).is_file()]
-    assert not missing, f"文档站清单指向了不存在的文件: {missing}"
+    # 内容清单: 指向的仓库文件必须存在, 且同步脚本认得它
+    manifest = json.loads((site / "content-manifest.json").read_text(encoding="utf-8"))
+    pages = manifest["pages"]
+    assert len(pages) >= 8, f"清单只有 {len(pages)} 页, 是不是漏了?"
+    missing = [p["file"] for p in pages if not (REPO / p["file"]).is_file()]
+    assert not missing, f"官网清单指向了不存在的文件: {missing}"
+    slugs = [f"{p['group']}/{p['slug']}" for p in pages]
+    assert len(set(slugs)) == len(slugs), f"清单里有重复 slug: {slugs}"
+    assert (site / "scripts" / "sync-content.py").is_file(), "少了内容同步脚本"
 
 
 def test_ui_components_live_only_in_the_shared_package():

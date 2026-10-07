@@ -1,50 +1,76 @@
 # apps/website — 官网与文档站
 
-把仓库里的 markdown 变成网站。**组件不在这里** —— 它们在共享包 [`apps/ui`](../ui/README.md)
-（`@doc-anonymizer/ui`），以后产品前端（`apps/web`）换栈时引同一个包、同一份 token，外观与组件才不会分叉。
+**Astro 5 + Starlight + Tailwind 4**，组件来自共享包 [`apps/ui`](../ui/README.md)（`@doc-anonymizer/ui`，velora）。
+静态输出到 `dist/`，交给任意静态服务器；**运行期不需要 node**。
 
-**Next.js 16 + Tailwind CSS 4 + Motion + shadcn/velora 组件。静态导出，运行期不需要 node。**
+![搜索](https://raw.githubusercontent.com/lawyerch/doc-anonymizer/main/docs/images/docs-site-search.png)
 
 ## 跑起来
 
 ```bash
-./scripts/dev.sh website       # = cd apps/website && npm install(首次) && npm run dev  → :3000
-npm run build -w @doc-anonymizer/website   # 或 cd apps/website && npm run build → out/
-npm run preview                # 用 python -m http.server 起 out/(零依赖)
+./scripts/dev.sh website                      # = npm run dev -w @doc-anonymizer/website → :4321
+npm run build -w @doc-anonymizer/website      # 静态输出 dist/
+npm run preview -w @doc-anonymizer/website    # 用 python -m http.server 起 dist/
 ```
 
-## 内容从哪来
+装依赖在**仓库根**跑一次 `npm install`（npm workspaces：`apps/ui` + `apps/website`）。
 
-侧栏与页面都由 [`src/lib/docs.ts`](src/lib/docs.ts) 的 `DOCS` 清单驱动：`slug → 仓库里的文件`。
-**改文档就是改那些 markdown 文件**（构建时读取），文档站不需要单独维护内容。
-`readDoc()` 会去掉正文的一级标题（页面自己渲染标题）；`rewriteLinks()` 把 `.md` 相对链接改写成站内路由。
+## 内容从哪来（单一真相）
 
-加一页 = 在 `DOCS` 里加一行，指向仓库里已有的 `.md`。测试会检查清单里的文件真的存在。
+Starlight 要求内容带 frontmatter（`title` 必填），而仓库里的文档是给人读的纯 markdown。所以构建前先同步：
 
-## 加 velora 组件（写在 `apps/ui` 里）
+```
+content-manifest.json              ← 唯一清单：仓库文件 → (组, slug, 标题, 说明)
+  ↓ scripts/sync-content.py        ← 注入 frontmatter、把 .md 相对链接改写成站内路由
+src/content/docs/<组>/<slug>.md    ← 生成物，gitignore，不要手改
+src/sidebar.generated.mjs          ← 侧栏也由同一份清单生成
+```
 
-registry 已在 [`components.json`](components.json) 里注册，直接按名字装（组件源码会落到
-`src/components/velora/`，随仓库提交 —— 这是 shadcn 的模式，便于按需改）：
+**加一页 = 在 `content-manifest.json` 加一行**（别改生成的目录，也别在 `astro.config.mjs` 里手写侧栏）。
+清单里的文件不存在时同步脚本直接报错退出；`tests/test_docs.py` 也检查文件存在与 slug 不重复。
+
+## 组件从哪来
+
+通用组件都在 [`apps/ui`](../ui/README.md)：`import { Marquee } from "@doc-anonymizer/ui/marquee";`
+（内部包直接发 TS 源码，无构建步骤）。只有**页面专属**的组合组件放这里的 `src/components/`
+（例如首页的 `Landing.tsx`）。加新 velora 组件：`cd apps/ui && npx shadcn@latest add @velora/<名字>`。
+
+React 组件在 Astro 里是 island，记得带指令：`<Landing client:load />`。
+
+## 为什么是 Astro/Starlight（实测对比）
+
+集成时在同样条件下量过（同样读仓库 markdown、同样用 velora 组件）：
+
+| | Astro + Starlight | Next.js（先试了一版） |
+|---|---|---|
+| 依赖体积 | **241 M** | 537 M |
+| 构建 | **0.7 s**（整站 4 s，含搜索索引） | 3–4 s |
+| 产物 | **1.2–1.8 M** | 2.0 M |
+| 搜索 / TOC / 上下页 / i18n | **内置**（Pagefind 已索引 10 页 / 1672 词） | 要自己写 |
+| velora 组件 | 可用（React island，实测进了静态 HTML） | 原生 |
+| 读仓库外部 markdown | 可用（同步脚本 / glob loader） | 可用（构建期 fs 读） |
+
+网站是内容站：Starlight 的现成能力省下的是天数级开发，体积与构建小一个量级；
+将来产品前端（`apps/web`）换 React 栈时照样引同一个 `apps/ui`，外观不会分叉。
+
+## 实测出来的坑
+
+1. **Starlight 这版的 `sidebar` 不接受 `autogenerate` 写法**（类型校验直接报错）→ 侧栏改由清单生成。
+2. **`.md` 链接必须改写成站内路由**（`/组/slug/`），否则页面里点过去 404；改写按清单的 slug，
+   不是文件名（`README.md` → `/start/readme/`）。
+3. **生成目录要让检查器跳过**：`src/content/docs/**` 是构建产物，`tests/test_docs.py` 会排除它，
+   否则 CHANGELOG 里的历史名字会被误判成"现状文档里的旧名字"。
+4. **Tailwind 4 要显式 `@source` 共享包**（`src/styles/global.css`），否则 kit 里的类名会被摇掉。
+
+## 部署
 
 ```bash
-cd apps/ui
-npx shadcn@latest add @velora/marquee       # 100 个组件任选, 名字见 velora.colorlib.com/components
-npx shadcn@latest add https://velora.colorlib.com/r/hero-globe.json   # blocks 用完整 URL
+SITE_BASE=/doc-anonymizer SITE_URL=https://lawyerch.github.io npm run build -w @doc-anonymizer/website
 ```
 
-已装：`marquee` `blur-fade` `number-ticker` `globe`（+ `ui/button`）与 `hero-globe` block。
-
-## 三个实测出来的坑
-
-1. **别开 `cacheComponents` / PPR**：Next 16 的模板默认开着，与 `output: "export"` 不兼容，
-   构建会以 `Invariant: PPR cannot be enabled in export mode` 直接失败（`next.config.ts` 里有注释）。
-2. **`trailingSlash: true`**：输出 `out/docs/quickstart/index.html` 这种目录式文件(构建产物, 不提交)，
-   任何静态服务器（含 `python -m http.server`、GitHub Pages）都能直接访问，不依赖"省略扩展名"规则。
-3. **字体走系统栈**：不用 `next/font/google`，否则构建要联网（本项目的运行期与构建都尽量离线）。
-
-部署到子路径（如 GitHub Pages 项目页）：
-`NEXT_PUBLIC_BASE_PATH=/doc-anonymizer npm run build`。
+`SITE_BASE` 用于 GitHub Pages 项目页这类子路径；`SITE_URL` 供 sitemap 用（不设则跳过 sitemap 并给提示）。
+`dist/` 丢给任意静态托管即可。
 
 ## 许可
 
-组件来自 velora-ui（**MIT**，© Colorlib），本仓库同样 MIT；`apps/ui/src/*.tsx` 保留其原始内容与注释，改动它们时注意别丢版权头。
+页面组件来自 velora-ui（MIT），原文见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)；本站与整个仓库同为 MIT。

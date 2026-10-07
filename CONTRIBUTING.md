@@ -19,7 +19,7 @@
 .venv/bin/python -m pytest packages/docanon-core/tests/test_job.py -q # 单个文件
 .venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml       # CLI 端到端
 .venv/bin/docanon web -p 8000 -c configs/onnx.yaml                    # 产品 Web 端到端
-npm run build -w @doc-anonymizer/website                             # 官网/文档站: 静态导出后要能构建
+npm run build -w @doc-anonymizer/website                             # 官网/文档站: 构建必须能过
 ```
 
 > 必须用 `.venv/bin/python -m pytest`：PATH 上的 `pytest` 可能跑在别的 Python 上（缺 `rapidocr`），
@@ -34,7 +34,8 @@ npm run build -w @doc-anonymizer/website                             # 官网/�
 **core → 引擎 → contract**，引擎各自可整块搬走。跨包测试在 `tests/`。
 
 前端有两条路径：**产品运行期零 node**（`apps/web/` 零构建，`docanon web` 直接发静态文件）；
-**构建期可以用 node**（npm workspaces：`apps/ui` 共享组件 + `apps/website` 官网/文档站，静态导出）。
+**构建期可以用 node**（npm workspaces：`apps/ui` 共享组件 + `apps/website` 官网/文档站，
+Astro + Starlight，静态输出到 `dist/`）。
 
 **组件只放 `apps/ui`**（`@doc-anonymizer/ui`）：网站与将来的产品前端都引它 —— 往 app 里再拷一份
 velora 组件就等于复用失效（`tests/test_docs.py` 会拦）。根目录跑一次 `npm install` 即可。
@@ -50,13 +51,14 @@ velora 组件就等于复用失效（`tests/test_docs.py` 会拦）。根目录�
 ## 文档站（改了它才需要）
 
 ```bash
-./scripts/dev.sh website                          # 开发服务器 :3000
-npm run build -w @doc-anonymizer/website          # 必须能过: 静态导出到 out/
+./scripts/dev.sh website                          # 开发服务器 :4321（Astro 默认）
+npm run build -w @doc-anonymizer/website          # 必须能过: 静态输出到 dist/
 ```
 
-内容来自仓库里的 markdown，加页面 = 在 `apps/website/src/lib/docs.ts` 的清单加一行（测试会检查文件存在）。
+内容来自仓库里的 markdown：加页面 = 在 `apps/website/content-manifest.json` 加一行
+（构建时 `apps/website/scripts/sync-content.py` 生成 Starlight 要的 frontmatter，测试会检查文件存在）。
 装新组件：`cd apps/ui && npx shadcn@latest add @velora/<名字>`（组件进共享包，不进城建 app）。
-三个实测坑写在 [apps/website/README.md](apps/website/README.md)。
+机制与实测坑写在 [apps/website/README.md](apps/website/README.md)。
 
 ## 浏览器端检查（改了预览/界面才需要）
 

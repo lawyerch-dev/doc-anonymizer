@@ -2,27 +2,26 @@
   "name": "@doc-anonymizer/website",
   "version": "0.1.0",
   "private": true,
-  "description": "doc-anonymizer 官网与文档站: Next.js 16 + Tailwind 4 + @doc-anonymizer/ui(velora 组件)",
+  "description": "doc-anonymizer 官网与文档站: Astro + Starlight + @doc-anonymizer/ui(velora 组件)",
+  "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "preview": "python3 -m http.server -d out 4321"
+    "sync": "python3 scripts/sync-content.py",
+    "dev": "npm run sync && astro dev",
+    "build": "npm run sync && astro build",
+    "preview": "python3 -m http.server -d dist 4321"
   },
   "dependencies": {
-    "next": "16.4.0",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
-    "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1",
-    "@doc-anonymizer/ui": "*"
+    "@astrojs/react": "^4.4.0",
+    "@astrojs/starlight": "^0.36.0",
+    "@doc-anonymizer/ui": "*",
+    "@tailwindcss/vite": "^4",
+    "astro": "^5.14.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwindcss": "^4"
   },
   "devDependencies": {
-    "@tailwindcss/turbopack": "^4",
-    "@tailwindcss/typography": "^0.5.19",
-    "@types/node": "^20",
     "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "@types/react-dom": "^19"
   }
 }

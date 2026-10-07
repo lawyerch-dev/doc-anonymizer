@@ -1,4 +1,6 @@
 node_modules/
-.next/
-out/
-next-env.d.ts
+dist/
+.astro/
+# 构建时从仓库 markdown 同步出来的副本(源仍是仓库那些 .md)
+src/content/docs/
+src/sidebar.generated.mjs

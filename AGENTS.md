@@ -8,8 +8,10 @@
 2. **构建期可以用 node** —— 前端是 npm workspaces（仓库根跑一次 `npm install`）：
    - `apps/ui/`（`@doc-anonymizer/ui`）：**共享组件包**，velora 组件与设计 token 只有这一份，
      `apps/website` 现在引它，将来产品前端换栈也引它 —— 复用靠这个包，不靠复制。
-   - `apps/website/`：官网 + 文档站，`npm run build -w @doc-anonymizer/website` **静态导出**到
-     `apps/website/out/`，交给任意静态服务器发。
+   - `apps/website/`：官网 + 文档站，**Astro 5 + Starlight**（搜索/TOC/上下页/i18n 内置），
+     `npm run build -w @doc-anonymizer/website` 静态输出到 `apps/website/dist/`，交给任意静态服务器发。
+     内容由 `apps/website/scripts/sync-content.py` 按 `content-manifest.json` 从仓库 markdown 生成
+     （Starlight 要 frontmatter，仓库文档没有；生成物 gitignore，**源始终是仓库那些 .md**）。
    `node_modules/`、`.next/`、`out/` 都不提交。**别把 velora 组件再拷进某个 app**：那正是复用失效的写法。
 
 桌面壳只有一个（`apps/desktop/`，Electrobun + 系统 WebView），**不是日常路径**：
@@ -32,7 +34,7 @@
 - 还原（**只吃文本产物**）：`.venv/bin/docanon restore var/out/sample.md.redacted.md --mapping var/out/mapping.json`
 - Web：`.venv/bin/docanon web -p 8000 -c configs/onnx.yaml`
 - 官网/文档站：`./scripts/dev.sh website` → http://127.0.0.1:3000；
-  静态站构建 `npm run build -w @doc-anonymizer/website`（产物 `apps/website/out/`）。
+  静态站构建 `npm run build -w @doc-anonymizer/website`（产物 `apps/website/dist/`）。
 - 仓库没有 lint、typecheck、CI、pre-commit。不要假定 `ruff`/`mypy`/`npm run lint` 存在，也不要顺手加
   （`apps/ui` 与 `apps/website` 里也刻意没装 eslint）。
 
@@ -111,10 +113,11 @@
 - **字节码缓存只有一处**：`var/pycache`（由 `scripts/setup_dev.sh` 装进 venv 的 `sitecustomize` 重定向）。
   源码树里不该出现 `__pycache__`，`tests/test_dev_env.py` 会盯着。不要改成"完全不写字节码"：
   实测那样每次都要重编译所有导入，整套测试 5.12s → 6.24s。
-- 官网内容来自仓库里的 markdown（清单在 `apps/website/src/lib/docs.ts`），**不要另存一份**；
-  加页面就在那份清单里加一行，`tests/test_docs.py` 会检查指向的文件真的存在。
-  组件改动只改 `apps/ui/`（加组件：`cd apps/ui && npx shadcn@latest add @velora/<名字>`）。
-  三个实测坑写在 `apps/website/README.md`（PPR 与静态导出冲突、`trailingSlash`、别用 Google 字体）。
+- 官网内容来自仓库里的 markdown（清单 `apps/website/content-manifest.json`，**不要手改生成的
+  `src/content/docs/`**）；加页面 = 清单加一行，`tests/test_docs.py` 会检查文件存在。
+  侧栏也由同一份清单生成（`src/sidebar.generated.mjs`），别在 `astro.config.mjs` 里抄第二份。
+- 组件改动只改 `apps/ui/`（加组件：`cd apps/ui && npx shadcn@latest add @velora/<名字>`）。
+  实测坑与机制写在 `apps/website/README.md`。
 - `samples/` 由 `scripts/make_samples.py` 生成，不要手改。重新生成的 PDF 必须内嵌中文 TTF 子集
   （脚本取 macOS 的 `/System/Library/Fonts/Supplemental/Arial Unicode.ttf`）；非嵌入 CID 字体会让
   file-viewer 的中文预览乱码（commit `094b863`）。

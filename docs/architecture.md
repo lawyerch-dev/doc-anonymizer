@@ -106,7 +106,7 @@ doc-anonymizer/
 | **不做 wheel 自包含** | 前端 vendor 232MB、模型 GB 级，不该进包 | `pip install .` 到别处不可用（明确报错 + `DOCANON_ROOT`） |
 | 前端零构建、三个静态件 | 无 node 构建链；预览包是预构建产物；`app.js` 用 `@ts-check` + JSDoc 换编辑器提示 | 没有打包/压缩，也没有真类型检查 |
 | PDF 命中页整页栅格化 | 盖黑块不改变内容流，原文仍可复制/搜索 | 命中页不可再编辑（已收窄到"只有命中的页"） |
-| 前端组件抽成共享包 `apps/ui` + Next.js 网站 | velora(MIT shadcn 组件)是 React/Tailwind 4 的; 组件与 token 只放一份, `apps/website` 与将来重写的产品前端引同一个包 —— **复用靠包, 不靠复制** | 前端多了 npm workspaces 与构建链(仅构建期); `node_modules` 数百 MB、要 `npm install` |
+| 前端组件抽成共享包 `apps/ui`, 网站用 Astro + Starlight | velora(MIT shadcn 组件)是 React/Tailwind 4 的; 组件与 token 只放一份, `apps/website` 与将来重写的产品前端引同一个包 —— **复用靠包, 不靠复制**。网站选 Starlight 是因为 搜索/TOC/上下页/多语言内置、依赖 241MB 与构建 0.7s 都比 Next 方案小一个量级(实测对比见 apps/website/README) | 前端多了 npm workspaces 与构建链(仅构建期); 网站与将来的产品 app 可能是两个框架(组件仍共享) |
 | 桌面壳用 Electrobun | 系统 WebView，体积小一个数量级 | WKWebView 的坑自己趟（Tauri 就死在 PDF 抖动上） |
 
 ## 六、搬迁历史

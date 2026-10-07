@@ -7,8 +7,10 @@
 
 ### Added
 
-- **官网与文档站**：`apps/website/`（Next.js 16 + Tailwind CSS 4），内容直接来自仓库里的 markdown，
-  静态导出后交给任意静态服务器；`./scripts/dev.sh website` 起开发服务器。
+- **官网与文档站**：`apps/website/`（**Astro 5 + Starlight** + Tailwind CSS 4）——搜索/TOC/上下页/多语言
+  内置，静态输出 `dist/`；内容按 `content-manifest.json` 从仓库 markdown 同步（源仍是那些 .md），
+  `./scripts/dev.sh website` 起开发服务器。选型对比（依赖 241M vs Next 537M、构建 0.7s vs 3–4s、
+  内置搜索 vs 手写）见 [apps/website/README.md](apps/website/README.md)。
 - **共享组件包**：`apps/ui/`（`@doc-anonymizer/ui`，npm workspaces）—— velora 组件与设计 token
   只放一份，网站与将来的产品前端共用（[velora-ui](https://github.com/ColorlibHQ/velora-ui)，MIT）。
 
