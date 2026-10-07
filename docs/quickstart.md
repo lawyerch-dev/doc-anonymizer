@@ -1,37 +1,47 @@
 # 5 分钟快速上手
 
-从零到"看到一份脱敏后的文件"。命令都在仓库根执行。
+命令都在仓库根执行。前置：Apple Silicon macOS + Python 3.11/3.12
+（3.14 目前装不上 `onnxruntime`）。
 
-## 0. 环境
-
-- Apple Silicon macOS；
-- Python 3.11 / 3.12（3.14 目前装不上 `onnxruntime`）。
-
-## 1. 装
+## 1. 开发者：一条命令
 
 ```bash
 git clone https://github.com/lawyerch/doc-anonymizer && cd doc-anonymizer
-./scripts/setup_dev.sh
+./scripts/dev.sh setup      # venv + 五个包 + 预览资源 + 缓存重定向, 末尾附自检
+./scripts/dev.sh web        # → http://127.0.0.1:8000
+./scripts/dev.sh desktop    # 桌面壳(系统 WebView), 需要 Hutch
+./scripts/dev.sh test       # 跑测试
 ```
 
-这一步做三件事：建 `.venv`、把五个包按 editable 装进去、把字节码缓存重定向到 `var/pycache`。
-脚本是幂等的，随时可以重跑。
+| 命令 | 做什么 |
+|---|---|
+| `./scripts/dev.sh setup` | 一条命令装好环境（幂等）：venv + 五个包 + 预览资源 + 缓存重定向，末尾附环境自检 |
+| `./scripts/dev.sh web` | 起 Web 界面（默认 `-p 8000 -c configs/onnx.yaml`） |
+| `./scripts/dev.sh desktop` | 起桌面壳（系统 WebView；首次自动 `hutch install`） |
+| `./scripts/dev.sh test` | 跑测试（默认 `-q`） |
+| `./scripts/dev.sh cli <参数>` | 直接调 docanon |
+| `./scripts/dev.sh engines [配置]` | 这份配置实际加载了哪些引擎 |
+| `./scripts/dev.sh doctor` | 环境自检：缺什么、为什么起不来 |
 
-跑通没跑通，一句话验证：
+`dev.sh` 只是包装，底层还是下面这些原始命令；出问题时可以直接用它们排查。
 
-```bash
-.venv/bin/docanon engines -c configs/onnx.yaml
-```
-
-看到的应该是每个引擎一行：`可用` 或 `不可用: <原因>`。**如果有"不可用"，先解决它再往下走** ——
+`setup` 与后续命令都是幂等的；`doctor` 会打印 venv / 五个包 / 预览资源 / ONNX 模型的现状，
+以及 `configs/onnx.yaml` 实际加载了哪些引擎 —— **哪一层起不来、为什么，先看它**。
 本项目宁可报错也不产出"少一层检测"的文件。
 
-## 2. 跑一份文档
+## 2. 使用者：处理第一份文档
 
-仓库自带 `samples/`（虚构数据，覆盖 txt/md/docx/pdf/扫描件/图片/xlsx/csv）：
+先确认真模型都在（每个引擎一行：`可用` 或 `不可用: <原因>`）：
 
 ```bash
-.venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml
+./scripts/dev.sh engines
+```
+
+碰到"不可用"先解决它再往下走。然后跑仓库自带的 `samples/`
+（虚构数据，覆盖 txt/md/docx/pdf/扫描件/图片/xlsx/csv）：
+
+```bash
+./scripts/dev.sh cli run ./samples -o var/out -c configs/onnx.yaml
 ```
 
 看输出目录：
@@ -50,8 +60,8 @@ ls var/out
 ## 3. 打开界面
 
 ```bash
-./scripts/fetch_file_viewer.sh                  # 首次: 拉预览资源(约 232MB, 已 gitignore)
-.venv/bin/docanon web -p 8000 -c configs/onnx.yaml
+./scripts/dev.sh setup            # 首次会把预览资源一起拉下来(约 232MB, 已 gitignore)
+./scripts/dev.sh web              # → http://127.0.0.1:8000
 ```
 
 浏览器打开 <http://127.0.0.1:8000>：左侧选示例或上传 → 中间看原文 → 点「开始脱敏」→ 右侧看脱敏件。
@@ -62,7 +72,7 @@ ls var/out
 账本每处理完一个文件就落盘，所以直接续跑（**必须用同一个 `-o`**）：
 
 ```bash
-.venv/bin/docanon run ./案件 -o var/out -c configs/onnx.yaml --resume
+./scripts/dev.sh cli run ./案件 -o var/out -c configs/onnx.yaml --resume
 ```
 
 判定"已脱敏"的条件是"清单里标 `ok` **且产物文件还在**"：产物被删/被移走会重做，不会当成已完成。
@@ -72,7 +82,7 @@ ls var/out
 只支持文本产物（txt/md/csv）：
 
 ```bash
-.venv/bin/docanon restore var/out/sample.md.redacted.md --mapping var/out/mapping.json -o restored.md
+./scripts/dev.sh cli restore var/out/sample.md.redacted.md --mapping var/out/mapping.json -o restored.md
 ```
 
 提示"有 N 条原文是 remove 策略删掉的"是正常的：被整段删掉的原文没有锚点，无法还原。

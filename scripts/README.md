@@ -9,8 +9,12 @@
 
 这与 `docanon` 本身又不同：它的相对路径按**资源根**解析（见 `resources.LAYOUT`）。
 
+**日常只用一个**：`./scripts/dev.sh <命令>`（`setup` / `web` / `desktop` / `test` / `cli` /
+`engines` / `doctor`）—— 它是下面这些脚本与命令的统一入口，`./scripts/dev.sh help` 看全部。
+
 | 脚本 | 干什么 | 依赖 | 用法 |
 |---|---|---|---|
+| `dev.sh` | 开发一键入口：装环境、起 Web、起桌面壳、跑测试、调 CLI、环境自检 | 无（包装其余脚本） | `./scripts/dev.sh help` |
 | `setup_dev.sh` | 首次准备(幂等): 建 `.venv`、装五个包 editable + 测试依赖、把字节码缓存重定向到 `var/pycache` | python3.12 / pip | `./scripts/setup_dev.sh` |
 | `make_samples.py` | 生成 `samples/`（覆盖 txt/md/docx/pdf 文字/扫描/png/xlsx/csv） | python-docx / openpyxl / pypdfium2 / Pillow | `.venv/bin/python scripts/make_samples.py` |
 | `download_model.sh` | 从 ModelScope 下载 GGUF 到 `var/models/` | curl | `./scripts/download_model.sh [Q4_K_M]` |
@@ -27,6 +31,8 @@
   的中文预览乱码（commit `094b863`）。所以 `samples/` 不要手改，改脚本重跑。
 - `download_model.sh` / `fetch_file_viewer.sh` 下载的东西都 gitignore（`var/`），换机器要重跑。
 - WebKit 兼容检查不在 `scripts/`，在 `tests/e2e/webkit/`（node + Playwright）。
+- `dev.sh` 里的 `setup` 会调用 `setup_dev.sh` 与（缺预览资源时）`fetch_file_viewer.sh`；
+  `web`/`desktop` 分别起 `docanon web` 与壳里的 `npm start`（= `hutch electrobun dev`）。
 - `setup_dev.sh` 装的 `sitecustomize.py` 只做一件事：把 `sys.pycache_prefix` 指到 `var/pycache`，
   所以源码树里不会再有 `__pycache__`（已经显式设了 `PYTHONPYCACHEPREFIX` 的环境照旧优先）。
   它是幂等的，随时可以重跑。

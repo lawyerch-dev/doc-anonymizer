@@ -132,6 +132,25 @@ def test_readme_has_the_product_sections():
         assert heading in readme, f"README 里少了「{heading}」这一节"
 
 
+def test_dev_sh_subcommands_are_documented():
+    """dev.sh 里能调的每个子命令, 文档里都得有 —— 加了命令忘了写, 这条会红。
+
+    子命令清单以 dev.sh 的 `case "$cmd" in` 分支为准(那是真正会执行的东西)。
+    """
+    text = (REPO / "scripts" / "dev.sh").read_text(encoding="utf-8")
+    dispatch = text.split('case "$cmd" in', 1)[1].split("esac", 1)[0]
+    cmds = re.findall(r"^  ([a-z][a-z-]*)\)", dispatch, re.M)
+    assert cmds, "没解析出 dev.sh 的子命令(脚本结构变了?)"
+
+    missing = []
+    for doc in ("README.md", "docs/quickstart.md"):
+        body = (REPO / doc).read_text(encoding="utf-8")
+        for cmd in cmds:
+            if f"./scripts/dev.sh {cmd}" not in body:
+                missing.append(f"{doc} 没写 ./scripts/dev.sh {cmd}")
+    assert not missing, "\n".join(missing)
+
+
 def test_markdown_links_resolve():
     bad = []
     for doc in ALL_DOCS:

@@ -3,27 +3,31 @@
 先谢过愿意花时间的人。这份文档讲**怎么把环境跑起来、怎么改、改完怎么证明没坏**。
 读完它能省下你翻代码的时间；改代码前请再读一遍 [AGENTS.md](AGENTS.md)（不可违反的边界都在那）。
 
-## 1. 开发环境
+## 1. 开发环境（一条命令）
 
 ```bash
 git clone https://github.com/lawyerch/doc-anonymizer && cd doc-anonymizer
-./scripts/setup_dev.sh
+./scripts/dev.sh setup
 ```
 
-它做三件事：建 `.venv`、把 `packages/` 下五个包按 editable 装好（外加测试依赖）、把字节码缓存
-重定向到 `var/pycache`（所以源码树里不会到处是 `__pycache__`）。幂等，随时可重跑。
+`setup` 做四件事：建 `.venv`、把 `packages/` 下五个包按 editable 装好（外加测试依赖）、
+把字节码缓存重定向到 `var/pycache`（所以源码树里不会到处是 `__pycache__`）、拉预览资源，
+最后打印环境自检。幂等，随时可重跑；缺什么、为什么起不来，用 `./scripts/dev.sh doctor` 看。
 
 前置：Apple Silicon macOS + Python 3.11/3.12。跑 LLM 路线额外需要 `llama.cpp`；
-跑浏览器端 e2e 需要 `npm`（见第 5 节）。
+起桌面壳需要 Hutch；跑浏览器端 e2e 需要 `npm`（见第 5 节）。
 
 ## 2. 常用命令
 
+[scripts/dev.sh](scripts/dev.sh) 是所有开发动作的入口（`setup` / `web` / `desktop` / `test` /
+`cli` / `engines` / `doctor`）；它只是包装，底层命令长这样，排查时直接用也无妨：
+
 ```bash
-.venv/bin/python -m pytest -q                                      # 全量(约 5 秒)
-.venv/bin/python -m pytest packages/docanon-core/tests/test_job.py -q   # 单个文件
-.venv/bin/python -m pytest tests/test_architecture.py -q           # 包边界
-.venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml    # CLI 端到端
-.venv/bin/docanon web -p 8000 -c configs/onnx.yaml                 # Web 端到端
+./scripts/dev.sh test                                              # = .venv/bin/python -m pytest -q
+./scripts/dev.sh test packages/docanon-core/tests/test_job.py       # 单个文件
+./scripts/dev.sh test tests/test_architecture.py                    # 包边界
+./scripts/dev.sh web                                               # = docanon web -p 8000 -c configs/onnx.yaml
+./scripts/dev.sh cli run ./samples -o var/out -c configs/onnx.yaml  # CLI 端到端
 ```
 
 > **必须用 `.venv/bin/python -m pytest`**：PATH 上的 `pytest` 可能跑在别的 Python 上（缺 `rapidocr`），

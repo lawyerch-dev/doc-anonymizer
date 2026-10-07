@@ -38,15 +38,34 @@ git clone https://github.com/lawyerch/doc-anonymizer && cd doc-anonymizer
 
 ## 快速上手
 
+### 开发 / 自用：一键命令
+
 ```bash
-# 1) 环境（Apple Silicon macOS；Python 3.11/3.12 建议）
-./scripts/setup_dev.sh
+git clone https://github.com/lawyerch/doc-anonymizer && cd doc-anonymizer
+./scripts/dev.sh setup      # 装依赖(幂等, 约 20 秒) + 环境自检
+./scripts/dev.sh web        # 起界面 → http://127.0.0.1:8000
+./scripts/dev.sh desktop    # 起桌面壳(系统 WebView, 需要 Hutch)
+```
 
-# 2) 处理单个文件或整个目录
-.venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml
+| 命令 | 做什么 |
+|---|---|
+| `./scripts/dev.sh setup` | 一条命令装好环境（幂等）：venv + 五个包 + 预览资源 + 缓存重定向，末尾附环境自检 |
+| `./scripts/dev.sh web` | 起 Web 界面（默认 `-p 8000 -c configs/onnx.yaml`） |
+| `./scripts/dev.sh desktop` | 起桌面壳（系统 WebView；首次自动 `hutch install`） |
+| `./scripts/dev.sh test` | 跑测试（默认 `-q`） |
+| `./scripts/dev.sh cli <参数>` | 直接调 docanon |
+| `./scripts/dev.sh engines [配置]` | 这份配置实际加载了哪些引擎 |
+| `./scripts/dev.sh doctor` | 环境自检：缺什么、为什么起不来 |
 
-# 3) 打开界面（浏览器访问 http://127.0.0.1:8000）
-.venv/bin/docanon web -p 8000 -c configs/onnx.yaml
+`dev.sh` 只是包装，底层就是 `docanon` / `pytest` / `hutch`；下面「用法」一节用的都是原始命令，出问题时可以直接拿它们排查。
+
+### 处理一份文档
+
+```bash
+./scripts/dev.sh engines                                  # 先确认每层引擎都起得来
+./scripts/dev.sh cli run ./samples -o var/out -c configs/onnx.yaml
+./scripts/dev.sh cli run ./案件 -o var/out -c configs/onnx.yaml --resume    # 断了接着跑
+./scripts/dev.sh cli restore var/out/sample.md.redacted.md --mapping var/out/mapping.json
 ```
 
 > 不带 `-c` 时走 `configs/default.yaml`，其中 ONNX/LLM 检测器默认关闭（只剩规则 + 词典）。

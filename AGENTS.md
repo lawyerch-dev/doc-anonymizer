@@ -9,10 +9,14 @@
 
 ## 命令（一律在仓库根执行）
 
+**开发入口**：`./scripts/dev.sh <命令>`（`setup` / `web` / `desktop` / `test` / `cli` / `engines` /
+`doctor`）——一键起 Web、起桌面壳、跑测试；它只是包装，下面这些原始命令都照旧成立，
+排查时直接用它们（`dev.sh` 的 `doctor` 会告诉你缺什么）。
+
 - 首次准备：`./scripts/setup_dev.sh`（幂等）—— 建 `.venv`、装五个包 editable + 测试依赖、
   再把字节码缓存重定向到 `var/pycache`。等价的手工版是
   `python3.12 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`，只是少了第 3 步
-- 全量测试：`.venv/bin/python -m pytest -q`（107 项，约 5 秒；这个数字由 `tests/test_docs.py` 盯着，改了测试要同步）
+- 全量测试：`.venv/bin/python -m pytest -q`（108 项，约 5 秒；这个数字由 `tests/test_docs.py` 盯着，改了测试要同步）
 - 单个测试：`.venv/bin/python -m pytest packages/docanon-core/tests/test_pipeline.py::test_pipeline_masks_pii`
 - 包边界与可搬运性：`.venv/bin/python -m pytest tests/test_architecture.py tests/test_engine_portability.py -q`
 - CLI 脱敏：`.venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml`
@@ -145,7 +149,7 @@
 | `AGENTS.md`（本文件） | 操作契约：不能违反的边界、命令、坑 | 现状权威 |
 | `docs/architecture.md` | 五包结构与**为什么**、硬边界、决策记录、搬迁历史 | 解释性，与代码同步 |
 | `docs/benchmarks.md` | 模型选型与基准数字（ONNX vs LLM、各 GGUF 对比） | 实测记录 |
-| `scripts/README.md` | 七个脚本各干什么、依赖、用法 | 现状权威 |
+| `scripts/README.md` | 八个脚本各干什么、依赖、用法（`dev.sh` 是开发入口） | 现状权威 |
 | `apps/desktop/README.md` | 桌面壳的运行方式与三条实测约束 | 现状权威 |
 | `docs/specs/2026-10-05-*.md` | 设计决策的历史记录（选型与理由）+ §10 后续变更 | 历史记录，现状以本文件与 README 为准 |
 

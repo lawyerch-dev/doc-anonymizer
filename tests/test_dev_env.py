@@ -45,11 +45,12 @@ def test_source_tree_has_no_bytecode_cache():
     )
 
 
-def test_setup_script_exists_and_is_executable():
-    """文档里写的是 `./scripts/setup_dev.sh`, 那就得真的可执行。"""
-    script = REPO / "scripts" / "setup_dev.sh"
-    assert script.is_file(), "scripts/setup_dev.sh 不见了(README/AGENTS 都指着它)"
-    assert script.stat().st_mode & stat.S_IXUSR, "setup_dev.sh 丢了可执行位, 直接 ./ 跑不起来"
+def test_scripts_are_executable():
+    """文档里都写成 `./scripts/x.sh`, 那这些脚本就得真的可执行(踩过一次: fetch_file_viewer.sh 少了 x 位)。"""
+    scripts = sorted((REPO / "scripts").glob("*.sh"))
+    assert scripts, "scripts/ 下没有 .sh?"
+    lost = [p.name for p in scripts if not p.stat().st_mode & stat.S_IXUSR]
+    assert not lost, f"这些脚本丢了可执行位, 按文档 ./ 跑不起来: {lost}"
 
 
 def test_venv_carries_the_pycache_hook():
