@@ -155,8 +155,8 @@ npm start            # = hutch electrobun dev, 端口 8770
 ## 多模型对比
 
 ```bash
-./scripts/download_model.sh Q4_K_M          # 下载更多模型到 models/
-.venv/bin/python scripts/bench_models.py    # 自动扫描 models/*.gguf 逐个跑基准
+./scripts/download_model.sh Q4_K_M          # 下载更多模型到 var/models/
+.venv/bin/python scripts/bench_models.py    # 自动扫描 var/models/*.gguf 逐个跑基准
 ```
 
 输出每个模型的 **召回率 / 平均耗时 / 内存**。测试样例见 `scripts/bench_models.py` 的 `CASES`。
@@ -179,7 +179,7 @@ npm start            # = hutch electrobun dev, 端口 8770
 用**编码器式中文 NER 模型**（ONNXRuntime 跑）替代生成式 LLM 做"理解"，更轻、更快、无需 server：
 
 ```bash
-# 模型已下载到 models/onnx/ (gyr66 通用中文NER + pii-engineer 中文PII)
+# 模型已下载到 var/models/onnx/ (gyr66 通用中文NER + pii-engineer 中文PII)
 docanon run ./samples -o out_onnx -c configs/onnx.yaml
 ```
 
@@ -203,7 +203,7 @@ docanon run ./samples -o out_onnx -c configs/onnx.yaml
   而不是退回一个不存在的路径 —— 那样只会读到空配置, 看起来却像"引擎都没启用"。同理, 默认配置读不到
   (不带 `-c`)也报错, 不再静默退化。
 - **布局只有一处真相**: `resources.LAYOUT`(键 → 相对路径)。要挪 `configs/`、`apps/web/`、`samples/`、
-  `models/` 这些目录, 改这张表就行, `tests/test_layout.py` 会立刻指出哪里对不上。
+  `var/models` 这些目录, 改这张表就行, `tests/test_layout.py` 会立刻指出哪里对不上。
 - **部署契约**: 只支持 editable 安装(`pip install -e .`)与打包根两种形态; 不做 wheel 自包含
   (前端 vendor 232MB、模型 GB 级, 不该进包)。细节写在 `pyproject.toml`。
 - 检测引擎在 `detectors/base.py` 的注册表里按名字启用。引擎装不起来或端点没应答时, `run` 与 `web` 都会在
@@ -236,11 +236,11 @@ doc-anonymizer/
 │   ├── server.py           本地 HTTP 服务(前端/桌面壳共用)
 │   └── cli.py              命令行(run / restore / engines / web)
 ├── apps/
-│   ├── web/                前端: 单文件 index.html + vendor/file-viewer(232MB, gitignore)
+│   ├── web/                前端: 单文件 index.html(零构建; 预览包在 var/vendor)
 │   └── desktop/            Electrobun 桌面壳: src/bun 主进程 + compat/ WebKit 兼容检查
 ├── configs/                配置(default / onnx / with_llm)
 ├── scripts/  samples/  tests/  docs/
-└── models/                 模型权重(gitignore)
+└── var/                    下载/构建得到的资产(gitignore): models 权重 + vendor 预览包
 ```
 
 

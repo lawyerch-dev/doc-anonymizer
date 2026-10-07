@@ -8,7 +8,7 @@ REPO="empero-ai/Qwen3.8-4B-Distill-GGUF"
 FILE="Qwen3.8-4B-${QUANT}.gguf"
 BASE="https://www.modelscope.cn/models/${REPO}/resolve/master"
 
-mkdir -p models
+mkdir -p var/models
 echo "下载 ${FILE} (${BASE}/${FILE})"
-curl -L -C - --fail -o "models/${FILE}" "${BASE}/${FILE}"
-ls -lh "models/${FILE}"
+curl -L -C - --fail -o "var/models/${FILE}" "${BASE}/${FILE}"
+ls -lh "var/models/${FILE}"

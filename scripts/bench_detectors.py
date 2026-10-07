@@ -18,9 +18,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from bench_models import CASES, covered  # noqa: E402  复用样例与覆盖判定
 from docanon.config import load_config  # noqa: E402
 from docanon.detectors.dictionary import DictionaryDetector  # noqa: E402
-from docanon.detectors.llm_ner import LLMNERDetector  # noqa: E402
-from docanon.detectors.onnx_ner import OnnxNERDetector  # noqa: E402
-from docanon.llm.client import LLMConfig, LLMError  # noqa: E402
+from docanon.engines.llm.ner import LLMNERDetector  # noqa: E402
+from docanon.engines.onnx_ner import OnnxNERDetector  # noqa: E402
+from docanon.engines.llm.client import LLMConfig, LLMError  # noqa: E402
 from docanon.detectors.rule import RuleDetector  # noqa: E402
 from docanon.contract import Block  # noqa: E402
 from docanon.resolve import resolve_overlaps  # noqa: E402
@@ -80,8 +80,8 @@ def main() -> int:
     dictionary = cfg.dictionary
     backends: list[tuple[str, list]] = []
 
-    for label, d in [("ONNX pii-engineer", "models/onnx/pii-engineer"),
-                     ("ONNX gyr66(CLUENER)", "models/onnx/gyr66")]:
+    for label, d in [("ONNX pii-engineer", "var/models/onnx/pii-engineer"),
+                     ("ONNX gyr66(CLUENER)", "var/models/onnx/gyr66")]:
         p = ROOT / d
         if (p / "model.onnx").exists():
             try:

@@ -25,9 +25,9 @@ ENV_ROOT = "DOCANON_ROOT"
 LAYOUT: dict[str, str] = {
     "configs": "configs",                     # 配置(default / onnx / with_llm)
     "web_index": "apps/web/index.html",       # Web 前端页面(单文件)
-    "vendor": "apps/web/vendor/file-viewer",  # file-viewer 预览资源(可选, fetch_file_viewer.sh 下载)
+    "vendor": "var/vendor/file-viewer",  # file-viewer 预览资源(可选, fetch_file_viewer.sh 下载)
     "samples": "samples",                     # 内置样例(Web 预设 + 测试数据)
-    "models": "models",                       # 模型权重(可选, 下载得到)
+    "models": "var/models",                      # 模型权重(可选, 下载得到)
     "scripts": "scripts",                     # 开发者脚本
 }
 

@@ -28,8 +28,8 @@ detectors:
 onnx:
   # 多个模型取并集: gyr66(机构/人名) + pii-engineer(人名/手机/地址/身份证)
   model_dirs:
-    - models/onnx/gyr66
-    - models/onnx/pii-engineer
+    - var/models/onnx/gyr66
+    - var/models/onnx/pii-engineer
 
 llm:
   base_url: http://127.0.0.1:8080/v1

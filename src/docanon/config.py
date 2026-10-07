@@ -36,7 +36,7 @@ DEFAULT_ONNX_ENTITY_MAP: dict[str, str] = {
 @dataclass
 class OnnxConfig:
     model_dirs: list[str] = field(
-        default_factory=lambda: ["models/onnx/gyr66", "models/onnx/pii-engineer"]
+        default_factory=lambda: ["var/models/onnx/gyr66", "var/models/onnx/pii-engineer"]
     )
     entity_map: dict[str, str] = field(
         default_factory=lambda: dict(DEFAULT_ONNX_ENTITY_MAP)

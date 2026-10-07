@@ -13,8 +13,10 @@ dist/
 .coverage
 htmlcov/
 
-# ---- 模型权重 / OCR 模型(体积大, 不入库) ----
-models/
+# ---- 下载/构建得到的资产(体积大, 不入库) ----
+# var/ 是"可再生资产"的唯一入口: var/models(权重) / var/vendor(file-viewer 预览包)
+# 壳的构建产物留在 apps/desktop/build/(Hutch 的 buildFolder 只接受项目相对路径, 不许 .. 跳出)
+var/
 *.gguf
 *.onnx
 *.safetensors
@@ -34,11 +36,10 @@ out*/
 *.swo
 .DS_Store
 
-# file-viewer 预构建资源(体积大, 用 scripts/fetch_file_viewer.sh 获取)
-apps/web/vendor/
 node_modules/
 .webout/
 
 # 桌面壳(Electrobun/Hutch)的下载缓存与运行期临时目录
 apps/desktop/.hutch/
 apps/desktop/.cottontail-tmp/
+apps/desktop/artifacts/

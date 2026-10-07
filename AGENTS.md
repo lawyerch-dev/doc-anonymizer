@@ -68,11 +68,13 @@
 - `samples/` 由 `scripts/make_samples.py` 生成，不要手改。重新生成的 PDF 必须内嵌中文 TTF 子集
   （脚本取 macOS 的 `/System/Library/Fonts/Supplemental/Arial Unicode.ttf`）；非嵌入 CID 字体会让
   file-viewer 的中文预览乱码（commit `094b863`）。
-- 干净环境起 Web 前先 `./scripts/fetch_file_viewer.sh`；`apps/web/vendor/`（232MB）已 gitignore，
+- 干净环境起 Web 前先 `./scripts/fetch_file_viewer.sh`；`var/vendor/`（232MB）已 gitignore，
   缺它时预览区所有 `/file-viewer/*` 请求都 404。
 - Web 后端关掉了 HTTP 访问日志（`server.py` 的 `log_message` 是空实现）。命中溯源看 `/api/anonymize`
   返回的 `trace`（`extractor`/`detectors`/`timing`/`detections`），前端「运行日志」弹窗消费的就是它。
-- `models/`、`out*/`、`apps/web/vendor/` 均已 gitignore，提交里不要带上。
+- **可再生资产都在 `var/`**（`var/models` 权重、`var/vendor` 预览包；gitignore 一条 `var/` 覆盖），
+  产物目录由 `-o` 决定（默认 `out/`，同样 gitignore）。唯一例外是壳的 `apps/desktop/build/`：
+  Hutch 的 `buildFolder` 只接受项目相对路径、不许 `..` 跳出，所以它留在壳目录下（已 gitignore）。
 - 桌面壳（`apps/desktop/`，Electrobun）只在 `hutch electrobun dev` 里跑，日常不碰。它有三条实测出来的硬约束：
   项目根靠标记文件向上找（不许数 `..`，dev 产物在 `.app` 里）、sidecar 由 `DOCANON_EXIT_WITH_PARENT`
   父进程监视自尽（壳被强杀时 JS 收不了尸）、`/health` 带 pid 以免认错端口上的旧孤儿。

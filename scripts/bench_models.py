@@ -21,8 +21,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from docanon.config import load_config  # noqa: E402
 from docanon.detectors.dictionary import DictionaryDetector  # noqa: E402
-from docanon.detectors.llm_ner import LLMNERDetector  # noqa: E402
-from docanon.llm.client import LLMConfig, LLMError  # noqa: E402
+from docanon.engines.llm.ner import LLMNERDetector  # noqa: E402
+from docanon.engines.llm.client import LLMConfig, LLMError  # noqa: E402
 from docanon.detectors.rule import RuleDetector  # noqa: E402
 from docanon.contract import Block  # noqa: E402
 from docanon.resolve import resolve_overlaps  # noqa: E402
@@ -123,12 +123,12 @@ def bench(model: Path, port: int, dictionary: list[str], timeout: int) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("models", nargs="*", help="模型 gguf 路径; 缺省扫描 models/*.gguf")
+    parser.add_argument("models", nargs="*", help="模型 gguf 路径; 缺省扫描 var/models/*.gguf")
     args = parser.parse_args()
 
     models = [Path(m) for m in args.models] or sorted((ROOT / "models").glob("*.gguf"))
     if not models:
-        print("没找到模型, 请先下载到 models/")
+        print("没找到模型, 请先下载到 var/models/")
         return 1
 
     cfg = load_config()

@@ -19,6 +19,8 @@ export default {
 		copy: {
 			"src/mainview/index.html": "views/mainview/index.html",
 		},
+		// 壳的一切构建产物都收在 build/ 下(已被 .gitignore 忽略), 免得仓库根多出 artifacts/
+		artifactFolder: "build/artifacts",
 		mac: { bundleCEF: false },
 		linux: { bundleCEF: false },
 		win: { bundleCEF: false },

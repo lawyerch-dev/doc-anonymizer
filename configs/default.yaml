@@ -24,14 +24,14 @@ dictionary:
 detectors:
   rule: true
   dictionary: true
-  onnx_ner: false      # ONNX 中文 NER(需 models/onnx/*)
+  onnx_ner: false      # ONNX 中文 NER(需 var/models/onnx/*)
   llm_ner: false       # 需先启动 llama-server
 
 onnx:
   # 可多个, 结果取并集(如 gyr66 出机构, pii-engineer 出地址)
   model_dirs:
-    - models/onnx/gyr66
-    - models/onnx/pii-engineer
+    - var/models/onnx/gyr66
+    - var/models/onnx/pii-engineer
   # entity_map: {标签: 实体类型}  # 写了就整表覆盖 app 侧默认映射(config.py 的 DEFAULT_ONNX_ENTITY_MAP)
 
 llm:

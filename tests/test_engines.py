@@ -14,7 +14,7 @@ from docanon.engines.llm.ner import LLMNERDetector
 from docanon.engines.llm.client import LLMClient, LLMConfig, LLMError
 
 REPO = resources.root()
-ONNX_DIRS = ("models/onnx/gyr66", "models/onnx/pii-engineer")
+ONNX_DIRS = ("var/models/onnx/gyr66", "var/models/onnx/pii-engineer")
 ONNX_READY = all((REPO / d / "model.onnx").exists() for d in ONNX_DIRS)
 
 
@@ -102,7 +102,7 @@ def test_run_refuses_to_write_when_an_engine_is_down(tmp_path, monkeypatch):
 
 @pytest.mark.skipif(not ONNX_READY, reason="未下载 ONNX 模型")
 def test_relative_model_dirs_resolve_from_resource_root_not_cwd(tmp_path, monkeypatch):
-    """configs 里的 models/onnx/... 是相对资源根的路径, 换目录跑不该变成零产物。"""
+    """configs 里的 var/models/onnx/... 是相对资源根的路径, 换目录跑不该变成零产物。"""
     monkeypatch.chdir(tmp_path)
     out = tmp_path / "o"
 

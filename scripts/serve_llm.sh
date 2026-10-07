@@ -4,7 +4,7 @@
 set -euo pipefail
 
 PORT="${1:-8080}"
-MODEL="${2:-models/Qwen3.8-4B-Q4_K_M.gguf}"
+MODEL="${2:-var/models/Qwen3.8-4B-Q4_K_M.gguf}"
 CTX="${CTX:-8192}"
 
 if [ ! -f "$MODEL" ]; then

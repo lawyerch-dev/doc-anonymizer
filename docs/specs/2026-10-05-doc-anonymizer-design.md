@@ -102,7 +102,7 @@
   - 图片: 涂黑 bbox
 - **友好 Web**(零构建): 基于 [file-viewer](https://github.com/flyfish-dev/file-viewer) 预构建包
   - 流程: 选示例/上传 → 预览原文 → 脱敏 → **同查看器预览原件与脱敏件**
-  - 资源: `scripts/fetch_file_viewer.sh` 拉取到 `apps/web/vendor/file-viewer`(gitignore)
+  - 资源: `scripts/fetch_file_viewer.sh` 拉取到 `var/vendor/file-viewer`(gitignore)
   - 后端: `GET /api/presets`、`POST /api/upload`、`POST /api/anonymize`、`/file-viewer/*`
 
 ## 4. 数据模型
@@ -170,5 +170,8 @@
   Electron 因体积被弃。壳侧三条实测约束（项目根按标记文件找、壳被强杀时 sidecar 自己了断、
   只认自己拉起的后端）见 `apps/desktop/README.md`。
 - **还原（`restore`）**：只支持文本产物；`remove` 策略的原文不可还原（替换值为空串，不是锚点）。
-- **测试**：从设计期的 7 项长到 62 项；`samples/` 由 `scripts/make_samples.py` 生成（PDF 必须内嵌中文 TTF 子集）。
+- **布局**：下载/构建得到的资产统一收进 `var/`（`var/models`、`var/vendor`），产物目录仍由 `-o` 决定；
+  壳的 `apps/desktop/build/` 是唯一例外（Hutch 的 `buildFolder` 只接受项目相对路径）。
+  所有布局路径集中在 `resources.LAYOUT` 一张表里，`tests/test_layout.py` 锁住。
+- **测试**：从设计期的 7 项长到 71 项；`samples/` 由 `scripts/make_samples.py` 生成（PDF 必须内嵌中文 TTF 子集）。
 
