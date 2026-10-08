@@ -10,6 +10,10 @@
   它只进正向表、绝不进 `MappingStore._reverse`；还原走 `restorable_items()`（过滤空键）。
   谁把空串塞回反向表，`str.replace("")` 就会把原文插到每个字符之间——**还原动作反而把敏感信息撒满全篇**。
   回归测试：`packages/docanon-core/tests/test_restore.py`。
+- **docx 的抽取与回写必须共用一套遍历**（[笔记](../notes/implemented/bug-fix/2026-10-07-docx-hyperlink-offsets.md)）：
+  `paragraph.text` 含超链接里的文字而 `paragraph.runs` 不含，两边各算一套偏移就会**同时**漏掉超链接里的
+  敏感值、又把旁边的字改错，而 manifest 报 `ok`。抽取/回写都走 `docx_walk.py`；段落定位失败要抛错，
+  不许 `continue` 静默跳过。回归测试：`packages/docanon-core/tests/test_docx_output.py`。
 - **任何引擎或端点失败都必须抛错**，不许 `except: return []`。跑前 `prepare_detectors` 对每个引擎调
   `ready()`，起不来就是退出码 1 且不建输出目录（`docanon web` 同样拒绝启动）。
   把「没答上」写成「零命中」是最坏的失败形态（`docanon_engine_ner_llm/client.py` 的 `LLMError` 是这条边界）。

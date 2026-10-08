@@ -47,7 +47,15 @@ def _text(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list
 
 # ---------------- DOCX ----------------
 def _redact_paragraph(paragraph, repls: list[tuple[int, int, str]]) -> None:
-    runs = paragraph.runs
+    """按字符偏移改写段落文字。
+
+    `repls` 的偏移来自 `docx_walk.paragraph_text` 拼出来的文字, 所以这里的 run 序列也必须
+    来自 `docx_walk.text_runs` —— 换成 `paragraph.runs` 就会漏掉超链接/修订插入里的 run,
+    偏移整体错位(实测: 目标原样留着, 替换值插到别的字上)。
+    """
+    from ..docx_walk import text_runs
+
+    runs = text_runs(paragraph)
     if not runs:
         return
     ranges: list[tuple[int, int]] = []
@@ -76,25 +84,61 @@ def _redact_paragraph(paragraph, repls: list[tuple[int, int, str]]) -> None:
             runs[i].text = new
 
 
+def _scrub_link_plumbing(paragraph, pairs: list[tuple[str, str]]) -> None:
+    """把本段换掉的原文也从**链接目标**里抹掉。
+
+    超链接的可见文字改了、`mailto:`/URL 里还留着原文, 这份文件里就仍然搜得到它 —— 对
+    一个"不许漏"的工具来说等于没脱。指令文字(`w:instrText`, 域代码写法)与关系目标
+    (`word/_rels/document.xml.rels`) 都是原文会藏的地方。
+
+    只替换本段实际换过的原文, 不做通用 URL 扫描(那属于检测器该干的事, 还没做)。
+    """
+    from docx.oxml.ns import qn
+
+    element = paragraph._p
+    for instr in element.iter(qn("w:instrText")):
+        text = instr.text or ""
+        new = text
+        for original, repl in pairs:
+            new = new.replace(original, repl)
+        if new != text:
+            instr.text = new
+
+    rels = paragraph.part.rels
+    for link in element.iter(qn("w:hyperlink")):
+        rid = link.get(qn("r:id"))
+        rel = rels.get(rid) if rid else None
+        if rel is None or not rel.is_external:
+            continue
+        target = rel.target_ref
+        new = target
+        for original, repl in pairs:
+            new = new.replace(original, repl)
+        if new != target:
+            rel._target = new
+
+
 def _docx(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list[str]:
     from docx import Document
 
+    from ..docx_walk import iter_paragraphs
+
     d = Document(doc.source_path)
-    wanted = {id(r.block): r for r in reds}
+    paragraphs = list(iter_paragraphs(d))
     for r in reds:
         if not r.changed:
             continue
-        loc = r.block.locator
-        try:
-            if "paragraph" in loc:
-                para = d.paragraphs[loc["paragraph"]]
-            elif "t" in loc:
-                para = d.tables[loc["t"]].rows[loc["r"]].cells[loc["c"]].paragraphs[loc["p"]]
-            else:
-                continue
-            _redact_paragraph(para, r.replacements)
-        except (IndexError, KeyError):
-            continue
+        idx = r.block.locator.get("paragraph")
+        if idx is None or not 0 <= idx < len(paragraphs):
+            # 抽取与回写走同一个遍历, 对不上就是本程序的 bug: 宁可报错也别交出没脱敏的产物。
+            raise RuntimeError(
+                f"docx 段落定位失败(locator={r.block.locator!r}, 共 {len(paragraphs)} 段)"
+            )
+        para = paragraphs[idx]
+        _redact_paragraph(para, r.replacements)
+        _scrub_link_plumbing(
+            para, [(r.block.text[s:e], rep) for s, e, rep in r.replacements if r.block.text[s:e]]
+        )
     d.save(str(out_path))
     return [str(out_path)]
 

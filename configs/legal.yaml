@@ -1,0 +1,57 @@
+# 法律文书交付件: **只抹"数字型标识 + 联系方式"**, 其余一律不动。
+#
+# 为什么要有这一份(而不是用 onnx.yaml): 律师交出去的材料里, 法院名称、案号、法官与书记员、
+# 当事人姓名、律所与代理人、判决日期、赔偿金额 —— 这些是"材料能当证据用"的一部分, 抹掉之后
+# 文件就废了, 得返工重做。而 ONNX 中文 NER 的每一类产出(PERSON/ORG/DOB/POSITION)正好都是
+# 这一类, 所以在交付场景里它不是"少一层检测", 是"多一层毁文件的动作"。
+# 需要连人名机构一起换掉时(对外讲课、写案例), 用 configs/onnx.yaml。
+#
+# 未列出的实体类型一律 keep(见 pipeline.py 的 _KEEP): "我说抹哪个就抹哪个"。
+strategies:
+  PHONE: mask          # 手机与座机
+  ID_CARD: mask
+  BANK_CARD: mask
+  PASSPORT: mask
+  PLATE: mask
+  EMAIL: mask
+  LOCATION: placeholder
+  IP: placeholder
+  SECRET: remove       # key/token: 留着没用, 直接删
+  CUSTOM: placeholder  # dictionary 里列的业务词
+
+  # ---- 以下一律保留, 不是漏配 ----
+  PERSON: keep     # 当事人/法官/代理人姓名
+  ORG: keep        # 法院、律所、公司
+  POSITION: keep   # 审判员、委托诉讼代理人这类角色
+  DOB: keep        # 判决日期、出生日期
+  AMOUNT: keep     # 判赔金额: 抹了判决书就没法用
+  USCC: keep       # 统一社会信用代码: 机构标识, 抹了认不出主体
+  DEFAULT: keep
+
+# 本案要额外抹掉的特定词写这里(命中记为 CUSTOM)。空着就只按上面的策略跑。
+dictionary: []
+
+detectors:
+  rule: true
+  dictionary: true
+  onnx_ner: true   # 只用来出地址, 见下面的 entity_map
+  llm_ner: false
+
+onnx:
+  model_dirs:
+    - var/models/onnx/gyr66
+    - var/models/onnx/pii-engineer
+  # 只映射地址。person/name/organization/company/government/date_of_birth/position
+  # 不映射 = 引擎直接忽略这些标签, 不会产出可被替换的人名/机构。
+  entity_map:
+    street_address: LOCATION
+    address: LOCATION
+
+llm:
+  base_url: http://127.0.0.1:8080/v1
+  model: qwen3.8-4b
+  timeout: 180
+  disable_thinking: true
+
+ocr:
+  enabled: true

@@ -1,8 +1,10 @@
 # doc-anonymizer 默认配置
 # 各实体类型的脱敏策略: pseudonym | placeholder | mask | remove
 strategies:
-  PHONE: mask          # 138****0000
+  PHONE: mask          # 138****0000 / 010****4321
   ID_CARD: mask        # 保留前6后4
+  PASSPORT: mask       # 保留首尾
+  PLATE: mask          # 保留首位
   BANK_CARD: mask      # 保留后4
   EMAIL: mask          # a***@example.com
   IP: placeholder

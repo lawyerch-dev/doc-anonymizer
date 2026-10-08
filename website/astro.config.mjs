@@ -1,6 +1,7 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import react from "@astrojs/react";
+import rehypeMermaid from "rehype-mermaid";
 import tailwindcss from "@tailwindcss/vite";
 import sidebar from "./src/sidebar.generated.mjs";
 
@@ -14,6 +15,9 @@ export default defineConfig({
   output: "static",
   base,
   site,
+  // ```mermaid 围栏在构建期渲染成 SVG, 以 data-URI <img> 嵌入 —— 访客零 JS, 也不需要 chromium 之外的运行期依赖。
+  // 必须用 img-svg: inline-svg 在 Starlight 下会把**整页正文渲染成空**(且不报错, 只留一个空壳页)。
+  markdown: { rehypePlugins: [[rehypeMermaid, { strategy: "img-svg" }]] },
   integrations: [
     starlight({
       title: "doc-anonymizer",

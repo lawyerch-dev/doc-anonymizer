@@ -47,6 +47,11 @@ jobs:
       - name: "装前端依赖(npm workspaces: apps/ui + website)"
         run: npm ci
 
+      # ```mermaid 围栏在构建期由 rehype-mermaid 渲染成内联 SVG, 它要一个 chromium
+      # (没装的话 astro build 会逐页报错但**仍以 0 退出**, 站点会静默缺页)。
+      - name: "装 chromium(mermaid 构建期渲染需要)"
+        run: npx playwright install --with-deps chromium
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

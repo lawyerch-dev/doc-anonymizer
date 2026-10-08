@@ -50,8 +50,13 @@ npm run cli -- restore var/out/sample.md.redacted.md --mapping var/out/mapping.j
 | 想要 | 配置 | 额外准备 |
 |---|---|---|
 | 只要规则 + 词典（最快） | `configs/default.yaml`（不带 `-c` 就是它） | 无 |
-| 人名/机构/地址（日常推荐） | `-c configs/onnx.yaml` | `npm run models` |
+| **交出去的材料**（只抹身份证/银行卡/手机/住址，机构、人名、角色、日期、金额一律不动） | `-c configs/legal.yaml` | `npm run models`（只为了取地址） |
+| 人名/机构也一起换（对外讲课、写案例） | `-c configs/onnx.yaml` | `npm run models` |
 | 更灵活的实体识别 | `-c configs/llm.yaml` | `./scripts/download_model.sh` + `./scripts/serve_llm.sh` |
+
+**选哪份取决于材料要不要能用**：`onnx.yaml` 会把法院、律所、当事人姓名、判决日期也换掉，
+判决书/裁定书这类材料抹完就没法提交了；交付场景用 `configs/legal.yaml`（它把不能动的类型全设成
+`keep`，见 [README「配置」](../README.md#配置)）。
 
 ## 常见问题
 
@@ -59,5 +64,7 @@ npm run cli -- restore var/out/sample.md.redacted.md --mapping var/out/mapping.j
 - **报资源根/缺前端页面** → 非 editable 安装：设 `DOCANON_ROOT=/path/to/doc-anonymizer`。
 - **某个引擎不可用** → 看它给的原因（ONNX 缺模型 / LLM 没起 server）；也可先把它在配置里置 `false`。
 - **退出码 2** → 有文件没产出结果：看 `manifest.json` 里的 `error` / `unsupported`，不是跑坏了。
-- **漏检** → 确认带了 `-c configs/onnx.yaml`（不带只有规则+词典，实测少人名与地名）；
-  把关心的词加进配置的 `dictionary`。**不保证零漏检**，详见 [README「已知限制」](../README.md#已知限制)。
+- **该抹的没抹（漏检）** → 只用 `configs/default.yaml` 时没有人名/地名识别，这是设计；但**交付件本来
+  也不该抹人名机构**，漏检重点看扫描件的 OCR（认错字就不会命中）。把关心的词加进配置的 `dictionary`。
+  **不保证零漏检**，详见 [README「已知限制」](../README.md#已知限制)。
+- **抹多了、材料不能用了** → 你在用 `onnx.yaml`；交付场景换 `-c configs/legal.yaml`。

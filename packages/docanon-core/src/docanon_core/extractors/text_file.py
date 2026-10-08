@@ -35,32 +35,21 @@ class DocxExtractor(Extractor):
     def extract(self, path: Path) -> ExtractedDoc:
         from docx import Document  # python-docx
 
+        from ..docx_walk import iter_paragraphs, paragraph_text
+
         doc = Document(str(path))
         blocks: list[Block] = []
-        for idx, para in enumerate(doc.paragraphs):
-            if not para.text.strip():
+        # locator 里的 paragraph 是**遍历序号**(空段落也占位), 回写按同一个遍历取段落。
+        for idx, para in enumerate(iter_paragraphs(doc)):
+            text = paragraph_text(para)
+            if not text.strip():
                 continue
             blocks.append(
                 Block(
                     block_id=f"p{idx}",
-                    text=para.text,
+                    text=text,
                     kind="paragraph",
                     locator={"paragraph": idx},
                 )
             )
-        # 表格单元格
-        for ti, table in enumerate(doc.tables):
-            for ri, row in enumerate(table.rows):
-                for ci, cell in enumerate(row.cells):
-                    for pi, para in enumerate(cell.paragraphs):
-                        if not para.text.strip():
-                            continue
-                        blocks.append(
-                            Block(
-                                block_id=f"t{ti}r{ri}c{ci}p{pi}",
-                                text=para.text,
-                                kind="cell",
-                                locator={"t": ti, "r": ri, "c": ci, "p": pi},
-                            )
-                        )
         return ExtractedDoc(source_path=str(path), blocks=blocks, meta={"format": "docx"})

@@ -2,6 +2,8 @@
 strategies:
   PHONE: mask
   ID_CARD: mask
+  PASSPORT: mask
+  PLATE: mask
   BANK_CARD: mask
   EMAIL: mask
   IP: placeholder

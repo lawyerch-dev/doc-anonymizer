@@ -22,6 +22,8 @@
   },
   "devDependencies": {
     "@types/react": "^19",
-    "@types/react-dom": "^19"
+    "@types/react-dom": "^19",
+    "playwright": "^1.64.0",
+    "rehype-mermaid": "^3.0.0"
   }
 }

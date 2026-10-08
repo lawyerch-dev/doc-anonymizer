@@ -23,7 +23,7 @@ ENV_ROOT = "DOCANON_ROOT"
 
 # 仓库/打包根下的布局: 键 -> 相对资源根的路径。相对路径一律以 / 分隔(POSIX 风格)。
 LAYOUT: dict[str, str] = {
-    "configs": "configs",                     # 配置(default / onnx / with_llm)
+    "configs": "configs",                     # 配置(default / legal / onnx / llm)
     "web": "apps/web",                        # 前端静态件(index.html / app.css / app.js)
     "vendor": "var/vendor/file-viewer",  # file-viewer 预览资源(可选, fetch_file_viewer.sh 下载)
     "samples": "samples",                     # 内置样例(Web 预设 + 测试数据)

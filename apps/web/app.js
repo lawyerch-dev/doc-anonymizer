@@ -168,17 +168,26 @@ function renderOpDetails(resp) {
 
 function renderLog(tr) {
   const t = tr.timing || {};
+  const kept = (tr.detections || []).filter(d => d.strategy === 'keep');
+  const keptCounts = {};
+  kept.forEach(d => { keptCounts[d.entity_type] = (keptCounts[d.entity_type] || 0) + 1; });
+  const keptText = kept.length
+    ? '<br>按配置保留 <b>' + kept.length + '</b> 处（' +
+      Object.entries(keptCounts).map(kv => esc(kv[0]) + '×' + kv[1]).join('、') +
+      '）—— 识别到了，但这几类不在你的脱敏范围'
+    : '';
   const meta =
     '<div class="meta">' +
     '源文件 <code>' + esc(tr.source) + '</code> · 抽取器 <code>' + esc(tr.extractor) + '</code> · ' +
     '检测器 <code>' + esc((tr.detectors || []).join(' + ')) + '</code><br>' +
     '耗时: 抽取 ' + (t.extract_ms ?? '-') + 'ms · 检测 ' + (t.detect_ms ?? '-') + 'ms · ' +
-    '回写 ' + (t.write_ms ?? '-') + 'ms · 合计 <b>' + (t.total_ms ?? '-') + 'ms</b>' +
+    '回写 ' + (t.write_ms ?? '-') + 'ms · 合计 <b>' + (t.total_ms ?? '-') + 'ms</b>' + keptText +
     '</div>';
   const rows = (tr.detections || []).map(d =>
     '<tr><td>' + esc(d.entity_type) + '</td><td>' + esc(d.source) + '</td><td>' + esc(d.strategy) + '</td>' +
     '<td><code>' + esc(d.original) + '</code></td><td class="arrow">→</td>' +
-    '<td><code>' + esc(d.replacement || '（删除）') + '</code></td><td>' + esc(locText(d.locator)) + '</td></tr>'
+    '<td><code>' + esc(d.strategy === 'keep' ? '（保留原样）' : (d.replacement || '（删除）')) + '</code></td>' +
+    '<td>' + esc(locText(d.locator)) + '</td></tr>'
   ).join('');
   const table = (tr.detections || []).length
     ? '<table><tr><th>类型</th><th>来源</th><th>策略</th><th>原文</th><th></th><th>替换为</th><th>位置</th></tr>' + rows + '</table>'
@@ -192,7 +201,7 @@ function locText(loc) {
   if ('page' in loc) return '第' + (loc.page + 1) + '页' + (loc.bbox ? '(图)' : '');
   if ('sheet' in loc) return loc.sheet + '!' + loc.cell;
   if ('row' in loc) return 'r' + loc.row + 'c' + loc.col;
-  if ('t' in loc) return '表' + loc.t + ' r' + loc.r + 'c' + loc.c;
+  if ('paragraph' in loc) return '第' + (loc.paragraph + 1) + '段';
   return JSON.stringify(loc);
 }
 

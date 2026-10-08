@@ -22,8 +22,8 @@
   <img src="docs/images/web-ui.png" width="900" alt="Web 界面：左侧选文档，中间预览原文，点「开始脱敏」后右侧预览保留原格式的脱敏件">
 </p>
 
-人名、手机号、身份证、银行卡、邮箱、IP、统一社会信用代码、密钥、自定义敏感词 —— 识别并抹掉，
-输出**同格式**文件 + 可还原对照表。**不联网、不上传、不依赖云端 API。**
+人名、手机号（含座机）、身份证、护照、车牌、银行卡、邮箱、IP、统一社会信用代码、密钥、自定义敏感词
+—— 识别并抹掉，输出**同格式**文件 + 可还原对照表。**不联网、不上传、不依赖云端 API。**
 
 ## 特性
 
@@ -64,6 +64,40 @@ npm test               # 一键全测（Python 全量 + 组件库检查 + 文档
 `npm run models` 取 `configs/onnx.yaml` 要的中文 NER 模型（约 830MB；官方 huggingface.co 在部分网络
 不可达，脚本默认走 `hf-mirror.com`，`HF_ENDPOINT` 可换）。
 逐步走一遍：[docs/quickstart.md](docs/quickstart.md)。
+
+## 运行流程与结构
+
+```mermaid
+flowchart TD
+  A["输入：文件 / 目录"] --> B{"docanon run"}
+  B -->|"输入不存在 / 配置读不了"| E1["退出码 1"]
+  B --> C["引擎预检"]
+  C -->|"任一层起不来"| E2["跑前报错退出<br/>一个文件都不写"]
+  C --> D["逐文件处理"]
+  D --> F["抽取 · 按扩展名路由"]
+  F --> G["检测 · 各检测器 + 去重叠"]
+  G --> H["定策略 · keep 不动 / 其余替换"]
+  H --> I["生成替换值 · 同实体全篇一致"]
+  I --> J["原位回写 · 同格式"]
+  J --> K["账本落盘<br/>manifest 三态 + mapping"]
+  K --> L["退出码 0 全部处理 / 2 有文件没产出 / 1 输入有问题"]
+```
+
+```mermaid
+flowchart TB
+  U["命令行 / 浏览器界面 / 桌面窗口<br/>三个入口, 一套引擎与配置"] --> CORE["docanon-core<br/>抽取 → 检测 → 脱敏回写 + 账本 + CLI + Web"]
+  CORE --> R["rule"]
+  CORE --> D2["dictionary"]
+  CORE --> ON["onnx_ner"]
+  CORE --> LL["llm_ner"]
+  R --> CT["docanon-contract<br/>共享 ABC"]
+  D2 --> CT
+  ON --> CT
+  LL --> CT
+  ROOT["资源根: configs / models<br/>解析与当前目录无关"] -.-> CORE
+```
+
+分包理由、硬边界与决策记录见 [docs/architecture.md](docs/architecture.md)。
 
 ## 用法
 
@@ -123,7 +157,7 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 
 | 输入 | 产物 | 脱敏方式 |
 |---|---|---|
-| `.docx` | `x.docx.redacted.docx` | 按 run 改写文字，保留格式与表格 |
+| `.docx` | `x.docx.redacted.docx` | 按 run 改写文字（含超链接、内容控件、嵌套表格），保留格式 |
 | `.xlsx` / `.csv` | `x.xlsx.redacted.xlsx` | 改写单元格，保留表结构 |
 | `.pdf`（文字层） | `x.pdf.redacted.pdf` | 命中页涂黑（**该页变位图**） |
 | `.pdf`（扫描件）/ `.png` `.jpg` `.tiff` … | 同上 / `x.png.redacted.png` | OCR 定位后按字符宽度比例涂黑 |
@@ -136,11 +170,17 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 
 ## 配置
 
-`configs/`：`default.yaml`（规则 + 词典）· `onnx.yaml`（+ 中文 NER，日常推荐）·
+`configs/`：`legal.yaml`（**法律文书交付件**：只抹身份证/银行卡/手机/住址这类标识与联系方式，
+法院、案号、法官与书记员、当事人姓名、律所与代理人、日期、金额一律不动）·
+`default.yaml`（规则 + 词典）· `onnx.yaml`（+ 中文 NER，连人名机构一起换，适合对外讲课/写案例）·
 `llm.yaml`（+ 本地大模型，先 `./scripts/serve_llm.sh`）。
 
+**交付场景用 `legal.yaml`**：`onnx.yaml` 会把法院名当机构、把"审判员/委托诉讼代理人"当角色、
+把判决日期当生日一起抹掉，材料就交不出去了（实测过）。要抹哪个就列哪个，没列出的类型一律
+`keep`（"我说抹哪个就抹哪个"）；识别到但按配置保留的条数，在 Web 的「运行日志」里单独列出来。
+
 - 策略按实体类型配：`pseudonym`（同类同实体固定假名）/ `placeholder`（`<PHONE_1>`）/
-  `mask`（`138****0000`）/ `remove`（直接删）；自定义词写在 `dictionary`，记为 `CUSTOM`。
+  `mask`（`138****0000`）/ `remove`（直接删）/ `keep`（**不动**，只为"别碰这类"而存在）。自定义词写在 `dictionary`，记为 `CUSTOM`。
 - 配置里的相对路径（如 `onnx.model_dirs`）按**资源根**解析（从 `configs/default.yaml` 逐级向上找，
   可用 `DOCANON_ROOT` 指定），与 cwd 无关；命令行上的输入/输出路径按 cwd。
 
@@ -148,7 +188,7 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 
 | 引擎 | 做什么 | 依赖 |
 |---|---|---|
-| `rule` | 身份证/手机/银行卡/邮箱/IP/统一社会信用代码/密钥/金额 | 无 |
+| `rule` | 身份证/手机与座机/护照/车牌/银行卡/邮箱/IP/统一社会信用代码/密钥/金额 | 无 |
 | `dictionary` | 自定义业务敏感词 → `CUSTOM` | 无 |
 | `onnx_ner` | 中文 NER（人名/机构/地址等），34ms/例、无需 server | `var/models/onnx/*` |
 | `llm_ner` | 本地大模型 NER，可听指令、生成自然假名 | `llama-server` + GGUF |
@@ -159,10 +199,14 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 
 - **PDF 命中页整页变位图**（文字层消失、不可选中/搜索/再编辑）。这是安全保证：给文字层盖黑块的话
   原文照样能复制出来。未命中的页原样保留。
-- docx 的**页眉、页脚、脚注、文本框不抽取**（正文段落与表格单元格已覆盖）。
+- docx 的**页眉、页脚、脚注、文本框不抽取**（正文段落、超链接、内容控件、表格(含嵌套)已覆盖）。
+- docx 的**文档属性不处理**：`docProps` 里的作者名等元数据原样保留（实测过，正文脱敏了属性还在）。
+- docx 里**只存在于链接目标、正文不显示**的敏感值识别不到；正文里出现过的会连同 `mailto:`/URL
+  一起抹掉，但一个纯靠 URL 传递的邮箱或口令不在覆盖范围。
 - `restore` 只支持文本产物（txt/md/csv）；`remove` 删掉的原文没有锚点，无法还原。
 - 打码后同形的值（两个号码都 mask 成一样）会还原成错的原文。
-- `.doc` / `.xls` / `.wps` 不支持（记 `unsupported`，退出码 2）；GBK 的 CSV 需先转 UTF-8。
+- `.doc` / `.xls` / `.wps` 不支持（记 `unsupported`，退出码 2）；先用 LibreOffice 转成 `.docx`/`.xlsx`
+  再跑（命令与注意点见 [`docs/cookbook/diagnosing-problems.md`](docs/cookbook/diagnosing-problems.md)）。GBK 的 CSV 需先转 UTF-8。
 - 输出目录不能放在输入目录里面，否则下一次 run 会把上次的 `.redacted.*` 当新文档再脱敏一遍。
 - **辅助人工复核，不保证零漏检**：OCR 错字、罕见写法都可能漏。交付前请人工过一遍，尤其扫描件与表格。
 

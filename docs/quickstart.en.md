@@ -55,8 +55,13 @@ restored.
 | What you want | Config | Extra setup |
 |---|---|---|
 | Rules + dictionary only (fastest) | `configs/default.yaml` (this is the default when `-c` is omitted) | none |
-| Person names/organizations/addresses (recommended for everyday use) | `-c configs/onnx.yaml` | `npm run models` |
+| **Material you hand over** (redact ID numbers/bank cards/phones/addresses only; organizations, names, roles, dates and amounts are left untouched) | `-c configs/legal.yaml` | `npm run models` (for addresses only) |
+| Names and organizations swapped too (talks, case write-ups) | `-c configs/onnx.yaml` | `npm run models` |
 | More flexible entity recognition | `-c configs/llm.yaml` | `./scripts/download_model.sh` + `./scripts/serve_llm.sh` |
+
+**Which one you pick decides whether the material is still usable**: `onnx.yaml` also swaps out the court,
+the law firm, party names and the judgment date, which leaves a judgment impossible to file. For delivery use
+`configs/legal.yaml` (it sets every must-not-touch type to `keep`; see [README "Configuration"](../README.md#配置)).
 
 ## FAQ
 
@@ -64,5 +69,8 @@ restored.
 - **Resource root error / missing frontend pages** → non-editable install: set `DOCANON_ROOT=/path/to/doc-anonymizer`.
 - **Some engine is unavailable** → read the reason it gives (ONNX missing a model / no LLM server running); you can also set it to `false` in the config for now.
 - **Exit code 2** → some files produced no result: check `error` / `unsupported` in `manifest.json`; the run did not break.
-- **Missed detections** → confirm you passed `-c configs/onnx.yaml` (without it you only get rules + dictionary, which in practice misses person and place names);
-  add the terms you care about to the config's `dictionary`. **Zero missed detections is not guaranteed**; see [README "Known limitations"](../README.md#已知限制).
+- **Something that should be redacted was missed** → with `configs/default.yaml` alone there is no name/place
+  recognition, and that is by design; but **delivery material should not have names or organizations redacted
+  anyway**, so look at scans instead (OCR misreads mean no hit). Add the terms you care about to the config's
+  `dictionary`. **Zero missed detections is not guaranteed**; see [README "Known limitations"](../README.md#已知限制).
+- **Too much was redacted and the material became unusable** → you are on `onnx.yaml`; switch to `-c configs/legal.yaml` for delivery.

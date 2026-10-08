@@ -33,6 +33,12 @@ class EngineError(RuntimeError):
     """检测引擎装不起来或没在应答。"""
 
 
+# 策略 "keep" = 这类命中**不动**。它必须在替换之前拦掉: 没有这个策略, 配置就只能表达
+# "抹成什么", 没法表达"别碰它" —— 于是"我只想抹数字型标识、人名机构都留着"这件事写不出来
+# (没列出的类型会被 DEFAULT 兜住一起抹掉)。见 configs/legal.yaml。
+_KEEP = "keep"
+
+
 def prepare_detectors(config) -> list:
     """构建并体检启用的检测器; 任何一个不起来就整体失败, 一个文件都不写。
 
@@ -98,6 +104,17 @@ def process_file(
         repls: list[tuple[int, int, str]] = []
         for det in _detect_block(block, detectors):
             strategy = config.strategy_for(det.entity_type)
+            if strategy == _KEEP:
+                # 配置说"这类别动": 只留溯源, 不替换、也不计数(counts 是"实际抹掉了几处")
+                detections.append({
+                    "entity_type": det.entity_type,
+                    "source": det.source,
+                    "strategy": strategy,
+                    "original": det.span.text,
+                    "replacement": None,
+                    "locator": block.locator,
+                })
+                continue
             repl = replacement_for(store, det.entity_type, det.span.text, strategy)
             repls.append((det.span.start, det.span.end, repl))
             counts[det.entity_type] = counts.get(det.entity_type, 0) + 1
