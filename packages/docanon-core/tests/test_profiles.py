@@ -63,3 +63,79 @@ def test_validate_accepts_partial_onnx_entity_map_only():
 def test_normalize_fills_missing_onnx_model_dirs():
     assert isinstance(profiles.normalize({"onnx": {}})["onnx"]["model_dirs"], list)
 
+
+import yaml
+
+
+def _isolate(tmp_path, monkeypatch):
+    """把用户配置目录指到 tmp_path, 免得污染真实 var/。"""
+    monkeypatch.setattr(profiles, "user_dir", lambda: tmp_path / "var" / "configs")
+
+
+def test_save_load_delete_roundtrip(tmp_path, monkeypatch):
+    _isolate(tmp_path, monkeypatch)
+    data = profiles.normalize({"strategies": {"PERSON": "pseudonym"}})
+
+    profiles.save_profile("mine", data)
+    assert (tmp_path / "var" / "configs" / "mine.yaml").is_file()
+
+    loaded = profiles.load_profile("mine")
+    assert loaded["strategies"]["PERSON"] == "pseudonym"
+    assert set(profiles.EDITABLE_KEYS) <= set(loaded)
+
+    profiles.delete_profile("mine")
+    with pytest.raises(profiles.ProfileError):
+        profiles.load_profile("mine")
+
+
+def test_save_rejects_dangerous_name(tmp_path, monkeypatch):
+    _isolate(tmp_path, monkeypatch)
+    with pytest.raises(profiles.ProfileError):
+        profiles.save_profile("../evil", {"detectors": {"rule": True}})
+
+
+def test_list_profiles_marks_builtin_and_user(tmp_path, monkeypatch):
+    _isolate(tmp_path, monkeypatch)
+    profiles.save_profile("mine", profiles.normalize({}))
+
+    rows = {r["name"]: r for r in profiles.list_profiles(current="mine")}
+    assert rows["onnx.yaml"]["kind"] == "builtin"
+    assert rows["mine"]["kind"] == "user"
+    assert rows["mine"]["current"] is True
+    assert rows["mine"]["label"]
+
+
+def test_load_half_yaml_is_normalized(tmp_path, monkeypatch):
+    _isolate(tmp_path, monkeypatch)
+    # 直接手写半截文件, 模拟"用户只写了 strategies 的 yaml"
+    d = tmp_path / "var" / "configs"
+    d.mkdir(parents=True)
+    (d / "half.yaml").write_text("strategies:\n  PERSON: redact\n", encoding="utf-8")
+
+    loaded = profiles.load_profile("half")
+    assert loaded["strategies"] == {"PERSON": "redact"}
+    assert loaded["detectors"].get("rule") is True
+
+
+def test_import_and_export_roundtrip(tmp_path, monkeypatch):
+    _isolate(tmp_path, monkeypatch)
+    text = "strategies:\n  ORG: redact\ndetectors:\n  rule: true\n"
+    name = profiles.import_yaml("from-file.yaml", text)
+    assert name == "from-file"
+
+    out = profiles.export_yaml("from-file")
+    assert "ORG: redact" in out and "rule: true" in out
+
+
+def test_builtin_cannot_be_deleted(tmp_path, monkeypatch):
+    _isolate(tmp_path, monkeypatch)
+    with pytest.raises(profiles.ProfileError):
+        # 同名内置不落用户目录: 删除内置名会因"用户配置不存在"而拒绝
+        profiles.delete_profile("default.yaml")
+
+
+def test_available_onnx_dirs_lists_relative_dirs():
+    rows = profiles.available_onnx_dirs()
+    assert isinstance(rows, list)
+    assert all(d.startswith("var/models/onnx/") for d in rows)
+

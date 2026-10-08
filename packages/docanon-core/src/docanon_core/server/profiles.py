@@ -110,3 +110,75 @@ def validate(data: dict) -> None:
 
 def build_config(data: dict) -> Config:
     return config_from_dict(normalize(data))
+
+
+def label_of(path: Path) -> str:
+    """取首行注释当标签; 没有就用文件名主干。"""
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line.startswith("#"):
+            text = line.lstrip("#").strip()
+            if text:
+                return text
+        elif line:
+            break
+    return path.stem
+
+
+def list_profiles(current: str | None) -> list[dict]:
+    out: list[dict] = []
+    for f in sorted(resources.path("configs").glob("*.yaml")):
+        out.append({"name": f.name, "kind": "builtin",
+                    "label": label_of(f), "current": f.name == current})
+    user_root = user_dir()
+    for f in (sorted(user_root.glob("*.yaml")) if user_root.is_dir() else []):
+        out.append({"name": f.stem, "kind": "user",
+                    "label": label_of(f) or f.stem, "current": f.stem == current})
+    return out
+
+
+def load_profile(ref: str) -> dict:
+    path = _builtin_path(ref) if is_builtin(ref) else _user_path(ref)
+    if not path.is_file():
+        raise ProfileError(f"配置不存在: {ref}")
+    return normalize(_read_yaml(path))
+
+
+def save_profile(name: str, data: dict) -> None:
+    data = normalize(data)
+    validate(data)
+    path = _user_path(name)  # 顺带校验名字
+    user_dir().mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    tmp.replace(path)
+
+
+def delete_profile(name: str) -> None:
+    path = _user_path(name)
+    if not path.is_file():
+        raise ProfileError(f"用户配置不存在: {name}")
+    path.unlink()
+
+
+def import_yaml(filename: str, text: str) -> str:
+    name = Path(filename).stem
+    validate_name(name)
+    data = yaml.safe_load(text) or {}
+    if not isinstance(data, dict):
+        raise ProfileError("导入的 yaml 顶层不是映射")
+    save_profile(name, data)
+    return name
+
+
+def export_yaml(ref: str) -> str:
+    return yaml.safe_dump(load_profile(ref), allow_unicode=True, sort_keys=False)
+
+
+def available_onnx_dirs() -> list[str]:
+    """var/models/onnx 下的模型目录(相对资源根, 与 config.onnx.model_dirs 同一坐标系)。"""
+    base = resources.path("models") / "onnx"
+    if not base.is_dir():
+        return []
+    root = resources.root()
+    return sorted(p.relative_to(root).as_posix() for p in base.iterdir() if p.is_dir())
