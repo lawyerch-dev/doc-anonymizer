@@ -15,7 +15,7 @@
 const FV = window.FlyfishFileViewerWebFull;
 if (FV && FV.setDefaultFullAssetBaseUrl) FV.setDefaultFullAssetBaseUrl(new URL('/file-viewer/', location.href).href);
 
-const state = { preset: null, token: null, filename: null, url: null, trace: null, logOpen: false, configRef: null, configData: null, configDirty: false };
+const state = { preset: null, token: null, filename: null, url: null, trace: null, logOpen: false, configRef: null, configData: null, configDirty: false, modelDirs: null };
 const $ = id => document.getElementById(id);
 function markDirty() { state.configDirty = true; }
 const TEXT_EXT = ['txt', 'md', 'markdown', 'csv'];
@@ -182,16 +182,25 @@ function renderEditors() {
 }
 
 async function loadModelDirs() {
-  try {
-    const { onnx_dirs } = await (await fetch('/api/models', { cache: 'no-store' })).json();
-    const chosen = new Set((state.configData.onnx && state.configData.onnx.model_dirs) || []);
-    $('modelDirs').innerHTML = onnx_dirs.map(d =>
-      '<option value="' + d + '"' + (chosen.has(d) ? ' selected' : '') + '>' + d + '</option>').join('');
-    $('modelDirs').onchange = () => {
-      state.configData.onnx.model_dirs = Array.from($('modelDirs').selectedOptions).map(o => o.value);
-      markDirty();
-    };
-  } catch (e) { /* 无模型目录时静默留空 */ }
+  if (state.modelDirs === null) {
+    try {
+      const { onnx_dirs } = await (await fetch('/api/models', { cache: 'no-store' })).json();
+      state.modelDirs = onnx_dirs;
+    } catch (e) {
+      state.modelDirs = []; /* 无模型目录时静默留空 */
+    }
+  }
+  renderModelDirs();
+}
+
+function renderModelDirs() {
+  const chosen = new Set((state.configData.onnx && state.configData.onnx.model_dirs) || []);
+  $('modelDirs').innerHTML = state.modelDirs.map(d =>
+    '<option value="' + d + '"' + (chosen.has(d) ? ' selected' : '') + '>' + d + '</option>').join('');
+  $('modelDirs').onchange = () => {
+    state.configData.onnx.model_dirs = Array.from($('modelDirs').selectedOptions).map(o => o.value);
+    markDirty();
+  };
 }
 
 async function saveConfig() {
