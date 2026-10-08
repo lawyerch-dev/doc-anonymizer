@@ -53,3 +53,13 @@ def test_validate_rejects_unknown_detector_name():
 def test_validate_rejects_bad_model_dirs_type():
     with pytest.raises(profiles.ProfileError, match="model_dirs"):
         profiles.validate({"onnx": {"model_dirs": "not-a-list"}})
+
+
+def test_validate_accepts_partial_onnx_entity_map_only():
+    profiles.validate({"onnx": {"entity_map": {"name": "PERSON"}}})  # 不抛即通过
+    assert isinstance(profiles.normalize({"onnx": {"entity_map": {"name": "PERSON"}}})["onnx"]["model_dirs"], list)
+
+
+def test_normalize_fills_missing_onnx_model_dirs():
+    assert isinstance(profiles.normalize({"onnx": {}})["onnx"]["model_dirs"], list)
+

@@ -66,11 +66,22 @@ def _default_data() -> dict:
 
 
 def normalize(data: dict) -> dict:
-    """补齐缺失键(以 default.yaml 为底): 导入的半截 yaml 也可用, 盘上文件保持自包含。"""
+    """补齐缺失键(以 default.yaml 为底): 导入的半截 yaml 也可用, 盘上文件保持自包含。
+
+    `onnx`/`llm` 是嵌套块, 整体缺失或只给部分子键(如仅 entity_map)都要补齐到
+    default.yaml 的子键默认值, 否则会出现"build 得成、validate 却过不了"的错位。
+    """
     if not isinstance(data, dict):
         raise ProfileError("配置必须是映射")
     base = _default_data()
-    return {k: data.get(k, base[k]) for k in EDITABLE_KEYS}
+    out = {k: data.get(k, base[k]) for k in EDITABLE_KEYS}
+    for key in ("onnx", "llm"):
+        value = data.get(key)
+        if not isinstance(value, dict):
+            out[key] = value if value is not None else base[key]
+            continue
+        out[key] = {**(base[key] or {}), **value}
+    return out
 
 
 def validate(data: dict) -> None:
