@@ -138,9 +138,14 @@ const EFFECT = { redact: '**', mask: '138****0000', placeholder: '<PHONE_1>',
 function renderEditors() {
   const d = state.configData;
   if (!d) return;
-  // L2 策略表
+  d.strategies = d.strategies || {};
+  d.detectors = d.detectors || {};
+  d.onnx = d.onnx || { model_dirs: [] };
+  d.llm = d.llm || {};
+  // L2 策略表: 未列出的类型走后端同款 DEFAULT 兜底(不是硬编码 redact)
+  const DEF = d.strategies.DEFAULT || 'placeholder';
   const rows = ENTITY_TYPES.map(t => {
-    const cur = (d.strategies || {})[t] || 'redact';
+    const cur = (t in d.strategies) ? d.strategies[t] : DEF;
     const opts = STRATEGIES.map(s => '<option value="' + s + '"' + (s === cur ? ' selected' : '') + '>' + s + '</option>').join('');
     return '<tr><td>' + t + '</td><td><select data-entity="' + t + '">' + opts + '</select></td>' +
       '<td class="hint">' + EFFECT[cur] + '</td></tr>';
@@ -153,8 +158,10 @@ function renderEditors() {
       renderEditors();
     };
   });
-  // 假名开关: 依据 PERSON/ORG 是否 pseudonym 反推
-  $('fakeNames').checked = d.strategies.PERSON === 'pseudonym' && d.strategies.ORG === 'pseudonym';
+  // 假名开关: 依据 PERSON/ORG 的生效策略(含 DEFAULT 兜底)是否 pseudonym 反推
+  const effPerson = ('PERSON' in d.strategies) ? d.strategies.PERSON : DEF;
+  const effOrg = ('ORG' in d.strategies) ? d.strategies.ORG : DEF;
+  $('fakeNames').checked = effPerson === 'pseudonym' && effOrg === 'pseudonym';
   $('fakeNames').onchange = () => {
     const v = $('fakeNames').checked ? 'pseudonym' : 'redact';
     d.strategies.PERSON = v; d.strategies.ORG = v;
