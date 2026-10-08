@@ -15,7 +15,7 @@
 const FV = window.FlyfishFileViewerWebFull;
 if (FV && FV.setDefaultFullAssetBaseUrl) FV.setDefaultFullAssetBaseUrl(new URL('/file-viewer/', location.href).href);
 
-const state = { preset: null, token: null, filename: null, url: null, trace: null, logOpen: false, configRef: null, configData: null };
+const state = { preset: null, token: null, filename: null, url: null, trace: null, logOpen: false, configRef: null, configData: null, configDirty: false };
 const $ = id => document.getElementById(id);
 const TEXT_EXT = ['txt', 'md', 'markdown', 'csv'];
 
@@ -134,9 +134,12 @@ async function loadConfigData(ref) {
     if (body.error) throw new Error(body.error);
     state.configRef = ref;
     state.configData = body.data;
+    state.configDirty = false;
     $('cfgMeta').textContent = ref + (body.kind === 'user' ? ' · 我的配置' : ' · 内置');
     if (typeof renderEditors === 'function') renderEditors();
   } catch (e) {
+    state.configRef = null;
+    state.configData = null;
     $('cfgMeta').textContent = '读取失败: ' + e.message;
   }
 }
@@ -163,7 +166,9 @@ $('run').onclick = async () => {
   $('err').classList.add('hidden');
   try {
     const body = state.preset ? { preset: state.preset } : { token: state.token };
-    if (state.configData) body.config = state.configData;
+    // 未编辑 → 发口径名(日志显示真实口径); 编辑后 → 发内联对象。Task 8 任何编辑须置 state.configDirty = true。
+    if (state.configData && state.configDirty) { body.config = state.configData; }
+    else if (state.configRef) { body.config = state.configRef; }
     const resp = await (await fetch('/api/anonymize', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body) })).json();
     if (resp.error) throw new Error(resp.error);
