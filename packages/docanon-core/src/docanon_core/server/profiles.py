@@ -53,8 +53,8 @@ def validate_name(name: str) -> None:
 def _read_yaml(path: Path) -> dict:
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except yaml.YAMLError as exc:
-        raise ProfileError(f"{path.name} yaml 解析失败: {exc}") from exc
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+        raise ProfileError(f"{path.name} 读取/解析失败: {exc}") from exc
     if not isinstance(data, dict):
         raise ProfileError(f"{path.name} 顶层不是映射")
     return data
@@ -113,8 +113,12 @@ def build_config(data: dict) -> Config:
 
 
 def label_of(path: Path) -> str:
-    """取首行注释当标签; 没有就用文件名主干。"""
-    for line in path.read_text(encoding="utf-8").splitlines():
+    """取首行注释当标签; 读不了就用文件名主干(坏文件不能拖垮列表)。"""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return path.stem
+    for line in text.splitlines():
         line = line.strip()
         if line.startswith("#"):
             text = line.lstrip("#").strip()

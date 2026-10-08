@@ -139,3 +139,15 @@ def test_available_onnx_dirs_lists_relative_dirs():
     assert isinstance(rows, list)
     assert all(d.startswith("var/models/onnx/") for d in rows)
 
+
+def test_bad_encoding_file_does_not_break_listing(tmp_path, monkeypatch):
+    _isolate(tmp_path, monkeypatch)
+    d = tmp_path / "var" / "configs"
+    d.mkdir(parents=True)
+    (d / "bad.yaml").write_bytes(b"\xff\xfe\x00not utf8")
+
+    rows = {r["name"]: r for r in profiles.list_profiles(current="default.yaml")}
+    assert rows["bad"]["kind"] == "user"
+    with pytest.raises(profiles.ProfileError):
+        profiles.load_profile("bad")
+
