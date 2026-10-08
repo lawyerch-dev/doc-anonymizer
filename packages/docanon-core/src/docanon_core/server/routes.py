@@ -18,6 +18,8 @@ from .. import convert, resources
 from ..config import load_config
 from ..pipeline import prepare_detectors, process_file
 from ..redaction.mapping import MappingStore
+from . import profiles
+from docanon_engine_ner_llm import LLMConfig
 
 _MAX_BYTES = 50 * 1024 * 1024
 
@@ -127,7 +129,14 @@ class Handler(BaseHTTPRequestHandler):
         elif p == "/api/presets":
             self._json(200, {"presets": self._presets()})
         elif p == "/api/configs":
-            self._json(200, {"configs": self._configs()})
+            self._json(200, {"configs": profiles.list_profiles(self.config_name)})
+        elif p == "/api/models":
+            self._json(200, {
+                "onnx_dirs": profiles.available_onnx_dirs(),
+                "llm": {"base_url": LLMConfig.base_url, "model": LLMConfig.model},
+            })
+        elif p.startswith("/api/configs/"):
+            self._get_config(p[len("/api/configs/"):])
         elif p in _WEB_ASSETS:
             self._send_file(_web() / _WEB_ASSETS[p])
         elif p.startswith("/samples/"):
@@ -158,29 +167,29 @@ class Handler(BaseHTTPRequestHandler):
                 })
         return out
 
-    @staticmethod
-    def _configs() -> list[dict]:
-        """可选脱敏口径 = configs/*.yaml; label 取首行注释, 前端下拉直接显示。"""
-        root = resources.path("configs")
-        if not root.is_dir():
-            return []
-        out = []
-        for f in sorted(root.glob("*.yaml")):
-            label = ""
-            for line in f.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
-                if line.startswith("#"):
-                    label = line.lstrip("#").strip()
-                    if label:
-                        break
-                elif line:
-                    break
-            out.append({
-                "name": f.name,
-                "label": label or f.stem,
-                "current": f.name == Handler.config_name,
-            })
-        return out
+    # ---------- 配置只读 ----------
+    def _get_config(self, ref: str) -> None:
+        if ref.endswith("/export"):
+            try:
+                text = profiles.export_yaml(ref[: -len("/export")])
+            except profiles.ProfileError as exc:
+                self._json(404, {"error": str(exc)})
+                return
+            body = text.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/x-yaml; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="{Path(ref[:-len("/export")]).stem}.yaml"')
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        try:
+            data = profiles.load_profile(ref)
+        except profiles.ProfileError as exc:
+            code = 404 if "不存在" in str(exc) else 400
+            self._json(code, {"error": str(exc)})
+            return
+        self._json(200, {"ref": ref, "kind": "builtin" if profiles.is_builtin(ref) else "user", "data": data})
 
     def _resolve_config(self, payload: dict):
         """按请求里的 config 名选一份配置并预检; 无名字用启动配置。

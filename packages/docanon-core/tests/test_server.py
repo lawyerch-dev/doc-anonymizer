@@ -191,3 +191,41 @@ def test_anonymize_rejects_a_bad_config_name(tmp_path, ephemeral_server):
 
     assert excinfo.value.code == 400
     assert "配置" in json.loads(excinfo.value.read())["error"]
+
+
+def _get(base: str, path: str) -> dict:
+    with urllib.request.urlopen(base + path, timeout=5) as resp:
+        return json.loads(resp.read())
+
+
+def test_api_configs_returns_kind_and_current(ephemeral_server):
+    body = _get(ephemeral_server, "/api/configs")
+    rows = {c["name"]: c for c in body["configs"]}
+    assert rows["onnx.yaml"]["kind"] == "builtin"
+    assert rows["default.yaml"]["current"] is True
+
+
+def test_api_config_get_returns_editable_data(ephemeral_server):
+    body = _get(ephemeral_server, "/api/configs/onnx.yaml")
+    assert body["kind"] == "builtin"
+    data = body["data"]
+    assert data["strategies"]["PERSON"] == "redact"
+    assert "model_dirs" in data["onnx"]
+
+
+def test_api_config_get_unknown_is_404(ephemeral_server):
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        _get(ephemeral_server, "/api/configs/nope.yaml")
+    assert excinfo.value.code == 404
+
+
+def test_api_config_get_traversal_is_rejected(ephemeral_server):
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        _get(ephemeral_server, "/api/configs/..%2fdefault.yaml")
+    assert excinfo.value.code in (400, 404)
+
+
+def test_api_models_lists_onnx_dirs_and_llm_defaults(ephemeral_server):
+    body = _get(ephemeral_server, "/api/models")
+    assert isinstance(body["onnx_dirs"], list)
+    assert body["llm"]["base_url"].startswith("http")
