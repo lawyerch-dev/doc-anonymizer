@@ -15,7 +15,7 @@
 const FV = window.FlyfishFileViewerWebFull;
 if (FV && FV.setDefaultFullAssetBaseUrl) FV.setDefaultFullAssetBaseUrl(new URL('/file-viewer/', location.href).href);
 
-const state = { preset: null, token: null, filename: null, url: null, trace: null, logOpen: false, config: null };
+const state = { preset: null, token: null, filename: null, url: null, trace: null, logOpen: false, configRef: null, configData: null };
 const $ = id => document.getElementById(id);
 const TEXT_EXT = ['txt', 'md', 'markdown', 'csv'];
 
@@ -116,15 +116,28 @@ async function loadConfigs() {
     configs.forEach(c => {
       const o = document.createElement('option');
       o.value = c.name;
-      o.textContent = c.label + (c.current ? '（当前）' : '');
+      o.textContent = c.label + (c.kind === 'user' ? '（我的）' : '') + (c.current ? '（当前）' : '');
       sel.appendChild(o);
     });
     const saved = localStorage.getItem('docanon.config');
     const pick = configs.find(c => c.name === saved) || configs.find(c => c.current) || configs[0];
-    if (pick) { sel.value = pick.name; state.config = pick.name; }
-    sel.onchange = () => { state.config = sel.value; localStorage.setItem('docanon.config', sel.value); };
+    sel.onchange = () => { localStorage.setItem('docanon.config', sel.value); loadConfigData(sel.value); };
+    if (pick) { sel.value = pick.name; await loadConfigData(pick.name); }
   } catch (e) {
     sel.innerHTML = '<option>配置加载失败</option>';
+  }
+}
+
+async function loadConfigData(ref) {
+  try {
+    const body = await (await fetch('/api/configs/' + encodeURIComponent(ref), { cache: 'no-store' })).json();
+    if (body.error) throw new Error(body.error);
+    state.configRef = ref;
+    state.configData = body.data;
+    $('cfgMeta').textContent = ref + (body.kind === 'user' ? ' · 我的配置' : ' · 内置');
+    if (typeof renderEditors === 'function') renderEditors();
+  } catch (e) {
+    $('cfgMeta').textContent = '读取失败: ' + e.message;
   }
 }
 
@@ -150,7 +163,7 @@ $('run').onclick = async () => {
   $('err').classList.add('hidden');
   try {
     const body = state.preset ? { preset: state.preset } : { token: state.token };
-    if (state.config) body.config = state.config;
+    if (state.configData) body.config = state.configData;
     const resp = await (await fetch('/api/anonymize', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body) })).json();
     if (resp.error) throw new Error(resp.error);
