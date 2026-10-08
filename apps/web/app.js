@@ -17,6 +17,7 @@ if (FV && FV.setDefaultFullAssetBaseUrl) FV.setDefaultFullAssetBaseUrl(new URL('
 
 const state = { preset: null, token: null, filename: null, url: null, trace: null, logOpen: false, configRef: null, configData: null, configDirty: false };
 const $ = id => document.getElementById(id);
+function markDirty() { state.configDirty = true; }
 const TEXT_EXT = ['txt', 'md', 'markdown', 'csv'];
 
 function mount(containerId, url, filename) {
@@ -127,6 +128,98 @@ async function loadConfigs() {
     sel.innerHTML = '<option>配置加载失败</option>';
   }
 }
+
+const ENTITY_TYPES = ['PHONE','ID_CARD','PASSPORT','PLATE','BANK_CARD','EMAIL','IP','USCC',
+  'PERSON','ORG','LOCATION','AMOUNT','DOB','SECRET','CUSTOM','DEFAULT'];
+const STRATEGIES = ['redact','mask','placeholder','pseudonym','remove','keep'];
+const EFFECT = { redact: '**', mask: '138****0000', placeholder: '<PHONE_1>',
+  pseudonym: '林芳', remove: '（删除）', keep: '（不动）' };
+
+function renderEditors() {
+  const d = state.configData;
+  if (!d) return;
+  // L2 策略表
+  const rows = ENTITY_TYPES.map(t => {
+    const cur = (d.strategies || {})[t] || 'redact';
+    const opts = STRATEGIES.map(s => '<option value="' + s + '"' + (s === cur ? ' selected' : '') + '>' + s + '</option>').join('');
+    return '<tr><td>' + t + '</td><td><select data-entity="' + t + '">' + opts + '</select></td>' +
+      '<td class="hint">' + EFFECT[cur] + '</td></tr>';
+  }).join('');
+  $('stratTable').innerHTML = '<tr><th>类型</th><th>策略</th><th>效果</th></tr>' + rows;
+  $('stratTable').querySelectorAll('select[data-entity]').forEach(sel => {
+    sel.onchange = () => {
+      state.configData.strategies[sel.dataset.entity] = sel.value;
+      markDirty();
+      renderEditors();
+    };
+  });
+  // 假名开关: 依据 PERSON/ORG 是否 pseudonym 反推
+  $('fakeNames').checked = d.strategies.PERSON === 'pseudonym' && d.strategies.ORG === 'pseudonym';
+  $('fakeNames').onchange = () => {
+    const v = $('fakeNames').checked ? 'pseudonym' : 'redact';
+    d.strategies.PERSON = v; d.strategies.ORG = v;
+    markDirty();
+    renderEditors();
+  };
+  // 词典
+  $('dictInput').value = (d.dictionary || []).join('，');
+  $('dictInput').onchange = () => {
+    state.configData.dictionary = $('dictInput').value.split(/[，,]/).map(s => s.trim()).filter(Boolean);
+    markDirty();
+  };
+  // L3 检测器
+  $('detBox').innerHTML = ['rule','dictionary','onnx_ner','llm_ner'].map(n =>
+    '<label style="display:block"><input type="checkbox" data-det="' + n + '"' +
+    (d.detectors[n] ? ' checked' : '') + '> ' + n + '</label>').join('');
+  $('detBox').querySelectorAll('input[data-det]').forEach(cb => {
+    cb.onchange = () => { state.configData.detectors[cb.dataset.det] = cb.checked; markDirty(); };
+  });
+  $('llmUrl').value = (d.llm && d.llm.base_url) || '';
+  $('llmUrl').onchange = () => { state.configData.llm.base_url = $('llmUrl').value; markDirty(); };
+  $('llmModel').value = (d.llm && d.llm.model) || '';
+  $('llmModel').onchange = () => { state.configData.llm.model = $('llmModel').value; markDirty(); };
+  loadModelDirs();
+}
+
+async function loadModelDirs() {
+  try {
+    const { onnx_dirs } = await (await fetch('/api/models', { cache: 'no-store' })).json();
+    const chosen = new Set((state.configData.onnx && state.configData.onnx.model_dirs) || []);
+    $('modelDirs').innerHTML = onnx_dirs.map(d =>
+      '<option value="' + d + '"' + (chosen.has(d) ? ' selected' : '') + '>' + d + '</option>').join('');
+    $('modelDirs').onchange = () => {
+      state.configData.onnx.model_dirs = Array.from($('modelDirs').selectedOptions).map(o => o.value);
+      markDirty();
+    };
+  } catch (e) { /* 无模型目录时静默留空 */ }
+}
+
+async function saveConfig() {
+  const name = prompt('配置名（字母/数字/下划线/连字符）:', state.configRef && !state.configRef.endsWith('.yaml') ? state.configRef : 'my-config');
+  if (!name) return;
+  const r = await fetch('/api/configs/' + encodeURIComponent(name), {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(state.configData),
+  });
+  const body = await r.json();
+  if (body.error) { showErr('保存失败: ' + body.error); return; }
+  localStorage.setItem('docanon.config', name);
+  await loadConfigs();
+}
+
+$('saveCfg').onclick = saveConfig;
+$('exportCfg').onclick = () => { if (state.configRef) location.href = '/api/configs/' + encodeURIComponent(state.configRef) + '/export'; };
+$('importCfg').onclick = () => $('cfgFile').click();
+$('cfgFile').onchange = async () => {
+  const f = $('cfgFile').files[0]; if (!f) return;
+  const buf = new Uint8Array(await f.arrayBuffer());
+  let s = ''; for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+  const r = await fetch('/api/configs/import', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename: f.name, content_b64: btoa(s) }) });
+  const body = await r.json();
+  if (body.error) { showErr('导入失败: ' + body.error); return; }
+  await loadConfigs();
+};
 
 async function loadConfigData(ref) {
   try {

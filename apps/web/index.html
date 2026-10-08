@@ -36,6 +36,31 @@
       <label class="hint" for="cfgSel" style="display:block;margin-top:10px">脱敏口径</label>
       <select id="cfgSel" style="width:100%"></select>
       <div id="cfgMeta" class="hint" style="margin-top:4px"></div>
+      <details id="advRedact" style="margin-top:8px">
+        <summary>自定义脱敏</summary>
+        <label style="display:block;margin:6px 0">
+          <input type="checkbox" id="fakeNames"> 用假名替代人名/机构
+        </label>
+        <table id="stratTable" class="mini-table"></table>
+        <label class="hint" for="dictInput">自定义敏感词（逗号分隔）</label>
+        <input type="text" id="dictInput" style="width:100%">
+      </details>
+      <details id="advEngines" style="margin-top:8px">
+        <summary>检测引擎</summary>
+        <div id="detBox" style="margin:6px 0"></div>
+        <label class="hint" for="modelDirs">ONNX 模型目录（可多选）</label>
+        <select id="modelDirs" multiple size="3" style="width:100%"></select>
+        <label class="hint" for="llmUrl">LLM 地址</label>
+        <input type="text" id="llmUrl" style="width:100%">
+        <label class="hint" for="llmModel">LLM 模型名</label>
+        <input type="text" id="llmModel" style="width:100%">
+      </details>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="ghost" id="saveCfg" style="flex:1">保存为…</button>
+        <button class="ghost" id="importCfg" style="flex:1">导入</button>
+        <button class="ghost" id="exportCfg" style="flex:1">导出</button>
+      </div>
+      <input type="file" id="cfgFile" accept=".yaml,.yml" class="hidden">
       <button id="run" style="width:100%;margin-top:8px" disabled>开始脱敏</button>
       <input type="file" id="file" class="hidden" />
     </div>
