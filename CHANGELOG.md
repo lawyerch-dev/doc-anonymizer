@@ -10,12 +10,18 @@
 - **默认脱敏口径改为 `**`**：新增 `redact` 策略（把整段原文盖成 `**`），人名/机构/自定义词/兜底类型默认走它，
   不再生成"像真的假名/假公司"——此前的 `华信集团` 式假名会让人误以为没脱敏。`pseudonym`（可信假名）
   改为**显式配置才用**。`configs/{default,onnx,llm}.yaml` 的策略词表已同步。
-- **Web 可选脱敏口径（方案 A）**：新增 `GET /api/configs` 与 `/api/anonymize` 的 `config` 入参；
-  Web 左侧加「脱敏口径」下拉，在 `configs/*.yaml` 间切换（不用重启，选择记在浏览器本地），
-  配置不可用时返回 400 + 原因（缺模型/起不来不静默）。
 
 ### Added
 
+- **Web 分层脱敏配置**：Web 的"口径"从"选一个 `configs/*.yaml`"升级为**三层渐进披露** ——
+  L1 口径（内置预设只读 + 我的配置）→ L2 逐类型策略 + 自定义词典 → L3 检测器/模型。新增
+  `GET /api/configs`（列内置+用户、标当前）· `GET /api/configs/{ref}` · `PUT`/`DELETE /api/configs/{name}`
+  （内置拒改/拒删）· `GET /api/configs/{name}/export` · `POST /api/configs/import` · `GET /api/models`；
+  `/api/anonymize` 的 `config` 可为配置名或**内联对象**（改完即测，满意再存）。用户配置原子写入
+  `var/configs/<name>.yaml`（与内置同 schema，复用 `load_config`）；运行期 `prepare_detectors` 预检，
+  缺引擎返回 400 + 原因（不静默少一层）。设计与决策：
+  [设计](docs/specs/2026-10-08-redaction-config-design.md) ·
+  [笔记](.agent/notes/implemented/feature/2026-10-08-web-redaction-config.md)。
 - **旧版 Office（`.doc`/`.xls`/`.wps`）自动转换**：抽取层借 LibreOffice 先转成 `.docx`/`.xlsx` 再脱敏，
   soffice 走"系统优先 → `var/libreoffice`（`scripts/fetch_libreoffice.sh`）"。产物的格式因此改变，
   账本（`converted`/`source_suffix`/`output_format`）、CLI 与 Web `trace` 都会标明"版式可能被重排"；

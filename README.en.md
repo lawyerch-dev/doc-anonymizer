@@ -125,12 +125,33 @@ files produced no result (unsupported format / failed extraction / interrupted) 
 ```
 
 Pick a sample or upload → preview the original → redact → compare side by side + hit counts; the "Run log"
-traces every hit back to its source (which engine, where, what matched, what it was replaced with). The
-"Redaction preset" dropdown on the left switches between `configs/*.yaml` (no restart; the choice is kept in
-the browser). It listens on `127.0.0.1` only, with no auth (for local, single-user use).
+traces every hit back to its source (which engine, where, what matched, what it was replaced with). It listens
+on `127.0.0.1` only, with no auth (for local, single-user use).
 
-Endpoints: `/` `/app.css` `/app.js` `/health` `/api/presets` `/api/configs` `/api/upload` `/api/anonymize`
-(`/api/upload` takes `{filename, content_b64}`; `/api/anonymize` takes `{preset|token, config?}` and returns `counts` and `trace`; uploads are capped at 50MB).
+**The redaction preset is layered in three levels** (progressive disclosure — casual users only ever touch L1):
+
+- **L1 preset**: choose between **built-in presets** (`configs/*.yaml`, read-only) and **my configs**
+  (`var/configs/<name>.yaml`); create / save-as / export / import. The current preset name and its saved state
+  are shown on the right.
+- **L2 custom redaction**: per-type strategy (`redact` `**` / `mask` `138****0000` / `placeholder` /
+  `pseudonym` / `remove` / `keep`, each row with a worked example) + custom sensitive words; the
+  "use pseudonyms for people/orgs" switch merely flips the matrix between `redact` and `pseudonym`
+  (it introduces no second representation).
+- **L3 detection engines**: tick detectors (`rule` / `dictionary` / `onnx_ner` / `llm_ner`), pick ONNX model
+  dirs, set the LLM base URL / model.
+
+Edit and **try a run inline with the current editor contents** (no need to save first); name and save or export
+once happy. Engine pre-check runs at run time — a missing model / unreachable LLM returns 400 + a reason
+(never silently dropping a layer); the list endpoint does **not** pre-check (so it never loads ONNX each call).
+User configs share the built-in schema and live in the gitignored `var/configs/`; **built-ins are read-only**
+(no edit, no delete).
+
+Endpoints: `/` `/app.css` `/app.js` `/health` `/api/presets` `/api/configs` `/api/configs/{ref}` `/api/models`
+`/api/upload` `/api/anonymize` (plus `PUT`/`DELETE /api/configs/{name}`, `POST /api/configs/import`,
+`GET /api/configs/{name}/export`). `/api/configs` lists built-in + user and marks the current one; `/api/models`
+reports the selectable ONNX dirs and LLM defaults; `/api/upload` takes `{filename, content_b64}`;
+`/api/anonymize` takes `{preset|token, config?}`, where `config` is a **config name** or an **inline object**,
+and returns `counts` and `trace`; uploads are capped at 50MB.
 
 ### Website & docs site (optional)
 
@@ -252,6 +273,7 @@ for choosing between them, and for benchmark numbers, see [docs/benchmarks.md](d
 | how to report a missed redaction or another security issue | [SECURITY.md](.github/SECURITY.md) |
 | the original design document (historical) | [docs/specs/2026-10-05-doc-anonymizer-design.md](docs/specs/2026-10-05-doc-anonymizer-design.md) |
 | the legacy-format auto-conversion design and decision | [design](docs/specs/2026-10-08-legacy-office-conversion-design.md) · [decision note](.agent/notes/implemented/feature/2026-10-08-legacy-office-conversion.md) |
+| the layered web redaction-config design and decision | [design](docs/specs/2026-10-08-redaction-config-design.md) · [decision note](.agent/notes/implemented/feature/2026-10-08-web-redaction-config.md) |
 
 [MIT](LICENSE) © 2026 [LawyerCH](https://github.com/LawyerCH) ·
 thanks to [RapidOCR](https://github.com/RapidAI/RapidOCR), [pypdfium2](https://github.com/pypdfium2-team/pypdfium2),

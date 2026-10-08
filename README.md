@@ -122,11 +122,26 @@ flowchart TB
 ```
 
 选示例或上传 → 预览原文 → 脱敏 → 对照预览 + 命中统计；「运行日志」给逐条溯源
-（哪个引擎、在哪个位置、命中什么、替换成什么）。左侧「脱敏口径」下拉可在 `configs/*.yaml` 间切换
-（不用重启；选择记在浏览器本地）。仅监听 `127.0.0.1`、无鉴权（本机自用）。
+（哪个引擎、在哪个位置、命中什么、替换成什么）。仅监听 `127.0.0.1`、无鉴权（本机自用）。
 
-接口：`/` `/app.css` `/app.js` `/health` `/api/presets` `/api/configs` `/api/upload` `/api/anonymize`
-（`/api/upload` 入参 `{filename, content_b64}`；`/api/anonymize` 入参 `{preset|token, config?}`，出参含 `counts` 与 `trace`；上传上限 50MB）。
+**脱敏口径分三层**（渐进披露，普通用户只用第一层）：
+
+- **L1 口径**：在**内置预设**（`configs/*.yaml`，只读）与**我的配置**（`var/configs/<名>.yaml`）间选择，
+  可新建 / 另存为 / 导出 / 导入；右侧显示当前口径名与是否已保存。
+- **L2 自定义脱敏**：逐类型策略（`redact` `**` / `mask` `138****0000` / `placeholder` / `pseudonym` /
+  `remove` / `keep`，每行带效果示例）+ 自定义敏感词；「用假名替代人名/机构」开关只把 `redact` 与
+  `pseudonym` 之间批量切矩阵（不引入第二种表达）。
+- **L3 检测引擎**：勾选检测器（`rule` / `dictionary` / `onnx_ner` / `llm_ner`）、选 ONNX 模型目录、填 LLM 地址/模型。
+
+改完**直接用当前编辑器内容内联试跑**（不必先存盘），满意再命名保存或导出。运行期做引擎预检：缺模型 /
+连不上 LLM 返回 400 + 原因（不静默少一层）；列表接口**不**预检（不每次加载 ONNX）。
+用户配置与内置**同 schema**，落在已 gitignore 的 `var/configs/`；**内置只读**（拒改拒删）。
+
+接口：`/` `/app.css` `/app.js` `/health` `/api/presets` `/api/configs` `/api/configs/{ref}` `/api/models`
+`/api/upload` `/api/anonymize`（另 `PUT`/`DELETE /api/configs/{name}`、`POST /api/configs/import`、
+`GET /api/configs/{name}/export`）。`/api/configs` 列内置+用户并标当前；`/api/models` 报可选 ONNX 目录与
+LLM 默认；`/api/upload` 入参 `{filename, content_b64}`；`/api/anonymize` 入参 `{preset|token, config?}`，
+`config` 可为**配置名**或**内联对象**，出参含 `counts` 与 `trace`；上传上限 50MB。
 
 ### 官网与文档站（可选）
 
@@ -231,6 +246,7 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 | 漏脱敏等安全问题怎么报 | [SECURITY.md](.github/SECURITY.md) |
 | 最初的设计方案（历史） | [docs/specs/2026-10-05-doc-anonymizer-design.md](docs/specs/2026-10-05-doc-anonymizer-design.md) |
 | 旧格式自动转换的设计与决策 | [设计](docs/specs/2026-10-08-legacy-office-conversion-design.md) · [决策笔记](.agent/notes/implemented/feature/2026-10-08-legacy-office-conversion.md) |
+| Web 分层脱敏配置的设计与决策 | [设计](docs/specs/2026-10-08-redaction-config-design.md) · [决策笔记](.agent/notes/implemented/feature/2026-10-08-web-redaction-config.md) |
 
 [MIT](LICENSE) © 2026 [LawyerCH](https://github.com/LawyerCH) ·
 致谢 [RapidOCR](https://github.com/RapidAI/RapidOCR)、[pypdfium2](https://github.com/pypdfium2-team/pypdfium2)、

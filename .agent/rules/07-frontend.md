@@ -31,3 +31,17 @@
   `website/src/lib/site.ts` 的 `url()`（守卫会拦）；Starlight 自生成的链接跟着 `base` 走。
 - 唯一的 CI 就是[部署文档站](../../.github/workflows/deploy-website.yml)：先跑门禁再发布 Pages。
   详细步骤（含子路径预览的验证方法）见 [`docs/cookbook/shipping-the-website.md`](../../docs/cookbook/shipping-the-website.md)。
+
+## Web 配置面（分层脱敏口径）
+
+`docanon web` 的"口径"不是选一个 yaml，而是**三层渐进披露**：L1 口径（内置预设只读 / 我的配置）→
+L2 逐类型策略 + 词典 → L3 检测器/模型。校验与落盘集中在
+`packages/docanon-core/src/docanon_core/server/profiles.py`（纯函数 + 文件读写），`routes.py` 只做 HTTP 胶水。
+
+- **内置只读**：`configs/*.yaml` 只能读；用户配置写 `var/configs/<name>.yaml`（与内置**同 schema**，
+  复用 `load_config`），名字 `^[A-Za-z0-9_-]{1,32}$`（不含点 → 不与内置撞名、杜绝穿越），**原子写**。
+- **内联试跑**：`/api/anonymize` 的 `config` 可为配置名（旧行为）或**内联对象**；改完即测，满意再保存/导出。
+- **预检语义**：列表接口**不**预检；**运行**时 `prepare_detectors` 预检，缺引擎/模型返回 **400 + 原因**，
+  绝不静默少一层。保存只做结构校验（换台机器/后补模型仍可用）。
+- 不暴露 OCR、产物命名等"静默少一层"或属契约（非偏好）的选项。
+- 为什么用户配置放 `var/`、为什么 L1 是模板：[决策记录](../notes/implemented/feature/2026-10-08-web-redaction-config.md)。
