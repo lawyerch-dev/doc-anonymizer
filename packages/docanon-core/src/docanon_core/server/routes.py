@@ -217,12 +217,15 @@ class Handler(BaseHTTPRequestHandler):
             _CONFIG_CACHE[name] = cfg
         return cfg, name
 
+    def _read_json(self) -> dict:
+        length = int(self.headers.get("Content-Length", 0))
+        return json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+
     # ---------- POST ----------
     def do_POST(self) -> None:  # noqa: N802
         p = self._path()
         try:
-            length = int(self.headers.get("Content-Length", 0))
-            payload = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+            payload = self._read_json()
         except Exception as exc:  # noqa: BLE001
             self._json(400, {"error": f"请求解析失败: {exc}"})
             return
@@ -230,8 +233,56 @@ class Handler(BaseHTTPRequestHandler):
             self._upload(payload)
         elif p == "/api/anonymize":
             self._anonymize(payload)
+        elif p == "/api/configs/import":
+            self._import_config(payload)
         else:
             self._send(404, b"not found", "text/plain")
+
+    # ---------- 配置写入 ----------
+    def do_PUT(self) -> None:  # noqa: N802
+        p = self._path()
+        if not p.startswith("/api/configs/"):
+            self._send(404, b"not found", "text/plain")
+            return
+        try:
+            payload = self._read_json()
+        except Exception as exc:  # noqa: BLE001
+            self._json(400, {"error": f"请求解析失败: {exc}"})
+            return
+        name = p[len("/api/configs/"):]
+        try:
+            profiles.save_profile(name, payload)
+        except profiles.ProfileError as exc:
+            self._json(400, {"error": str(exc)})
+            return
+        self._json(200, {"saved": True, "name": name})
+
+    def do_DELETE(self) -> None:  # noqa: N802
+        p = self._path()
+        if not p.startswith("/api/configs/"):
+            self._send(404, b"not found", "text/plain")
+            return
+        ref = p[len("/api/configs/"):]
+        try:
+            if profiles.is_builtin(ref):
+                raise profiles.ProfileError(f"内置配置只读, 不能删除: {ref}")
+            profiles.delete_profile(ref)
+        except profiles.ProfileError as exc:
+            self._json(400, {"error": str(exc)})
+            return
+        self._json(200, {"deleted": ref})
+
+    def _import_config(self, payload: dict) -> None:
+        try:
+            text = base64.b64decode(payload["content_b64"]).decode("utf-8")
+            name = profiles.import_yaml(Path(payload["filename"]).name, text)
+        except profiles.ProfileError as exc:
+            self._json(400, {"error": str(exc)})
+            return
+        except Exception as exc:  # noqa: BLE001
+            self._json(400, {"error": f"导入失败: {exc}"})
+            return
+        self._json(200, {"name": name})
 
     def _upload(self, payload: dict) -> None:
         try:

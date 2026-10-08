@@ -256,3 +256,50 @@ def test_api_config_user_profile_roundtrip(tmp_path, ephemeral_server):
     ) as resp:
         assert resp.status == 200
         assert "PERSON: redact" in resp.read().decode("utf-8")
+
+
+def _request(base, path, method, payload=None):
+    data = json.dumps(payload).encode() if payload is not None else None
+    req = urllib.request.Request(base + path, data=data, method=method,
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read())
+
+
+def test_put_save_then_get_and_delete(tmp_path, ephemeral_server):
+    data = _get(ephemeral_server, "/api/configs/default.yaml")["data"]
+    data["strategies"]["PERSON"] = "pseudonym"
+
+    assert _request(ephemeral_server, "/api/configs/mine", "PUT", data)["saved"] is True
+    got = _get(ephemeral_server, "/api/configs/mine")["data"]
+    assert got["strategies"]["PERSON"] == "pseudonym"
+
+    _request(ephemeral_server, "/api/configs/mine", "DELETE")
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        _get(ephemeral_server, "/api/configs/mine")
+    assert excinfo.value.code == 404
+
+
+def test_put_rejects_bad_structure(ephemeral_server):
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        _request(ephemeral_server, "/api/configs/mine", "PUT",
+                 {"strategies": {"PERSON": "shred"}})
+    assert excinfo.value.code == 400
+    assert "未知策略值" in json.loads(excinfo.value.read())["error"]
+
+
+def test_delete_builtin_is_rejected(ephemeral_server):
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        _request(ephemeral_server, "/api/configs/default.yaml", "DELETE")
+    assert excinfo.value.code == 400
+
+
+def test_import_yaml_creates_user_profile(ephemeral_server):
+    import base64
+    text = "strategies:\n  ORG: redact\ndetectors:\n  rule: true\n"
+    body = _post(ephemeral_server, "/api/configs/import", {
+        "filename": "imported.yaml",
+        "content_b64": base64.b64encode(text.encode()).decode(),
+    })
+    assert body["name"] == "imported"
+    assert _get(ephemeral_server, "/api/configs/imported")["data"]["strategies"]["ORG"] == "redact"
