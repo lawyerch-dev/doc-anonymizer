@@ -27,6 +27,7 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 RECORDS = [
     REPO / "docs" / "specs" / "2026-10-05-doc-anonymizer-design.md",
     REPO / "docs" / "specs" / "2026-10-08-legacy-office-conversion-design.md",
+    REPO / "docs" / "specs" / "2026-10-08-redaction-config-design.md",
     REPO / "CHANGELOG.md",
 ]
 
