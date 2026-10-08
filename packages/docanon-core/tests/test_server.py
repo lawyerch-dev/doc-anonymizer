@@ -229,3 +229,30 @@ def test_api_models_lists_onnx_dirs_and_llm_defaults(ephemeral_server):
     body = _get(ephemeral_server, "/api/models")
     assert isinstance(body["onnx_dirs"], list)
     assert body["llm"]["base_url"].startswith("http")
+
+
+def test_api_config_export_builtin_yaml(ephemeral_server):
+    with urllib.request.urlopen(
+        ephemeral_server + "/api/configs/onnx.yaml/export", timeout=5
+    ) as resp:
+        assert resp.status == 200
+        assert "yaml" in resp.headers.get("Content-Type", "")
+        assert "strategies" in resp.read().decode("utf-8")
+
+
+def test_api_config_user_profile_roundtrip(tmp_path, ephemeral_server):
+    d = tmp_path / "var" / "configs"
+    d.mkdir(parents=True)
+    (d / "mine.yaml").write_text(
+        "strategies:\n  PERSON: redact\ndetectors:\n  rule: true\n", encoding="utf-8"
+    )
+
+    body = _get(ephemeral_server, "/api/configs/mine")
+    assert body["kind"] == "user"
+    assert body["data"]["strategies"]["PERSON"] == "redact"
+
+    with urllib.request.urlopen(
+        ephemeral_server + "/api/configs/mine/export", timeout=5
+    ) as resp:
+        assert resp.status == 200
+        assert "PERSON: redact" in resp.read().decode("utf-8")

@@ -63,11 +63,14 @@ def ephemeral_server(tmp_path, monkeypatch) -> Iterator[str]:
     """
     from docanon_core import server
     from docanon_core.config import load_config
+    from docanon_core.server import profiles
 
     monkeypatch.setattr(server.Handler, "out_root", tmp_path)
     monkeypatch.setattr(server.Handler, "config", load_config())
     # serve() 会记住启动用的配置名(前端要标"当前口径"), 测试里对齐一下
     monkeypatch.setattr(server.Handler, "config_name", "default.yaml")
+    # 用户配置落盘到 tmp_path: 测试不会读到/污染真实的 var/configs
+    monkeypatch.setattr(profiles, "user_dir", lambda: tmp_path / "var" / "configs")
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
