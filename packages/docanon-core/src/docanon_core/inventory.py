@@ -42,6 +42,13 @@ def list_engines(config) -> list[dict]:
         for r in describe_detector(name, config):
             rows.append({"kind": "检测器", **r})
     for cls in extractor_classes():
-        rows.append({"kind": "抽取器", "name": cls.name, "status": "已登记",
-                     "capabilities": list(cls.extensions)})
+        try:
+            reason = cls().ready()
+        except Exception as exc:  # noqa: BLE001
+            reason = f"加载失败: {exc}"
+        rows.append({
+            "kind": "抽取器", "name": cls.name,
+            "status": "已登记" if reason is None else f"不可用: {reason}",
+            "capabilities": list(cls.extensions),
+        })
     return rows

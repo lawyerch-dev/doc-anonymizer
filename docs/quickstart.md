@@ -51,16 +51,18 @@ npm run cli -- restore var/out/sample.md.redacted.md --mapping var/out/mapping.j
 |---|---|---|
 | 只要规则 + 词典（最快） | `configs/default.yaml`（不带 `-c` 就是它） | 无 |
 | **交出去的材料**（只抹身份证/银行卡/手机/住址，机构、人名、角色、日期、金额一律不动） | `-c configs/legal.yaml` | `npm run models`（只为了取地址） |
-| 人名/机构也一起换（对外讲课、写案例） | `-c configs/onnx.yaml` | `npm run models` |
+| 人名/机构也一起打掉为 `**`（对外讲课、写案例） | `-c configs/onnx.yaml` | `npm run models` |
 | 更灵活的实体识别 | `-c configs/llm.yaml` | `./scripts/download_model.sh` + `./scripts/serve_llm.sh` |
 
-**选哪份取决于材料要不要能用**：`onnx.yaml` 会把法院、律所、当事人姓名、判决日期也换掉，
+**选哪份取决于材料要不要能用**：`onnx.yaml` 会把法院、律所、当事人姓名、判决日期也打成 `**`，
 判决书/裁定书这类材料抹完就没法提交了；交付场景用 `configs/legal.yaml`（它把不能动的类型全设成
 `keep`，见 [README「配置」](../README.md#配置)）。
 
 ## 常见问题
 
 - **预览区空白** → 没拉预览资源：`./scripts/fetch_file_viewer.sh`。
+- **`.doc`/`.xls`/`.wps` 报 unsupported** → 缺 LibreOffice：`./scripts/fetch_libreoffice.sh`（或装系统版）；
+  有它则自动转成 `.docx`/`.xlsx` 再脱敏（产物格式变了、版式可能重排，交付前人工对一遍；要关掉设 `legacy_convert: false`）。
 - **报资源根/缺前端页面** → 非 editable 安装：设 `DOCANON_ROOT=/path/to/doc-anonymizer`。
 - **某个引擎不可用** → 看它给的原因（ONNX 缺模型 / LLM 没起 server）；也可先把它在配置里置 `false`。
 - **退出码 2** → 有文件没产出结果：看 `manifest.json` 里的 `error` / `unsupported`，不是跑坏了。

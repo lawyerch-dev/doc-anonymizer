@@ -48,6 +48,7 @@ class Config:
     strategies: dict[str, str] = field(default_factory=dict)
     dictionary: list[str] = field(default_factory=list)
     detectors: dict[str, bool] = field(default_factory=dict)
+    legacy_convert: bool = True
     llm: LLMConfig = field(default_factory=LLMConfig)
     onnx: OnnxConfig = field(default_factory=OnnxConfig)
     raw: dict = field(default_factory=dict)
@@ -78,6 +79,7 @@ def load_config(path: str | Path | None = None) -> Config:
         strategies=data.get("strategies", {}) or {},
         dictionary=data.get("dictionary", []) or [],
         detectors=data.get("detectors", {}) or {},
+        legacy_convert=bool(data.get("legacy_convert", True)),
         llm=LLMConfig(
             base_url=llm_raw.get("base_url", LLMConfig.base_url),
             model=llm_raw.get("model", LLMConfig.model),

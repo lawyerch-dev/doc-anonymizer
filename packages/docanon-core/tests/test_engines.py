@@ -126,3 +126,25 @@ def test_missing_config_is_an_error_not_a_fallback(tmp_path):
 
     assert code == 1, "读不到指定配置却按内置默认跑, 就是少一层检测还报成功"
     assert not (tmp_path / "out").exists()
+
+
+def test_engines_reports_legacy_office_status(monkeypatch):
+    """旧格式抽取器要如实自述可用性(缺 soffice 就说原因), 而不是一律"已登记"。"""
+    from docanon_core import inventory
+    from docanon_core.config import Config
+
+    monkeypatch.setattr("docanon_core.convert.find_soffice", lambda: None)
+    rows = {r["name"]: r for r in inventory.list_engines(Config(detectors={}))}
+    assert rows["legacy_office"]["status"].startswith("不可用")
+    assert "LibreOffice" in rows["legacy_office"]["status"]
+
+
+def test_engines_exit_ok_when_only_optional_converter_missing(tmp_path, monkeypatch):
+    """可选转换器(旧格式)缺席不该把整份引擎清单判成失败 —— 报告 ≠ 门禁。"""
+    monkeypatch.setattr("docanon_core.convert.find_soffice", lambda: None)
+    cfg = tmp_path / "cfg.yaml"
+    cfg.write_text("detectors: {rule: true}\n", encoding="utf-8")
+
+    code = main(["engines", "-c", str(cfg)])
+
+    assert code == 0

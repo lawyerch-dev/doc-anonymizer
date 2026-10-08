@@ -5,6 +5,7 @@ from docanon_engine_ocr import ImageExtractor
 from .pdf import PDFExtractor
 from .table import TableExtractor
 from .text_file import DocxExtractor, TextFileExtractor
+from .legacy_office import LegacyOfficeExtractor
 
 __all__ = [
     "Extractor",
@@ -14,5 +15,6 @@ __all__ = [
     "DocxExtractor",
     "PDFExtractor",
     "TableExtractor",
+    "LegacyOfficeExtractor",
     "ImageExtractor",
 ]

@@ -12,7 +12,7 @@
 npm run setup          # 一键装齐: Python venv + 五个包 + 预览资源 + npm install
 npm run dev            # 产品界面 → :8000
 npm run dev:website    # 官网/文档站 → :4321
-npm test               # 一键全测: Python（144 项，约 8 秒）+ 组件库检查 + 文档站构建
+npm test               # 一键全测: Python（171 项，约 11 秒）+ 组件库检查 + 文档站构建
 npm run doctor         # 环境自检: 缺什么、为什么起不来
 ```
 

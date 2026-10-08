@@ -6,8 +6,8 @@
 /** @typedef {{name:string, url:string, size:number, preview:boolean}} Preset */
 /** @typedef {{entity_type:string, source:string, strategy:string, original:string,
  *             replacement?:string, locator:Record<string, any>}} Detection */
-/** @typedef {{source:string, extractor:string, detectors:string[],
- *             timing:Record<string, number>, detections:Detection[]}} Trace */
+/** @typedef {{source:string, extractor:string, converted_from?:string, config?:string,
+ *             detectors:string[], timing:Record<string, number>, detections:Detection[]}} Trace */
 /** @typedef {{output_name:string, output_url:string, counts:Record<string, number>,
  *             kind:string, trace?:Trace, error?:string}} AnonymizeResp */
 /** @typedef {{token:string, filename:string, url:string, error?:string}} UploadResp */
@@ -15,7 +15,7 @@
 const FV = window.FlyfishFileViewerWebFull;
 if (FV && FV.setDefaultFullAssetBaseUrl) FV.setDefaultFullAssetBaseUrl(new URL('/file-viewer/', location.href).href);
 
-const state = { preset: null, token: null, filename: null, url: null, trace: null, logOpen: false };
+const state = { preset: null, token: null, filename: null, url: null, trace: null, logOpen: false, config: null };
 const $ = id => document.getElementById(id);
 const TEXT_EXT = ['txt', 'md', 'markdown', 'csv'];
 
@@ -108,6 +108,26 @@ async function loadPresets() {
 
 $('refresh').onclick = loadPresets;
 
+async function loadConfigs() {
+  const sel = $('cfgSel');
+  try {
+    const { configs } = await (await fetch('/api/configs', { cache: 'no-store' })).json();
+    sel.innerHTML = '';
+    configs.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c.name;
+      o.textContent = c.label + (c.current ? '（当前）' : '');
+      sel.appendChild(o);
+    });
+    const saved = localStorage.getItem('docanon.config');
+    const pick = configs.find(c => c.name === saved) || configs.find(c => c.current) || configs[0];
+    if (pick) { sel.value = pick.name; state.config = pick.name; }
+    sel.onchange = () => { state.config = sel.value; localStorage.setItem('docanon.config', sel.value); };
+  } catch (e) {
+    sel.innerHTML = '<option>配置加载失败</option>';
+  }
+}
+
 $('upload').onclick = () => $('file').click();
 $('file').onchange = async () => {
   const f = $('file').files[0]; if (!f) return;
@@ -130,6 +150,7 @@ $('run').onclick = async () => {
   $('err').classList.add('hidden');
   try {
     const body = state.preset ? { preset: state.preset } : { token: state.token };
+    if (state.config) body.config = state.config;
     const resp = await (await fetch('/api/anonymize', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body) })).json();
     if (resp.error) throw new Error(resp.error);
@@ -161,8 +182,10 @@ function renderOpDetails(resp) {
   const types = Object.keys(c).join('+') || '无命中';
   const t = (resp.trace && resp.trace.timing) || {};
   const ms = t.total_ms != null ? Math.round(t.total_ms) + 'ms' : '';
+  const converted = resp.trace && resp.trace.converted_from;
   $('opDetails').textContent =
-    '已脱敏 ' + resp.output_name + ' · 类型 ' + types + ' · 命中 ' + totalCounts(c) + ' · ' + ms;
+    '已脱敏 ' + resp.output_name + ' · 类型 ' + types + ' · 命中 ' + totalCounts(c) + ' · ' + ms +
+    (converted ? ' · 已由 ' + converted + ' 转换, 版式可能被重排' : '');
   $('opDetails').title = JSON.stringify(c);
 }
 
@@ -179,6 +202,10 @@ function renderLog(tr) {
   const meta =
     '<div class="meta">' +
     '源文件 <code>' + esc(tr.source) + '</code> · 抽取器 <code>' + esc(tr.extractor) + '</code> · ' +
+    (tr.converted_from
+      ? '已由 <code>' + esc(tr.converted_from) + '</code> 转换(版式可能被重排) · '
+      : '') +
+    (tr.config ? '口径 <code>' + esc(tr.config) + '</code> · ' : '') +
     '检测器 <code>' + esc((tr.detectors || []).join(' + ')) + '</code><br>' +
     '耗时: 抽取 ' + (t.extract_ms ?? '-') + 'ms · 检测 ' + (t.detect_ms ?? '-') + 'ms · ' +
     '回写 ' + (t.write_ms ?? '-') + 'ms · 合计 <b>' + (t.total_ms ?? '-') + 'ms</b>' + keptText +
@@ -216,3 +243,4 @@ function showErr(msg) { const e = $('err'); e.textContent = msg; e.classList.rem
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 loadPresets();
+loadConfigs();

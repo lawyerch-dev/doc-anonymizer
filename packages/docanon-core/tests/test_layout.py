@@ -22,6 +22,7 @@ def test_accessors_go_through_the_layout_table():
     assert resources.web_index() == resources.path("web") / "index.html"
     assert resources.vendor_dir() == resources.path("vendor")
     assert resources.samples_dir() == resources.path("samples")
+    assert resources.libreoffice_dir() == resources.path("libreoffice")
     assert resources.config_path("default.yaml") == resources.path("configs") / "default.yaml"
 
 

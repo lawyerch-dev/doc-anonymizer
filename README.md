@@ -30,6 +30,7 @@
 - **中文优先**：规则 + 中文词典 + 中文 NER（ONNX）三路并用。
 - **全离线**：无云端调用；可选的 LLM 路线也只连本机 `llama-server`。
 - **保留原格式**：docx 按 run 改写、xlsx/csv 改单元格、pdf/图片涂黑，前后可左右对照。
+- **旧版 Office 也收**：`.doc`/`.xls`/`.wps` 自动经 LibreOffice 转成现代格式再脱敏（产物格式随之改变，账本与界面会标明）。
 - **召回优先**：拿不准的一律标出，命中位置与来源可查。
 - **可还原**：`mapping.json` 记「原文 ↔ 替换值」，`restore` 还原文本产物。
 - **不许静默少一层**：引擎起不来就在跑前报错退出，不产出"少了识别"的结果。
@@ -121,10 +122,11 @@ flowchart TB
 ```
 
 选示例或上传 → 预览原文 → 脱敏 → 对照预览 + 命中统计；「运行日志」给逐条溯源
-（哪个引擎、在哪个位置、命中什么、替换成什么）。仅监听 `127.0.0.1`、无鉴权（本机自用）。
+（哪个引擎、在哪个位置、命中什么、替换成什么）。左侧「脱敏口径」下拉可在 `configs/*.yaml` 间切换
+（不用重启；选择记在浏览器本地）。仅监听 `127.0.0.1`、无鉴权（本机自用）。
 
-接口：`/` `/app.css` `/app.js` `/health` `/api/presets` `/api/upload` `/api/anonymize`
-（后两个入参 `{filename, content_b64}` / `{preset|token}`，出参含 `counts` 与 `trace`；上传上限 50MB）。
+接口：`/` `/app.css` `/app.js` `/health` `/api/presets` `/api/configs` `/api/upload` `/api/anonymize`
+（`/api/upload` 入参 `{filename, content_b64}`；`/api/anonymize` 入参 `{preset|token, config?}`，出参含 `counts` 与 `trace`；上传上限 50MB）。
 
 ### 官网与文档站（可选）
 
@@ -159,6 +161,7 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 |---|---|---|
 | `.docx` | `x.docx.redacted.docx` | 按 run 改写文字（含超链接、内容控件、嵌套表格），保留格式 |
 | `.xlsx` / `.csv` | `x.xlsx.redacted.xlsx` | 改写单元格，保留表结构 |
+| `.doc` / `.xls` / `.wps`（旧版 Office） | `x.doc.redacted.docx` | 先由 LibreOffice 自动转成 `.docx`/`.xlsx` 再脱敏；**产物格式变了、版式可能被重排** |
 | `.pdf`（文字层） | `x.pdf.redacted.pdf` | 命中页涂黑（**该页变位图**） |
 | `.pdf`（扫描件）/ `.png` `.jpg` `.tiff` … | 同上 / `x.png.redacted.png` | OCR 定位后按字符宽度比例涂黑 |
 | `.txt` / `.md` | `x.txt.redacted.txt` | 按行替换纯文本 |
@@ -179,8 +182,10 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 把判决日期当生日一起抹掉，材料就交不出去了（实测过）。要抹哪个就列哪个，没列出的类型一律
 `keep`（"我说抹哪个就抹哪个"）；识别到但按配置保留的条数，在 Web 的「运行日志」里单独列出来。
 
-- 策略按实体类型配：`pseudonym`（同类同实体固定假名）/ `placeholder`（`<PHONE_1>`）/
-  `mask`（`138****0000`）/ `remove`（直接删）/ `keep`（**不动**，只为"别碰这类"而存在）。自定义词写在 `dictionary`，记为 `CUSTOM`。
+- 策略按实体类型配：`redact`（**整体盖成 `**`**，默认，绝不产出像真的内容）/ `mask`（`138****0000`）/
+  `placeholder`（`<PHONE_1>`）/ `pseudonym`（同类同实体固定假名，**只用在你显式配置时**）/ `remove`（直接删）/
+  `keep`（**不动**，只为"别碰这类"而存在）。人名/机构/自定义词默认走 `redact`（`**`），不再是"像真的假公司"。
+  自定义词写在 `dictionary`，记为 `CUSTOM`。
 - 配置里的相对路径（如 `onnx.model_dirs`）按**资源根**解析（从 `configs/default.yaml` 逐级向上找，
   可用 `DOCANON_ROOT` 指定），与 cwd 无关；命令行上的输入/输出路径按 cwd。
 
@@ -205,8 +210,9 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
   一起抹掉，但一个纯靠 URL 传递的邮箱或口令不在覆盖范围。
 - `restore` 只支持文本产物（txt/md/csv）；`remove` 删掉的原文没有锚点，无法还原。
 - 打码后同形的值（两个号码都 mask 成一样）会还原成错的原文。
-- `.doc` / `.xls` / `.wps` 不支持（记 `unsupported`，退出码 2）；先用 LibreOffice 转成 `.docx`/`.xlsx`
-  再跑（命令与注意点见 [`docs/cookbook/diagnosing-problems.md`](docs/cookbook/diagnosing-problems.md)）。GBK 的 CSV 需先转 UTF-8。
+- `.doc` / `.xls` / `.wps` 自动转成 `.docx`/`.xlsx` 再脱敏（需 LibreOffice）：`npm run doctor` 看 `soffice`
+  一行，缺就 `./scripts/fetch_libreoffice.sh`。产物格式因此变成 `.docx`/`.xlsx`，**版式可能被重排，交付前人工对一遍**；
+  没有 LibreOffice 时记 `unsupported`（退出码 2）。要关掉自动转换：配置 `legacy_convert: false`。GBK 的 CSV 需先转 UTF-8。
 - 输出目录不能放在输入目录里面，否则下一次 run 会把上次的 `.redacted.*` 当新文档再脱敏一遍。
 - **辅助人工复核，不保证零漏检**：OCR 错字、罕见写法都可能漏。交付前请人工过一遍，尤其扫描件与表格。
 
@@ -224,6 +230,7 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 | 版本变更 | [CHANGELOG.md](CHANGELOG.md) |
 | 漏脱敏等安全问题怎么报 | [SECURITY.md](.github/SECURITY.md) |
 | 最初的设计方案（历史） | [docs/specs/2026-10-05-doc-anonymizer-design.md](docs/specs/2026-10-05-doc-anonymizer-design.md) |
+| 旧格式自动转换的设计与决策 | [设计](docs/specs/2026-10-08-legacy-office-conversion-design.md) · [决策笔记](.agent/notes/implemented/feature/2026-10-08-legacy-office-conversion.md) |
 
 [MIT](LICENSE) © 2026 [LawyerCH](https://github.com/LawyerCH) ·
 致谢 [RapidOCR](https://github.com/RapidAI/RapidOCR)、[pypdfium2](https://github.com/pypdfium2-team/pypdfium2)、

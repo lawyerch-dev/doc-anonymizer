@@ -11,6 +11,7 @@ import argparse
 import sys
 import webbrowser
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 
 from ..config import load_config
 from ..pipeline import prepare_detectors
@@ -37,6 +38,7 @@ def serve(port: int = 8000, config_path: str | None = None, open_browser: bool =
         raise SystemExit(1)
     try:
         Handler.config = load_config(config_path)
+        Handler.config_name = Path(config_path).name if config_path else "default.yaml"
         # 预检: 引擎没准备好就别说"打开窗口点一下就知道失败了"
         prepare_detectors(Handler.config)
     except Exception as exc:  # noqa: BLE001

@@ -24,6 +24,10 @@ core 内部再分层：`extractors/` → `detectors/` → `redaction/`，外加 
   都吃这两个自述；缺方法的默认值会让它在清单里显示"什么都不认识"，这是故意的。
 - 加检测器 = 在 `docanon_core/detectors/base.py` 的 `DETECTORS` 登记一行 + 配置文件同名键打开。
   键名写错、或一个检测器都没开，都立刻报错，不许静默少一层。
+- 旧版 Office 转换走**抽取层**：`docanon_core/convert.py`（定位 soffice + headless 转换）+
+  `extractors/legacy_office.py`（转换后委托 Docx/Table 抽取器，`meta["out_ext"]` 显式给产物后缀）。
+  它**不是引擎**（不产 Block）；决策与被推翻的旧约定见
+  [`.agent/notes/implemented/feature/2026-10-08-legacy-office-conversion.md`](../../.agent/notes/implemented/feature/2026-10-08-legacy-office-conversion.md)。
 - **可搬运性是被跑出来的**：`tests/test_engine_portability.py` 把"契约+单个引擎"拷到别处 import；
   新增引擎包要同步那份测试里的 `ENGINES` 清单。
 - 不发布到包索引、也不用 entry points 发现引擎（发现失败 = 静默降级，与"少一层必须报错"冲突）。

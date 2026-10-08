@@ -7,6 +7,9 @@
 **资源根是找出来的**（逐级向上找含 `configs/default.yaml` 的目录），不是 `parents[N]` 猜的：
 找不到就抛 `ResourceRootError`，让你设 `DOCANON_ROOT`。
 
+- 可选资源按需下载、不进包：`var/libreoffice`（旧格式转换用，`scripts/fetch_libreoffice.sh` 取；
+  `convert.find_soffice` 顺序 = `DOCANON_SOFFICE` > 系统安装 > 这里）。
+
 - `-c` 的配置文件、`configs/*.yaml` 里的相对路径（如 `onnx.model_dirs`）按**资源根**解析；
   命令行上的输入/输出路径按**调用者 cwd**。
 - 配置读不到就报错（不许静默退化成空配置——那看起来和"没启用"一样，`packages/docanon-core/tests/test_resources.py` 锁两条）。

@@ -11,7 +11,7 @@
 | 网站构建失败 | `npm run build` | 第一条 error：Starlight 对 frontmatter/侧栏最挑 |
 | 子路径部署后 404 | 打开 `/doc-anonymizer/…` | 站内链接是不是写死了 `href="/…"`（要走 `url()`） |
 | PDF 涂黑了还能复制 | `python -c "…"` 抽文字，或 `pdftotext` | 命中页必须**整页栅格化**，不许留文字层 |
-| `.doc`/`.xls`/`.wps` 报 unsupported | `soffice --headless --convert-to docx --outdir converted 原文件.doc` | 转出的 `.docx` 放进输入目录再跑（`.xls` 换 `--convert-to xlsx`）。产物因此是 **.docx/.xlsx**，版式被 LibreOffice 重排过，交付前人工对一遍 —— 所以这一步不做成自动的 |
+| `.doc`/`.xls`/`.wps` 报 unsupported | `npm run doctor`（看 `soffice` 一行） | 缺 LibreOffice 才记 unsupported：`./scripts/fetch_libreoffice.sh`（或装系统版）。有它则**自动**转成 `.docx`/`.xlsx` 再脱敏 —— 产物因此**换格式、版式可能重排**，交付前人工对一遍；要关掉自动转换设 `legacy_convert: false` |
 
 1. **先复现**：用最小输入（`samples/` 里挑一个文件或一份构造的）跑出同样的症状。
 2. **再定位**：按上表跑到"谁报的错/谁没报错"。**没报错的地方就是嫌疑点** —— 本仓库的契约是

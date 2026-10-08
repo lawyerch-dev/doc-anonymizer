@@ -5,6 +5,8 @@
 - **三态**：`manifest.json` 里每个源文件是 `ok` / `error` / `unsupported`。
   **未脱敏不许报成已处理**；新格式/新抽取器必须走这三态并保留非零退出
   （`docanon_core/cli.py` 的 `EXIT_PARTIAL`）。依据是「召回优先（宁多勿漏）」。
+  旧格式转换成功的条目额外带 `source_suffix` / `output_format` / `converted: true`（产物的格式变了，要写明）；
+  缺 LibreOffice 的旧格式记 `unsupported` 并带 `reason`。
 - **退出码**：`0` 全部处理；`1` 输入/配置/引擎有问题（连输出目录都不建）；`2` 有文件没产出结果。
   `2` 是提示不是"跑坏了"（历史 `error`/`unsupported` 记录会让合并后的清单算成 2）。
 - **一个 `-o` 就是唯一真相**：`manifest.json`/`mapping.json` 按源文件**累加**（同一 `source` 只更新它那一条）。

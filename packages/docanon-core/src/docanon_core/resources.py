@@ -28,6 +28,7 @@ LAYOUT: dict[str, str] = {
     "vendor": "var/vendor/file-viewer",  # file-viewer 预览资源(可选, fetch_file_viewer.sh 下载)
     "samples": "samples",                     # 内置样例(Web 预设 + 测试数据)
     "models": "var/models",                      # 模型权重(可选, 下载得到)
+    "libreoffice": "var/libreoffice",   # 旧版 Office 转换用(可选, fetch_libreoffice.sh 下载)
     "scripts": "scripts",                     # 开发者脚本
 }
 
@@ -107,3 +108,7 @@ def samples_dir() -> Path:
 
 def models_dir() -> Path:
     return path("models")
+
+
+def libreoffice_dir() -> Path:
+    return path("libreoffice")

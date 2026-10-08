@@ -190,6 +190,23 @@ PY
     say "     → onnx_ner 起不来, 取模型: ./scripts/dev.sh models"
   fi
 
+  say "== 旧格式转换(LibreOffice) =="
+  local soffice_hit=""
+  if [ -n "${DOCANON_SOFFICE:-}" ] && [ -x "${DOCANON_SOFFICE}" ]; then
+    soffice_hit="DOCANON_SOFFICE=$DOCANON_SOFFICE"
+  elif command -v soffice >/dev/null 2>&1; then
+    soffice_hit="系统: $(command -v soffice)"
+  elif [ -x "/Applications/LibreOffice.app/Contents/MacOS/soffice" ]; then
+    soffice_hit="/Applications/LibreOffice.app"
+  elif [ -n "$(find var/libreoffice -name soffice -type f 2>/dev/null | head -n1)" ]; then
+    soffice_hit="var/libreoffice(下载)"
+  fi
+  if [ -n "$soffice_hit" ]; then
+    say "  $ok soffice            $soffice_hit"
+  else
+    say "  $no soffice            缺 —— .doc/.xls/.wps 将记 unsupported; 取: ./scripts/fetch_libreoffice.sh"
+  fi
+
   say "== 引擎(configs/onnx.yaml 实际加载了什么) =="
   if [ -x .venv/bin/docanon ]; then
     .venv/bin/docanon engines -c "$DEFAULT_CONFIG" || say "  (engines 自检没跑通, 上面就是原因)"

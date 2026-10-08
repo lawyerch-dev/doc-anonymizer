@@ -1,6 +1,7 @@
 """编排: 抽取 → 检测 → 合并 → 策略替换 → 回写。"""
 from __future__ import annotations
 
+import shutil
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,6 +25,8 @@ class ProcessResult:
     outputs: list[str] = field(default_factory=list)
     # 溯源信息
     extractor: str = ""
+    converted_from: str = ""   # 旧格式转换来源(如 ".doc"), 空表示未转换
+    output_format: str = ""    # 产物格式(如 "docx"), 空表示与源同格式
     detectors: list[str] = field(default_factory=list)
     detections: list[dict] = field(default_factory=list)
     timing: dict[str, float] = field(default_factory=dict)
@@ -78,6 +81,10 @@ _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
 
 
 def _out_ext(doc: ExtractedDoc, path: Path) -> str:
+    # 抽取器可以显式指定产物后缀(如 .xls -> .xlsx, 否则会回落成源后缀 .xls 骗人)
+    explicit = doc.meta.get("out_ext")
+    if explicit:
+        return explicit
     fmt = doc.meta.get("format")
     if fmt in _EXT_BY_FORMAT:
         return _EXT_BY_FORMAT[fmt]
@@ -92,55 +99,64 @@ def process_file(
     rel: Path | None = None,
 ) -> ProcessResult:
     t0 = time.perf_counter()
-    extractor = build_extractor(path)
+    extractor = build_extractor(path, allow_legacy=config.legacy_convert)
     doc = extractor.extract(path)
     t_extract = time.perf_counter()
-    detectors = build_detectors(config)
 
     counts: dict[str, int] = {}
-    reds: list[BlockRedaction] = []
     detections: list[dict] = []
-    for block in doc.blocks:
-        repls: list[tuple[int, int, str]] = []
-        for det in _detect_block(block, detectors):
-            strategy = config.strategy_for(det.entity_type)
-            if strategy == _KEEP:
-                # 配置说"这类别动": 只留溯源, 不替换、也不计数(counts 是"实际抹掉了几处")
+    det_names: list[str] = []
+    written: list[str] = []
+    try:
+        detectors = build_detectors(config)
+        reds: list[BlockRedaction] = []
+        for block in doc.blocks:
+            repls: list[tuple[int, int, str]] = []
+            for det in _detect_block(block, detectors):
+                strategy = config.strategy_for(det.entity_type)
+                if strategy == _KEEP:
+                    # 配置说"这类别动": 只留溯源, 不替换、也不计数(counts 是"实际抹掉了几处")
+                    detections.append({
+                        "entity_type": det.entity_type,
+                        "source": det.source,
+                        "strategy": strategy,
+                        "original": det.span.text,
+                        "replacement": None,
+                        "locator": block.locator,
+                    })
+                    continue
+                repl = replacement_for(store, det.entity_type, det.span.text, strategy)
+                repls.append((det.span.start, det.span.end, repl))
+                counts[det.entity_type] = counts.get(det.entity_type, 0) + 1
                 detections.append({
                     "entity_type": det.entity_type,
                     "source": det.source,
                     "strategy": strategy,
                     "original": det.span.text,
-                    "replacement": None,
+                    "replacement": repl,
                     "locator": block.locator,
                 })
-                continue
-            repl = replacement_for(store, det.entity_type, det.span.text, strategy)
-            repls.append((det.span.start, det.span.end, repl))
-            counts[det.entity_type] = counts.get(det.entity_type, 0) + 1
-            detections.append({
-                "entity_type": det.entity_type,
-                "source": det.source,
-                "strategy": strategy,
-                "original": det.span.text,
-                "replacement": repl,
-                "locator": block.locator,
-            })
-        reds.append(BlockRedaction(block, repls, apply_spans(block.text, repls)))
-    t_detect = time.perf_counter()
+            reds.append(BlockRedaction(block, repls, apply_spans(block.text, repls)))
+        t_detect = time.perf_counter()
 
-    det_names: list[str] = []
-    for d in detectors:
-        if d.name not in det_names:
-            det_names.append(d.name)
+        for d in detectors:
+            if d.name not in det_names:
+                det_names.append(d.name)
 
-    out_path = _output_path(path, out_dir, rel, _out_ext(doc, path))
-    written = write_output(doc, reds, out_path)
+        out_path = _output_path(path, out_dir, rel, _out_ext(doc, path))
+        written = write_output(doc, reds, out_path)
+    finally:
+        # 旧格式转换的临时目录在回写(要重开 modern)之后才能删
+        workdir = doc.meta.get("_convert_workdir")
+        if workdir:
+            shutil.rmtree(workdir, ignore_errors=True)
     t_write = time.perf_counter()
 
     return ProcessResult(
         str(path), written[0] if written else str(out_path), counts, written,
         extractor=extractor.name,
+        converted_from=doc.meta.get("converted_from", ""),
+        output_format=doc.meta.get("out_ext", "").lstrip("."),
         detectors=det_names,
         detections=detections,
         timing={

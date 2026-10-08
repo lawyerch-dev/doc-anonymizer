@@ -5,6 +5,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from . import convert
 from .config import load_config
 from .job import RedactionJob
 from .redaction.mapping import MappingStore
@@ -16,8 +17,12 @@ SUPPORTED = {".txt", ".md", ".markdown", ".text", ".docx", ".pdf", ".xlsx", ".cs
 EXIT_OK, EXIT_INPUT, EXIT_PARTIAL = 0, 1, 2
 
 
-def _collect(target: Path) -> tuple[list[Path], list[Path], Path]:
-    """返回 (可处理文件, 不支持的文件, 相对路径基准目录)。"""
+def _collect(target: Path, config) -> tuple[list[Path], list[Path], Path]:
+    """返回 (可处理文件, 不支持的文件, 相对路径基准目录)。
+
+    旧格式(.doc/.xls/.wps)是否算"可处理"取决于 `config.legacy_convert`:
+    关掉就回到旧行为, 一律进"不支持"桶。
+    """
     if target.is_file():
         files, base = [target], target.parent
     else:
@@ -27,8 +32,9 @@ def _collect(target: Path) -> tuple[list[Path], list[Path], Path]:
             if p.is_file()
             and not any(part.startswith(".") for part in p.relative_to(target).parts)
         ]
-    supported = [p for p in files if p.suffix.lower() in SUPPORTED]
-    unsupported = [p for p in files if p.suffix.lower() not in SUPPORTED]
+    supported_ext = SUPPORTED | (set(convert.LEGACY_EXTENSIONS) if config.legacy_convert else set())
+    supported = [p for p in files if p.suffix.lower() in supported_ext]
+    unsupported = [p for p in files if p.suffix.lower() not in supported_ext]
     return supported, unsupported, base
 
 
@@ -46,9 +52,14 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"未开始处理: {exc}", file=sys.stderr)
         return EXIT_INPUT
 
-    supported, unsupported, base = _collect(target)
+    supported, unsupported, base = _collect(target, config)
     job.out_dir.mkdir(parents=True, exist_ok=True)
     job.note_input(target)
+
+    # 旧格式要先转: 缺 LibreOffice 时整批记 unsupported(带原因), 而不是让它炸成 error
+    legacy_blocked = None
+    if any(p.suffix.lower() in convert.LEGACY_EXTENSIONS for p in supported):
+        legacy_blocked = convert.unavailable_reason()
 
     if args.resume:
         if not job.covers_input(target):
@@ -69,11 +80,27 @@ def cmd_run(args: argparse.Namespace) -> int:
                 skipped += 1
                 print(f"[{index}/{total}] 跳过(已脱敏) {rel}", flush=True)
                 continue
+            if legacy_blocked and path.suffix.lower() in convert.LEGACY_EXTENSIONS:
+                job.record(str(rel), {
+                    "source": str(rel), "status": "unsupported",
+                    "suffix": path.suffix, "reason": legacy_blocked,
+                })
+                print(
+                    f"[{index}/{total}] 跳过(缺 LibreOffice) {rel}: {legacy_blocked}",
+                    file=sys.stderr, flush=True,
+                )
+                continue
             entry = job.run_file(path, rel)
             job.record(str(rel), entry)
             if entry["status"] == "ok":
                 done += 1
-                print(f"[{index}/{total}] 完成 {rel}  {entry['counts'] or '无命中'}", flush=True)
+                if entry.get("converted"):
+                    print(
+                        f"[{index}/{total}] 完成 {rel}  已由 {entry['source_suffix']} 转换, 版式可能被重排",
+                        flush=True,
+                    )
+                else:
+                    print(f"[{index}/{total}] 完成 {rel}  {entry['counts'] or '无命中'}", flush=True)
             else:
                 print(f"[{index}/{total}] 失败 {rel}: {entry['error']}", file=sys.stderr, flush=True)
         for path in unsupported:
@@ -171,7 +198,10 @@ def cmd_engines(args: argparse.Namespace) -> int:
         return EXIT_INPUT
 
     rows = list_engines(config)
-    broken = [r for r in rows if r["status"].startswith(("加载失败", "不可用"))]
+    # 门禁只看**检测器**: 抽取器缺席(如旧格式缺 LibreOffice)是可选能力缺失,
+    # 如实报告即可, 不该把整份引擎清单判成失败。
+    broken = [r for r in rows
+              if r["kind"] == "检测器" and r["status"].startswith(("加载失败", "不可用"))]
     for r in rows:
         caps = ", ".join(r["capabilities"]) or "-"
         print(f"{r['kind']:<4} {r['name']:<12} {r['status']:<30} {caps}")

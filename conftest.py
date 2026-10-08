@@ -62,8 +62,12 @@ def ephemeral_server(tmp_path, monkeypatch) -> Iterator[str]:
     (CI 里只装 pytest+pyyaml 就跑得动文档漂移与包边界门禁)。
     """
     from docanon_core import server
+    from docanon_core.config import load_config
 
     monkeypatch.setattr(server.Handler, "out_root", tmp_path)
+    monkeypatch.setattr(server.Handler, "config", load_config())
+    # serve() 会记住启动用的配置名(前端要标"当前口径"), 测试里对齐一下
+    monkeypatch.setattr(server.Handler, "config_name", "default.yaml")
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()

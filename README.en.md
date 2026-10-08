@@ -32,6 +32,7 @@ emails, IPs, unified social credit codes, secrets, custom sensitive terms — de
 - **Chinese-first**: rules + a Chinese dictionary + Chinese NER (ONNX), all three working together.
 - **Fully offline**: no cloud calls; the optional LLM route only talks to a local `llama-server`.
 - **Keeps the original format**: docx rewritten run by run, xlsx/csv rewritten cell by cell, pdf/images blacked out — compare before and after side by side.
+- **Legacy Office accepted too**: `.doc`/`.xls`/`.wps` are converted to a modern format via LibreOffice before redaction (the output format therefore changes; the ledger and UI say so).
 - **Recall first**: anything uncertain is always flagged, and every hit's position and origin stay inspectable.
 - **Reversible**: `mapping.json` records original ↔ replacement, and `restore` rebuilds text outputs.
 - **No silently missing layer**: if an engine cannot start it fails before the run, rather than producing a result with less detection.
@@ -124,11 +125,12 @@ files produced no result (unsupported format / failed extraction / interrupted) 
 ```
 
 Pick a sample or upload → preview the original → redact → compare side by side + hit counts; the "Run log"
-traces every hit back to its source (which engine, where, what matched, what it was replaced with). It listens
-on `127.0.0.1` only, with no auth (for local, single-user use).
+traces every hit back to its source (which engine, where, what matched, what it was replaced with). The
+"Redaction preset" dropdown on the left switches between `configs/*.yaml` (no restart; the choice is kept in
+the browser). It listens on `127.0.0.1` only, with no auth (for local, single-user use).
 
-Endpoints: `/` `/app.css` `/app.js` `/health` `/api/presets` `/api/upload` `/api/anonymize`
-(the last two take `{filename, content_b64}` / `{preset|token}` and return `counts` and `trace`; uploads are capped at 50MB).
+Endpoints: `/` `/app.css` `/app.js` `/health` `/api/presets` `/api/configs` `/api/upload` `/api/anonymize`
+(`/api/upload` takes `{filename, content_b64}`; `/api/anonymize` takes `{preset|token, config?}` and returns `counts` and `trace`; uploads are capped at 50MB).
 
 ### Website & docs site (optional)
 
@@ -165,6 +167,7 @@ See [apps/desktop/README.md](apps/desktop/README.md).
 |---|---|---|
 | `.docx` | `x.docx.redacted.docx` | text rewritten run by run (hyperlinks, content controls, nested tables included), formatting kept |
 | `.xlsx` / `.csv` | `x.xlsx.redacted.xlsx` | cells rewritten, keeping sheet structure |
+| `.doc` / `.xls` / `.wps` (legacy Office) | `x.doc.redacted.docx` | converted to `.docx`/`.xlsx` by LibreOffice first, then redacted; **the output format changes and the layout may be reflowed** |
 | `.pdf` (text layer) | `x.pdf.redacted.pdf` | hit pages blacked out (**the page becomes a bitmap**) |
 | `.pdf` (scan) / `.png` `.jpg` `.tiff` … | same as above / `x.png.redacted.png` | OCR locates the text, then black boxes are drawn proportionally to character width |
 | `.txt` / `.md` | `x.txt.redacted.txt` | line-by-line plain-text replacement |
@@ -188,10 +191,12 @@ names, law firms and agents, dates and amounts are all left alone) · `default.y
 no longer be filed (measured). List what you want redacted; every type you do not list stays `keep` ("only
 what I name gets touched"). Hits that were identified but kept by config are listed separately in the web run log.
 
-- Strategies are configured per entity type: `pseudonym` (a stable fake name per entity of the same kind) /
-  `placeholder` (`<PHONE_1>`) / `mask` (`138****0000`) / `remove` (delete outright) / `keep` (**leave it
-  alone** — it exists so a config can say "don't touch this class"); custom terms go under
-  `dictionary` and are tagged `CUSTOM`.
+- Strategies are configured per entity type: `redact` (**replaces the whole span with `**`** — the default, so
+  nothing believable is ever produced) / `mask` (`138****0000`) / `placeholder` (`<PHONE_1>`) /
+  `pseudonym` (a stable fake name per entity of the same kind — **only when you ask for it**) / `remove`
+  (delete outright) / `keep` (**leave it alone** — it exists so a config can say "don't touch this class").
+  Names, organizations and custom terms default to `redact` (`**`), not a believable fake company. Custom terms
+  go under `dictionary` and are tagged `CUSTOM`.
 - Relative paths in config (e.g. `onnx.model_dirs`) resolve against the **resource root** (found by walking up
   from `configs/default.yaml`; override it with `DOCANON_ROOT`) and are independent of the cwd; input/output
   paths given on the command line resolve against the cwd.
@@ -222,8 +227,11 @@ for choosing between them, and for benchmark numbers, see [docs/benchmarks.md](d
   inside a URL is out of scope.
 - `restore` only supports text outputs (txt/md/csv); text deleted by `remove` has no anchor left, so it cannot be restored.
 - After masking, values that look the same (two numbers masked identically) restore to the wrong original text.
-- `.doc` / `.xls` / `.wps` are unsupported (recorded as `unsupported`, exit code 2); convert them to `.docx`/`.xlsx`
-  with LibreOffice first (command and caveats in [`docs/cookbook/diagnosing-problems.md`](docs/cookbook/diagnosing-problems.md)). GBK CSVs must be converted to UTF-8 first.
+- `.doc` / `.xls` / `.wps` are converted to `.docx`/`.xlsx` and then redacted (LibreOffice required): check the
+  `soffice` line in `npm run doctor`, and fetch it with `./scripts/fetch_libreoffice.sh` if missing. The output
+  format therefore becomes `.docx`/`.xlsx`, and **the layout may be reflowed — review by hand before delivery**;
+  without LibreOffice the file is recorded as `unsupported` (exit code 2). To turn the conversion off, set
+  `legacy_convert: false`. GBK CSVs must be converted to UTF-8 first.
 - The output directory must not live inside the input directory, or the next run will treat the previous run's
   `.redacted.*` files as new documents and redact them again.
 - **It assists human review and does not guarantee zero misses**: OCR misreads and unusual spellings can slip through.
@@ -243,6 +251,7 @@ for choosing between them, and for benchmark numbers, see [docs/benchmarks.md](d
 | version changes | [CHANGELOG.md](CHANGELOG.md) |
 | how to report a missed redaction or another security issue | [SECURITY.md](.github/SECURITY.md) |
 | the original design document (historical) | [docs/specs/2026-10-05-doc-anonymizer-design.md](docs/specs/2026-10-05-doc-anonymizer-design.md) |
+| the legacy-format auto-conversion design and decision | [design](docs/specs/2026-10-08-legacy-office-conversion-design.md) · [decision note](.agent/notes/implemented/feature/2026-10-08-legacy-office-conversion.md) |
 
 [MIT](LICENSE) © 2026 [LawyerCH](https://github.com/LawyerCH) ·
 thanks to [RapidOCR](https://github.com/RapidAI/RapidOCR), [pypdfium2](https://github.com/pypdfium2-team/pypdfium2),

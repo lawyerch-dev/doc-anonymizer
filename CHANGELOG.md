@@ -5,8 +5,23 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **默认脱敏口径改为 `**`**：新增 `redact` 策略（把整段原文盖成 `**`），人名/机构/自定义词/兜底类型默认走它，
+  不再生成"像真的假名/假公司"——此前的 `华信集团` 式假名会让人误以为没脱敏。`pseudonym`（可信假名）
+  改为**显式配置才用**。`configs/{default,onnx,llm}.yaml` 的策略词表已同步。
+- **Web 可选脱敏口径（方案 A）**：新增 `GET /api/configs` 与 `/api/anonymize` 的 `config` 入参；
+  Web 左侧加「脱敏口径」下拉，在 `configs/*.yaml` 间切换（不用重启，选择记在浏览器本地），
+  配置不可用时返回 400 + 原因（缺模型/起不来不静默）。
+
 ### Added
 
+- **旧版 Office（`.doc`/`.xls`/`.wps`）自动转换**：抽取层借 LibreOffice 先转成 `.docx`/`.xlsx` 再脱敏，
+  soffice 走"系统优先 → `var/libreoffice`（`scripts/fetch_libreoffice.sh`）"。产物的格式因此改变，
+  账本（`converted`/`source_suffix`/`output_format`）、CLI 与 Web `trace` 都会标明"版式可能被重排"；
+  缺 LibreOffice 时记 `unsupported`（退出码 2，带可操作 reason）。开关 `legacy_convert`（默认 `true`）。
+  推翻了"旧格式一律手工前置转换"的旧约定；设计与理由见
+  [`docs/specs/2026-10-08-legacy-office-conversion-design.md`](docs/specs/2026-10-08-legacy-office-conversion-design.md)。
 - **`configs/legal.yaml`（法律文书交付件）+ `keep` 策略**。实测：用原先推荐的 `configs/onnx.yaml` 跑一份
   判决书式的材料，`北京市朝阳区人民法院` 被换成假公司名、`审判员`/`书记员`/`委托诉讼代理人` 被抹成
   `<POSITION_n>`、判决日期 `二〇二四年十月八日` 被当成生日抹掉 —— **材料交不出去，得返工**；

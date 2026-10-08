@@ -1,4 +1,5 @@
 # ONNX 路线: 规则 + 词典 + ONNX 中文 NER, 不依赖 llama.cpp
+# 默认用 ** 盖掉人名/机构(不产假名); 想要可信假名就把 PERSON/ORG 改成 pseudonym
 strategies:
   PHONE: mask
   ID_CARD: mask
@@ -6,16 +7,16 @@ strategies:
   PLATE: mask
   BANK_CARD: mask
   EMAIL: mask
-  IP: placeholder
+  IP: redact
   USCC: mask
-  PERSON: pseudonym
-  ORG: pseudonym
-  LOCATION: placeholder
-  AMOUNT: placeholder
-  DOB: placeholder
+  PERSON: redact
+  ORG: redact
+  LOCATION: redact
+  AMOUNT: redact
+  DOB: redact
   SECRET: remove
-  CUSTOM: placeholder
-  DEFAULT: placeholder
+  CUSTOM: redact
+  DEFAULT: redact
 
 dictionary:
   - 内部项目代号

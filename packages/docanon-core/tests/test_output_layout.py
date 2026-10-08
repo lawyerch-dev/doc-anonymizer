@@ -58,7 +58,7 @@ def test_manifest_lists_unsupported_files(tmp_path):
     src = tmp_path / "src"
     src.mkdir()
     (src / "说明.txt").write_text("张三 13812340000\n", encoding="utf-8")
-    (src / "告知书.doc").write_bytes(b"\xd0\xcf\x11\xe0legacy word")
+    (src / "归档.zip").write_bytes(b"PK\x03\x04not office")
     (src / ".DS_Store").write_bytes(b"\x00\x01")
     out = tmp_path / "out"
 
@@ -66,7 +66,7 @@ def test_manifest_lists_unsupported_files(tmp_path):
 
     entries = {e["source"]: e for e in _manifest(out)["files"]}
     assert entries["说明.txt"]["status"] == "ok"
-    assert entries["告知书.doc"]["status"] == "unsupported"
+    assert entries["归档.zip"]["status"] == "unsupported"
     assert ".DS_Store" not in entries, "系统隐藏文件不该进清单"
     assert code != 0, "有文件没被处理时不能报告成功"
 
@@ -86,15 +86,71 @@ def test_manifest_records_extraction_error(tmp_path):
 
 
 def test_explicit_unsupported_file_is_reported(tmp_path):
-    doc = tmp_path / "告知书.doc"
-    doc.write_bytes(b"\xd0\xcf\x11\xe0legacy word")
+    z = tmp_path / "归档.zip"
+    z.write_bytes(b"PK\x03\x04not office")
     out = tmp_path / "out"
 
-    code = main(["run", str(doc), "-o", str(out)])
+    code = main(["run", str(z), "-o", str(out)])
 
     assert _manifest(out)["files"] == [
-        {"source": "告知书.doc", "status": "unsupported", "suffix": ".doc"}
+        {"source": "归档.zip", "status": "unsupported", "suffix": ".zip"}
     ]
+    assert code != 0
+
+
+def test_doc_converted_and_labelled(tmp_path, monkeypatch):
+    from _soffice_stub import install_fake_soffice
+
+    install_fake_soffice(tmp_path, monkeypatch)
+    src = tmp_path / "合同.doc"
+    src.write_bytes(b"\xd0\xcf\x11\xe0 legacy")
+    out = tmp_path / "out"
+
+    code = main(["run", str(src), "-o", str(out)])
+
+    entry = _manifest(out)["files"][0]
+    assert entry["status"] == "ok"
+    assert entry["source"] == "合同.doc"
+    assert entry["source_suffix"] == ".doc"
+    assert entry["output_format"] == "docx"
+    assert entry["converted"] is True
+    assert (out / "合同.doc.redacted.docx").is_file()
+    assert code == 0
+
+
+def test_doc_without_soffice_is_unsupported(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOCANON_SOFFICE", "/no/such/soffice")
+    monkeypatch.setattr("docanon_core.convert.find_soffice", lambda: None)
+    src = tmp_path / "合同.doc"
+    src.write_bytes(b"\xd0\xcf\x11\xe0 legacy")
+    out = tmp_path / "out"
+
+    code = main(["run", str(src), "-o", str(out)])
+
+    entry = _manifest(out)["files"][0]
+    assert entry["status"] == "unsupported"
+    assert "LibreOffice" in entry.get("reason", "")
+    assert code != 0
+
+
+def test_legacy_convert_off_treats_doc_as_unsupported(tmp_path, monkeypatch):
+    """关掉开关就回到旧行为: .doc 一律 unsupported, 连 soffice 都不找。"""
+    from _soffice_stub import install_fake_soffice
+
+    install_fake_soffice(tmp_path, monkeypatch)
+    (tmp_path / "cfg.yaml").write_text(
+        "legacy_convert: false\ndetectors:\n  rule: true\n  dictionary: true\n",
+        encoding="utf-8",
+    )
+    src = tmp_path / "合同.doc"
+    src.write_bytes(b"\xd0\xcf\x11\xe0 legacy")
+    out = tmp_path / "out"
+
+    code = main(["run", str(src), "-o", str(out), "-c", str(tmp_path / "cfg.yaml")])
+
+    entry = _manifest(out)["files"][0]
+    assert entry["status"] == "unsupported"
+    assert entry.get("converted") is None
     assert code != 0
 
 

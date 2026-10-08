@@ -39,6 +39,26 @@ def test_pseudonym_is_consistent_via_store(tmp_path):
     assert "张三" not in a
 
 
+def test_redact_strategy_is_a_flat_marker():
+    """redact = 用 ** 整体盖掉原文, 绝不产出像真的内容(这是默认口径)。"""
+    from docanon_core.redaction.strategies import replacement_for
+
+    store = MappingStore()
+    assert replacement_for(store, "PERSON", "张三", "redact") == "**"
+    assert replacement_for(store, "ORG", "北京华信科技有限公司", "redact") == "**"
+
+
+def test_default_and_onnx_configs_do_not_fake_names():
+    """默认配置交付的必须是 ** 而不是可信的假名/假公司, 免得用户以为没脱敏。"""
+    from docanon_core.config import load_config
+
+    for cfg_name in (None, "configs/onnx.yaml", "configs/llm.yaml"):
+        cfg = load_config(cfg_name)
+        for entity in ("PERSON", "ORG", "CUSTOM", "DEFAULT"):
+            assert cfg.strategy_for(entity) == "redact", (cfg_name, entity, cfg.strategy_for(entity))
+
+
+
 def test_dictionary_custom_detected(tmp_path):
     _, out, _ = _run(tmp_path, "公司是内部项目代号X，请勿外传。")
     # 词典命中 CUSTOM 并被替换

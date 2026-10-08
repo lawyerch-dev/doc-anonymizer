@@ -1,5 +1,6 @@
 # doc-anonymizer 默认配置
-# 各实体类型的脱敏策略: pseudonym | placeholder | mask | remove
+# 各实体类型的脱敏策略: redact(整体 **) | mask(打码) | placeholder(<TYPE_n>) | pseudonym(假名) | remove | keep
+# 默认用 **: 绝不产出像真的内容("假名/假公司"只在你显式配 pseudonym 时才用)
 strategies:
   PHONE: mask          # 138****0000 / 010****4321
   ID_CARD: mask        # 保留前6后4
@@ -7,21 +8,24 @@ strategies:
   PLATE: mask          # 保留首位
   BANK_CARD: mask      # 保留后4
   EMAIL: mask          # a***@example.com
-  IP: placeholder
+  IP: redact
   USCC: mask           # 统一社会信用代码
-  PERSON: pseudonym    # 张三 -> 林芳 (全文一致)
-  ORG: pseudonym       # XX公司 -> 华信集团
-  LOCATION: placeholder
-  AMOUNT: placeholder
+  PERSON: redact       # 张三 -> **
+  ORG: redact          # XX公司 -> **
+  LOCATION: redact
+  AMOUNT: redact
   SECRET: remove       # key/token/密码 直接删除
-  CUSTOM: placeholder
-  DEFAULT: placeholder
+  CUSTOM: redact
+  DEFAULT: redact      # 没列出的类型一律 **
 
 # 自定义业务敏感词(词典检测器)。命中即标为 CUSTOM
 dictionary:
   - 内部项目代号
   - 某客户名
   # - 加更多
+
+# 旧版 Office(.doc/.xls/.wps) 自动转成 .docx/.xlsx 再脱敏(需 LibreOffice); 关掉则一律视为不支持
+legacy_convert: true
 
 detectors:
   rule: true

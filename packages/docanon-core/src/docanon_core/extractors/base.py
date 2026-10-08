@@ -16,13 +16,21 @@ def extractor_classes() -> tuple[type[Extractor], ...]:
     from .pdf import PDFExtractor
     from .table import TableExtractor
     from .text_file import DocxExtractor, TextFileExtractor
+    from .legacy_office import LegacyOfficeExtractor
 
-    return (PDFExtractor, TextFileExtractor, DocxExtractor, TableExtractor, ImageExtractor)
+    return (PDFExtractor, TextFileExtractor, DocxExtractor, TableExtractor,
+            LegacyOfficeExtractor, ImageExtractor)
 
 
-def build_extractor(path: Path) -> Extractor:
-    """按扩展名返回合适的抽取器。加新抽取器就在上面登记一个类。"""
+def build_extractor(path: Path, *, allow_legacy: bool = True) -> Extractor:
+    """按扩展名返回合适的抽取器。加新抽取器就在上面登记一个类。
+
+    `allow_legacy=False` 时不派发旧格式抽取器, 让 .doc/.xls/.wps 落进调用方的
+    "不支持" 兜底桶(对应 config.legacy_convert=false 的旧行为)。
+    """
     for cls in extractor_classes():
+        if not allow_legacy and cls.name == "legacy_office":
+            continue
         extractor = cls()
         if extractor.supports(path):
             return extractor

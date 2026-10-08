@@ -16,12 +16,42 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
 import urllib.request
 from urllib.parse import quote
 
 import pytest
 
 from docanon_core import server
+from _soffice_stub import install_fake_soffice
+
+
+def _post(base: str, path: str, payload: dict) -> dict:
+    req = urllib.request.Request(
+        base + path,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return json.loads(resp.read())
+
+
+def _upload_doc(base: str, tmp_path) -> dict:
+    import base64
+
+    return _post(base, "/api/upload", {
+        "filename": "合同.doc",
+        "content_b64": base64.b64encode(b"\xd0\xcf\x11\xe0 legacy").decode(),
+    })
+
+
+def _upload_text(base: str, text: str = "张三 13812340000\n") -> dict:
+    import base64
+
+    return _post(base, "/api/upload", {
+        "filename": "note.txt",
+        "content_b64": base64.b64encode(text.encode("utf-8")).decode(),
+    })
 
 
 def _alive(pid: int) -> bool:
@@ -93,3 +123,71 @@ def test_sidecar_dies_when_its_parent_is_killed(tmp_path, repo_root):
     if _alive(pid):
         os.kill(pid, 9)
         pytest.fail("父进程退出后 sidecar 仍在运行 —— 会孤儿化占住端口")
+
+
+def test_anonymize_labels_legacy_conversion(tmp_path, monkeypatch, ephemeral_server):
+    """Web 也必须把"产物已由 .doc 转换"讲出来, 不能静默换格式。"""
+    install_fake_soffice(tmp_path, monkeypatch)
+    up = _upload_doc(ephemeral_server, tmp_path)
+
+    body = _post(ephemeral_server, "/api/anonymize", {"token": up["token"]})
+
+    assert body["output_name"] == "合同.doc.redacted.docx"
+    assert body["trace"]["converted_from"] == ".doc"
+
+
+def test_anonymize_legacy_without_soffice_is_a_clear_error(tmp_path, monkeypatch, ephemeral_server):
+    monkeypatch.setenv("DOCANON_SOFFICE", "/no/such/soffice")
+    up = _upload_doc(ephemeral_server, tmp_path)
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        _post(ephemeral_server, "/api/anonymize", {"token": up["token"]})
+
+    assert excinfo.value.code == 400, "缺 LibreOffice 是「用不了」, 不是服务器崩了(500)"
+    assert "LibreOffice" in json.loads(excinfo.value.read())["error"]
+
+
+def test_anonymize_legacy_when_disabled_is_a_clear_error(tmp_path, monkeypatch, ephemeral_server):
+    from docanon_core.config import load_config
+
+    cfg = load_config()
+    cfg.legacy_convert = False
+    monkeypatch.setattr(server.Handler, "config", cfg)
+    up = _upload_doc(ephemeral_server, tmp_path)
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        _post(ephemeral_server, "/api/anonymize", {"token": up["token"]})
+
+    assert excinfo.value.code == 400, "开关关闭时也该是清晰的 4xx, 不是 500"
+    assert "legacy_convert" in json.loads(excinfo.value.read())["error"]
+
+
+def test_api_configs_lists_yaml_and_marks_current(ephemeral_server):
+    with urllib.request.urlopen(ephemeral_server + "/api/configs", timeout=5) as resp:
+        body = json.loads(resp.read())
+    names = {c["name"] for c in body["configs"]}
+    assert {"default.yaml", "onnx.yaml", "legal.yaml"} <= names
+    current = [c["name"] for c in body["configs"] if c["current"]]
+    assert current == ["default.yaml"]
+    assert all(c.get("label") for c in body["configs"])
+
+
+def test_anonymize_honours_a_named_config(ephemeral_server):
+    up = _upload_text(ephemeral_server)
+
+    body = _post(ephemeral_server, "/api/anonymize",
+                 {"token": up["token"], "config": "default.yaml"})
+
+    assert body["trace"]["config"] == "default.yaml"
+    assert body["counts"].get("PHONE") == 1
+
+
+def test_anonymize_rejects_a_bad_config_name(tmp_path, ephemeral_server):
+    up = _upload_text(ephemeral_server)
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        _post(ephemeral_server, "/api/anonymize",
+              {"token": up["token"], "config": "../default.yaml"})
+
+    assert excinfo.value.code == 400
+    assert "配置" in json.loads(excinfo.value.read())["error"]

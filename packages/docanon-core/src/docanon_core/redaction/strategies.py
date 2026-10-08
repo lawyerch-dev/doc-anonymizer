@@ -57,6 +57,11 @@ def _placeholder(entity_type: str, n: int) -> str:
     return f"<{entity_type}_{n}>"
 
 
+def _redact(n: int, original: str) -> str:
+    """整体盖成 **: 不泄漏长度、不产出像真的内容。默认口径。"""
+    return "**"
+
+
 def make_replacer(entity_type: str, strategy: str) -> Callable[[int, str], str]:
     if strategy == "pseudonym":
         if entity_type == "ORG":
@@ -65,6 +70,8 @@ def make_replacer(entity_type: str, strategy: str) -> Callable[[int, str], str]:
             return _person
         # 其他类型无专用假名, 退化为占位符
         return lambda n, original: _placeholder(entity_type, n)
+    if strategy == "redact":
+        return _redact
     if strategy == "mask":
         return lambda n, original: _mask(entity_type, original)
     if strategy == "remove":

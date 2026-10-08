@@ -56,16 +56,19 @@ restored.
 |---|---|---|
 | Rules + dictionary only (fastest) | `configs/default.yaml` (this is the default when `-c` is omitted) | none |
 | **Material you hand over** (redact ID numbers/bank cards/phones/addresses only; organizations, names, roles, dates and amounts are left untouched) | `-c configs/legal.yaml` | `npm run models` (for addresses only) |
-| Names and organizations swapped too (talks, case write-ups) | `-c configs/onnx.yaml` | `npm run models` |
+| Names and organizations blotted to `**` too (talks, case write-ups) | `-c configs/onnx.yaml` | `npm run models` |
 | More flexible entity recognition | `-c configs/llm.yaml` | `./scripts/download_model.sh` + `./scripts/serve_llm.sh` |
 
-**Which one you pick decides whether the material is still usable**: `onnx.yaml` also swaps out the court,
-the law firm, party names and the judgment date, which leaves a judgment impossible to file. For delivery use
+**Which one you pick decides whether the material is still usable**: `onnx.yaml` also blots out the court,
+the law firm, party names and the judgment date (to `**`), which leaves a judgment impossible to file. For delivery use
 `configs/legal.yaml` (it sets every must-not-touch type to `keep`; see [README "Configuration"](../README.md#配置)).
 
 ## FAQ
 
 - **Blank preview pane** → preview assets were not fetched: `./scripts/fetch_file_viewer.sh`.
+- **`.doc`/`.xls`/`.wps` reports unsupported** → LibreOffice is missing: run `./scripts/fetch_libreoffice.sh`
+  (or install the system build). With it, the file is converted to `.docx`/`.xlsx` and then redacted (the output
+  format changes and the layout may be reflowed — review by hand before delivery; set `legacy_convert: false` to turn it off).
 - **Resource root error / missing frontend pages** → non-editable install: set `DOCANON_ROOT=/path/to/doc-anonymizer`.
 - **Some engine is unavailable** → read the reason it gives (ONNX missing a model / no LLM server running); you can also set it to `false` in the config for now.
 - **Exit code 2** → some files produced no result: check `error` / `unsupported` in `manifest.json`; the run did not break.

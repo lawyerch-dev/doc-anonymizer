@@ -14,11 +14,16 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import unquote
 
-from .. import resources
+from .. import convert, resources
+from ..config import load_config
+from ..pipeline import prepare_detectors, process_file
 from ..redaction.mapping import MappingStore
-from ..pipeline import process_file
 
 _MAX_BYTES = 50 * 1024 * 1024
+
+# 运行期可选的配置(= configs/*.yaml): 前端下拉用, 换个口径不必重启。
+# 缓存已加载(且预检过)的配置, 免得每个请求都重建检测器。
+_CONFIG_CACHE: dict[str, object] = {}
 
 # 资源位置都从 resources 取(调用者的 cwd 与安装布局都无关), 所以用函数而不是导入期常量
 def _web() -> Path:
@@ -82,6 +87,7 @@ def _safe_join(base: Path, rel: str) -> Path | None:
 
 class Handler(BaseHTTPRequestHandler):
     config = None
+    config_name = None
     out_root = Path(tempfile.mkdtemp(prefix="docanon-web-"))
 
     # ---------- 响应工具 ----------
@@ -120,6 +126,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"ok": True, "pid": os.getpid()})
         elif p == "/api/presets":
             self._json(200, {"presets": self._presets()})
+        elif p == "/api/configs":
+            self._json(200, {"configs": self._configs()})
         elif p in _WEB_ASSETS:
             self._send_file(_web() / _WEB_ASSETS[p])
         elif p.startswith("/samples/"):
@@ -149,6 +157,56 @@ class Handler(BaseHTTPRequestHandler):
                     "preview": True,
                 })
         return out
+
+    @staticmethod
+    def _configs() -> list[dict]:
+        """可选脱敏口径 = configs/*.yaml; label 取首行注释, 前端下拉直接显示。"""
+        root = resources.path("configs")
+        if not root.is_dir():
+            return []
+        out = []
+        for f in sorted(root.glob("*.yaml")):
+            label = ""
+            for line in f.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line.startswith("#"):
+                    label = line.lstrip("#").strip()
+                    if label:
+                        break
+                elif line:
+                    break
+            out.append({
+                "name": f.name,
+                "label": label or f.stem,
+                "current": f.name == Handler.config_name,
+            })
+        return out
+
+    def _resolve_config(self, payload: dict):
+        """按请求里的 config 名选一份配置并预检; 无名字用启动配置。
+
+        返回 (config, name); 名字非法/配置不可用时已发 400 并返回 (None, None)。
+        """
+        name = payload.get("config")
+        if not name:
+            return self.config, self.config_name
+        if not isinstance(name, str) or Path(name).name != name or not name.endswith(".yaml"):
+            self._json(400, {"error": f"非法配置名: {name!r}"})
+            return None, None
+        path = resources.config_path(name)
+        if not path.is_file():
+            self._json(400, {"error": f"配置不存在: {name}"})
+            return None, None
+        cfg = _CONFIG_CACHE.get(name)
+        if cfg is None:
+            try:
+                cfg = load_config(path)
+                prepare_detectors(cfg)  # 少一层就报错: 缺模型/起不来在这里拦住
+            except Exception as exc:  # noqa: BLE001
+                self._json(400, {"error": f"配置 {name} 不可用: {exc}"})
+                return None, None
+            _CONFIG_CACHE[name] = cfg
+        return cfg, name
 
     # ---------- POST ----------
     def do_POST(self) -> None:  # noqa: N802
@@ -183,6 +241,9 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {"token": token, "filename": name, "url": f"/uploads/{token}/{name}"})
 
     def _anonymize(self, payload: dict) -> None:
+        cfg, cfg_name = self._resolve_config(payload)
+        if cfg is None:
+            return
         # 输入来源: 预设文件名 或 已上传 token
         if payload.get("preset"):
             src = _samples() / Path(payload["preset"]).name
@@ -200,12 +261,24 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": "缺少 preset 或 token"})
             return
 
+        # 旧格式要先转: 缺 LibreOffice 是"用不了"(400 + 可操作原因), 不是服务器崩了
+        if src.suffix.lower() in convert.LEGACY_EXTENSIONS:
+            if not cfg.legacy_convert:
+                self._json(400, {
+                    "error": f"旧格式转换已关闭(legacy_convert=false): 不支持 {src.suffix}",
+                })
+                return
+            reason = convert.unavailable_reason()
+            if reason:
+                self._json(400, {"error": reason})
+                return
+
         token = uuid.uuid4().hex[:12]
         work = self.out_root / "outputs" / token
         work.mkdir(parents=True, exist_ok=True)
         store = MappingStore()
         try:
-            res = process_file(src, work, self.config, store)
+            res = process_file(src, work, cfg, store)
         except Exception as exc:  # noqa: BLE001
             self._json(500, {"error": str(exc)})
             return
@@ -219,6 +292,8 @@ class Handler(BaseHTTPRequestHandler):
             "trace": {
                 "source": src.name,
                 "extractor": res.extractor,
+                "converted_from": res.converted_from,
+                "config": cfg_name,
                 "detectors": res.detectors,
                 "timing": res.timing,
                 "detections": res.detections,

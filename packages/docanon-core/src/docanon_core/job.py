@@ -115,12 +115,19 @@ class RedactionJob:
             res = process_file(path, self.out_dir, self.config, self.store, rel=rel)
         except Exception as exc:  # noqa: BLE001
             return {"source": str(rel), "status": "error", "error": str(exc)}
-        return {
+        entry = {
             "source": str(rel),
             "status": "ok",
             "outputs": res.outputs,
             "counts": res.entity_counts,
         }
+        if res.converted_from:
+            entry.update(
+                source_suffix=res.converted_from,
+                output_format=res.output_format,
+                converted=True,
+            )
+        return entry
 
     def pending_output_count(self) -> int:
         """账本里 `ok` 但产物已经不在的条目数 —— 这些会在续跑时重来。"""
