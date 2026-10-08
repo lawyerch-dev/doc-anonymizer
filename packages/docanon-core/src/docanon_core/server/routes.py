@@ -15,17 +15,12 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from .. import convert, resources
-from ..config import load_config
 from ..pipeline import prepare_detectors, process_file
 from ..redaction.mapping import MappingStore
 from . import profiles
 from docanon_engine_ner_llm import LLMConfig
 
 _MAX_BYTES = 50 * 1024 * 1024
-
-# 运行期可选的配置(= configs/*.yaml): 前端下拉用, 换个口径不必重启。
-# 缓存已加载(且预检过)的配置, 免得每个请求都重建检测器。
-_CONFIG_CACHE: dict[str, object] = {}
 
 # 资源位置都从 resources 取(调用者的 cwd 与安装布局都无关), 所以用函数而不是导入期常量
 def _web() -> Path:
@@ -192,29 +187,30 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {"ref": ref, "kind": "builtin" if profiles.is_builtin(ref) else "user", "data": data})
 
     def _resolve_config(self, payload: dict):
-        """按请求里的 config 名选一份配置并预检; 无名字用启动配置。
+        """解析 config: 缺省=启动配置; 字符串=内置/用户配置名; 字典=内联(改完即试跑)。
 
-        返回 (config, name); 名字非法/配置不可用时已发 400 并返回 (None, None)。
+        返回 (config, name); 不可用时已发 400 并返回 (None, None)。
         """
-        name = payload.get("config")
-        if not name:
+        selected = payload.get("config")
+        if selected is None:
             return self.config, self.config_name
-        if not isinstance(name, str) or Path(name).name != name or not name.endswith(".yaml"):
-            self._json(400, {"error": f"非法配置名: {name!r}"})
+        try:
+            if isinstance(selected, dict):
+                profiles.validate(selected)
+                cfg = profiles.build_config(selected)
+                name = "inline"
+            elif isinstance(selected, str):
+                cfg = profiles.build_config(profiles.load_profile(selected))
+                name = selected
+            else:
+                raise profiles.ProfileError("config 只能是配置名或配置对象")
+            prepare_detectors(cfg)  # 少一层就报错: 缺模型/连不上在这里拦住
+        except profiles.ProfileError as exc:
+            self._json(400, {"error": f"配置不合法: {exc}"})
             return None, None
-        path = resources.config_path(name)
-        if not path.is_file():
-            self._json(400, {"error": f"配置不存在: {name}"})
+        except Exception as exc:  # noqa: BLE001
+            self._json(400, {"error": f"配置不可用: {exc}"})
             return None, None
-        cfg = _CONFIG_CACHE.get(name)
-        if cfg is None:
-            try:
-                cfg = load_config(path)
-                prepare_detectors(cfg)  # 少一层就报错: 缺模型/起不来在这里拦住
-            except Exception as exc:  # noqa: BLE001
-                self._json(400, {"error": f"配置 {name} 不可用: {exc}"})
-                return None, None
-            _CONFIG_CACHE[name] = cfg
         return cfg, name
 
     def _read_json(self) -> dict:

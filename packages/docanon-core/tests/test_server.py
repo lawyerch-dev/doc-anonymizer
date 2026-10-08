@@ -303,3 +303,40 @@ def test_import_yaml_creates_user_profile(ephemeral_server):
     })
     assert body["name"] == "imported"
     assert _get(ephemeral_server, "/api/configs/imported")["data"]["strategies"]["ORG"] == "redact"
+
+
+def test_anonymize_with_inline_config_object(ephemeral_server):
+    up = _upload_text(ephemeral_server, "张三 13812340000\n")
+    inline = _get(ephemeral_server, "/api/configs/default.yaml")["data"]
+    inline["strategies"]["PHONE"] = "redact"
+
+    body = _post(ephemeral_server, "/api/anonymize",
+                 {"token": up["token"], "config": inline})
+
+    assert body["trace"]["config"] == "inline"
+    assert body["counts"].get("PHONE") == 1
+
+
+def test_anonymize_inline_bad_strategy_is_400(ephemeral_server):
+    up = _upload_text(ephemeral_server)
+    inline = _get(ephemeral_server, "/api/configs/default.yaml")["data"]
+    inline["strategies"]["PHONE"] = "shred"
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        _post(ephemeral_server, "/api/anonymize", {"token": up["token"], "config": inline})
+    assert excinfo.value.code == 400
+    assert "未知策略值" in json.loads(excinfo.value.read())["error"]
+
+
+def test_anonymize_inline_enabling_unavailable_onnx_is_400(ephemeral_server, monkeypatch):
+    up = _upload_text(ephemeral_server)
+    inline = _get(ephemeral_server, "/api/configs/default.yaml")["data"]
+    inline["detectors"]["onnx_ner"] = True
+    inline["onnx"]["model_dirs"] = ["var/models/onnx/__nope__"]
+    monkeypatch.setattr("docanon_core.server.routes.prepare_detectors",
+                        lambda cfg: (_ for _ in ()).throw(RuntimeError("缺 ONNX 模型")))
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        _post(ephemeral_server, "/api/anonymize", {"token": up["token"], "config": inline})
+    assert excinfo.value.code == 400
+    assert "不可用" in json.loads(excinfo.value.read())["error"]
