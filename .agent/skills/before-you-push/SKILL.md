@@ -22,7 +22,7 @@ description: Use when about to commit, push, or claim a change is done — to pi
    | 改了 | 跑 |
    |---|---|
    | `packages/**`、`tests/**`、`configs/**`、`samples/**` | `npm run test:py` |
-   | `apps/ui/**`、`website/**`、`package.json` | `npm run test:web` |
+   | `packages/ui/**`、`website/**`、`package.json` | `npm run test:web` |
    | `docs/**`、`.agent/**`、根 markdown、`.github/**` | `pytest tests/test_docs.py -q` |
    | `scripts/**` | `pytest tests/test_dev_env.py -q` |
 

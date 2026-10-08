@@ -1,7 +1,7 @@
 # doc-anonymizer 操作契约（入口）
 
-本地文档脱敏：中文优先、全离线、保留原格式。Python 五个包（`packages/`）+ 零构建产品前端
-（`apps/web/`）+ 共享组件库（`apps/ui/`：velora 100 组件 + 31 区块）+ Astro 官网/文档站（`website/`）。
+本地文档脱敏：中文优先、全离线、保留原格式。Python 五个包（`packages/docanon-*`）+ 共享组件库
+（`packages/ui`：velora 100 组件 + 31 区块）+ 零构建产品前端（`apps/web/`）+ Astro 官网/文档站（`website/`）。
 
 **这里是入口与索引**：细则按主题拆在 [`.agent/rules/`](.agent/rules/)，改哪块读哪篇
 （[`.agent/README.md`](.agent/README.md) 说明这套目录怎么用）。
@@ -42,7 +42,7 @@ npm scripts 是入口，`scripts/dev.sh` 是实现层。
 | 产物命名、账本、退出码 | [`04-outputs.md`](.agent/rules/04-outputs.md) |
 | 脱敏安全边界 | [`05-security.md`](.agent/rules/05-security.md) |
 | 测试纪律与守卫分工 | [`06-testing.md`](.agent/rules/06-testing.md) |
-| 前端（apps/ui · website · apps/web） | [`07-frontend.md`](.agent/rules/07-frontend.md) |
+| 前端（packages/ui · website · apps/web） | [`07-frontend.md`](.agent/rules/07-frontend.md) |
 | 文档怎么写、写在哪 | [`08-docs.md`](.agent/rules/08-docs.md) |
 | 环境、可再生资产、samples、桌面壳 | [`09-environment.md`](.agent/rules/09-environment.md) |
 

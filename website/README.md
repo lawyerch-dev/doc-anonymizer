@@ -1,6 +1,6 @@
 # website/ — 官网与文档站
 
-**Astro 5 + Starlight + Tailwind 4**，组件来自共享包 [`apps/ui`](../apps/ui/README.md)（`@doc-anonymizer/ui`，velora）。
+**Astro 5 + Starlight + Tailwind 4**，组件来自共享包 [`packages/ui`](../packages/ui/README.md)（`@doc-anonymizer/ui`，velora）。
 静态输出到 `dist/`，交给任意静态服务器；**运行期不需要 node**。
 
 ![搜索](https://raw.githubusercontent.com/lawyerch-dev/doc-anonymizer/main/docs/images/docs-site-search.png)
@@ -13,7 +13,7 @@ npm run build              # 静态输出 website/dist/
 npm run preview -w @doc-anonymizer/website    # 用 python -m http.server 起 dist/
 ```
 
-装依赖：仓库根 `npm run setup`（含 `npm install`；npm workspaces = `apps/ui` + `website`）。
+装依赖：仓库根 `npm run setup`（含 `npm install`；npm workspaces = `packages/ui` + `website`）。
 
 ## 内容从哪来（单一真相）
 
@@ -31,9 +31,9 @@ src/sidebar.generated.mjs          ← 侧栏也由同一份清单生成
 
 ## 组件从哪来
 
-通用组件都在 [`apps/ui`](../apps/ui/README.md)：`import { Marquee } from "@doc-anonymizer/ui/marquee";`
+通用组件都在 [`packages/ui`](../packages/ui/README.md)：`import { Marquee } from "@doc-anonymizer/ui/marquee";`
 （内部包直接发 TS 源码，无构建步骤）。只有**页面专属**的组合组件放这里的 `src/components/`
-（例如首页的 `Landing.tsx`）。加新 velora 组件：`cd apps/ui && npx shadcn@latest add @velora/<名字>`。
+（例如首页的 `Landing.tsx`）。加新 velora 组件：`cd packages/ui && npx shadcn@latest add @velora/<名字>`。
 
 React 组件在 Astro 里是 island，记得带指令：`<Landing client:load />`。
 
@@ -52,7 +52,7 @@ React 组件在 Astro 里是 island，记得带指令：`<Landing client:load />
 | 读仓库外部 markdown | 可用（同步脚本 / glob loader） | 可用（构建期 fs 读） |
 
 网站是内容站：Starlight 的现成能力省下的是天数级开发，体积与构建小一个量级；
-将来产品前端（`apps/web`）换 React 栈时照样引同一个 `apps/ui`，外观不会分叉。
+将来产品前端（`apps/web`）换 React 栈时照样引同一个 `packages/ui`，外观不会分叉。
 
 ## 实测出来的坑
 

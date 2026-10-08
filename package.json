@@ -1,9 +1,9 @@
 {
   "name": "doc-anonymizer",
   "private": true,
-  "description": "工作区根: Python 五个包(packages/, requirements-dev.txt) + 前端(website/ 官网, apps/ui 组件库, apps/web 产品界面)",
+  "description": "工作区根: Python 五个包(packages/, requirements-dev.txt) + 前端(website/ 官网, packages/ui 组件库, apps/web 产品界面)",
   "workspaces": [
-    "apps/ui",
+    "packages/ui",
     "website"
   ],
   "scripts": {

@@ -36,10 +36,10 @@ npm test                                                             # Python + 
 **core → 引擎 → contract**，引擎各自可整块搬走。跨包测试在 `tests/`。
 
 前端有两条路径：**产品运行期零 node**（`apps/web/` 零构建，`docanon web` 直接发静态文件）；
-**构建期可以用 node**（npm workspaces：`apps/ui` 共享组件 + `website/` 官网/文档站，
+**构建期可以用 node**（npm workspaces：`packages/ui` 共享组件 + `website/` 官网/文档站，
 Astro + Starlight，静态输出到 `dist/`）。
 
-**组件只放 `apps/ui`**（`@doc-anonymizer/ui`）：网站与将来的产品前端都引它 —— 往 app 里再拷一份
+**组件只放 `packages/ui`**（`@doc-anonymizer/ui`）：网站与将来的产品前端都引它 —— 往 app 里再拷一份
 velora 组件就等于复用失效（`tests/test_docs.py` 会拦）。根目录跑一次 `npm install` 即可。
 
 ## 改代码前必读
@@ -59,7 +59,7 @@ npm run build              # 必须能过: 静态输出到 website/dist/
 
 内容来自仓库里的 markdown：加页面 = 在 `website/content-manifest.json` 加一行
 （构建时 `website/scripts/sync-content.py` 生成 Starlight 要的 frontmatter，测试会检查文件存在）。
-装新组件：`cd apps/ui && npx shadcn@latest add @velora/<名字>`（组件进共享包，不进城建 app）。
+装新组件：`cd packages/ui && npx shadcn@latest add @velora/<名字>`（组件进共享包，不进城建 app）。
 机制与实测坑写在 [website/README.md](website/README.md)。
 
 ## 浏览器端检查（改了预览/界面才需要）

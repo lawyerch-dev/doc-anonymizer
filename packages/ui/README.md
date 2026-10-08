@@ -1,4 +1,4 @@
-# apps/ui — 共享组件库（`@doc-anonymizer/ui`）
+# packages/ui — 共享组件库（`@doc-anonymizer/ui`）
 
 **这是复用的关键**：组件与设计 token 只放这一份，`website/` 现在引它，
 **将来产品前端（`apps/web`）换栈时也引它** —— 换框架不会换外观。
@@ -35,7 +35,7 @@ import { Button } from "@doc-anonymizer/ui/primitives/button";
 ## 维护
 
 ```bash
-cd apps/ui
+cd packages/ui
 npm run sync        # 规范化导入(@/ → 相对路径) + 从 registry.lock.json 重新生成 manifest
 npm run check       # 只检查不写(测试用): 有未规范化的导入就退出 1
 npx shadcn@latest add @velora/<名字>    # 加单个组件(装完记得 npm run sync)

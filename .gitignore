@@ -39,7 +39,7 @@ out*/
 *.swo
 .DS_Store
 
-# ---- 前端工作区(npm workspaces: apps/ui + website) ----
+# ---- 前端工作区(npm workspaces: packages/ui + website) ----
 node_modules/
 # 网站构建产物与生成的内容副本由 website/.gitignore 管(dist/ .astro/ src/content/docs/)
 

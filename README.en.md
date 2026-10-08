@@ -145,7 +145,7 @@ Sub-path deployments need `SITE_BASE=/<repo-name> SITE_URL=https://<username>.gi
 how to verify them are in [`docs/cookbook/shipping-the-website.md`](docs/cookbook/shipping-the-website.md).
 
 Astro 5 + Starlight (search/TOC/prev-next built in), with content coming straight from this repo's markdown
-(manifest `website/content-manifest.json`); components live in the shared library [`apps/ui`](apps/ui/README.md)
+(manifest `website/content-manifest.json`); components live in the shared library [`packages/ui`](packages/ui/README.md)
 (`@doc-anonymizer/ui`: velora **100 components + 31 blocks** + shadcn primitives, MIT), and
 **whenever the product frontend changes stacks it imports that same package**, so the look and the components
 never fork. The catalog is on the site under "Development → Component library overview".
@@ -239,7 +239,7 @@ for choosing between them, and for benchmark numbers, see [docs/benchmarks.md](d
 | five-package structure, hard boundaries, decision records, relocation history | [docs/architecture.en.md](docs/architecture.en.md) |
 | model choice and benchmark numbers | [docs/benchmarks.md](docs/benchmarks.md) |
 | the script inventory | [scripts/README.md](scripts/README.md) |
-| how to change the website/docs site or the component library | [website/README.md](website/README.md) · [apps/ui/README.md](apps/ui/README.md) |
+| how to change the website/docs site or the component library | [website/README.md](website/README.md) · [packages/ui/README.md](packages/ui/README.md) |
 | version changes | [CHANGELOG.md](CHANGELOG.md) |
 | how to report a missed redaction or another security issue | [SECURITY.md](.github/SECURITY.md) |
 | the original design document (historical) | [docs/specs/2026-10-05-doc-anonymizer-design.md](docs/specs/2026-10-05-doc-anonymizer-design.md) |

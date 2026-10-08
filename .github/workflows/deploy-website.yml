@@ -9,7 +9,7 @@ on:
       - "website/**"
       - "docs/**"
       - ".agent/**"
-      - "apps/ui/**"
+      - "packages/ui/**"
       - "README.md"
       - "CONTRIBUTING.md"
       - "CHANGELOG.md"
@@ -44,7 +44,7 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: "装前端依赖(npm workspaces: apps/ui + website)"
+      - name: "装前端依赖(npm workspaces: packages/ui + website)"
         run: npm ci
 
       # ```mermaid 围栏在构建期由 rehype-mermaid 渲染成内联 SVG, 它要一个 chromium

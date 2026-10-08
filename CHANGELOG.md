@@ -50,6 +50,12 @@
 
 ### Changed
 
+- **共享组件库搬到 `packages/ui`**（原 `apps/ui`）。目录语义按通用 monorepo 规约定死：
+  `packages/` = 被引用的库、`apps/` = 跑起来的东西 —— 所以 `packages/` 不再等于"Python 五包"，
+  Python 侧改用 `packages/docanon-*` 指代。同批改掉 npm workspaces、`website` 的 Tailwind `@source`
+  与内容清单、守卫测试里的硬编码路径，以及 README/CONTRIBUTING/规则/架构文档中英两侧。
+  历史记录（决策笔记、事故复盘、本文件上方旧条目）按"记录类允许旧名字"保留。
+
 - **借鉴 DeepSeek Harness 的规范与流程**（同一套里我们只取适合小仓库的部分）：
   - **决策/修复笔记**：`.agent/notes/{状态}/{类别}/日期-主题.md`（状态 `proposed|implemented|rejected|archived`、
     类别封闭集合），文件内 `Status:` 与目录交叉校验；**不建索引文件**，靠相对链接从架构表/规则里指过来。

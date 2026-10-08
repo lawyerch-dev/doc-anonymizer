@@ -17,6 +17,8 @@ packages/
 └── docanon-core/              app: 抽取/检测编排、脱敏与回写、账本、CLI、本地 Web
 ```
 
+`packages/` 下还有一个 `ui`（JS 共享组件库），它不在这五个 Python 包与这条依赖方向之内。
+
 依赖方向是单行道，**由包与 pyproject 共同锁死**（`tests/test_architecture.py`）：
 
 ```
@@ -49,10 +51,11 @@ docanon_core/
 
 ```
 doc-anonymizer/
-├── packages/            五个包(见上); 每个包自带 tests/
+├── packages/
+│   ├── docanon-*        五个 Python 包(见上); 每个包自带 tests/
+│   └── ui/              共享组件包 @doc-anonymizer/ui: velora 组件 + 设计 token(网站与将来换栈的产品前端共用)
 ├── apps/
 │   ├── web/             产品前端(零构建): index.html + app.css + app.js, docanon web 直接发
-│   ├── ui/              共享组件包 @doc-anonymizer/ui: velora 组件 + 设计 token(产品前端与网站共用)
 │   └── desktop/         Electrobun 壳(系统 WebView) + hutch.lock
 ├── configs/             运行期配置(default / onnx / llm) —— 随资源根走, 不进包
 ├── samples/             内置样例: Web 预设 + 测试数据(scripts/make_samples.py 生成)
@@ -113,7 +116,7 @@ doc-anonymizer/
 | PDF 命中页整页栅格化 | 盖黑块不改变内容流，原文仍可复制/搜索 | 命中页不可再编辑（已收窄到"只有命中的页"） |
 | 命令入口 = 仓库根的 npm scripts（`scripts/dev.sh` 退居实现层） | 前端本来就要 node：一键 `npm run dev` / `npm test` 比让人记 `./scripts/dev.sh <子命令>` 更好记；shell 逻辑留在 dev.sh，不塞进 package.json | 多一层包装（排查时仍可直接用 dev.sh 与底层命令） |
 | 开发文档：`AGENTS.md` 只做索引，细则拆到 `.agent/rules/` | 160 行的「什么都塞」没人读完再动手；按主题拆开后改前端只读前端那篇 | 文档多一层跳转；靠守卫（AGENTS ≤80 行、每篇 ≤60 行、每篇都被索引）防膨胀 |
-| 前端组件抽成共享包 `apps/ui`, 网站用 Astro + Starlight（决策详情：[共享包](../.agent/notes/implemented/architecture/2026-10-07-shared-ui-package.md) · [Astro 选型](../.agent/notes/implemented/architecture/2026-10-07-astro-starlight-for-website.md)） | velora(MIT shadcn 组件)是 React/Tailwind 4 的; 组件与 token 只放一份, `website/` 与将来重写的产品前端引同一个包 —— **复用靠包, 不靠复制**。网站选 Starlight 是因为 搜索/TOC/上下页/多语言内置、依赖 241MB 与构建 0.7s 都比 Next 方案小一个量级(实测对比见 website/README.md) | 前端多了 npm workspaces 与构建链(仅构建期); 网站与将来的产品 app 可能是两个框架(组件仍共享) |
+| 前端组件抽成共享包 `packages/ui`, 网站用 Astro + Starlight（决策详情：[共享包](../.agent/notes/implemented/architecture/2026-10-07-shared-ui-package.md) · [Astro 选型](../.agent/notes/implemented/architecture/2026-10-07-astro-starlight-for-website.md)） | velora(MIT shadcn 组件)是 React/Tailwind 4 的; 组件与 token 只放一份, `website/` 与将来重写的产品前端引同一个包 —— **复用靠包, 不靠复制**。网站选 Starlight 是因为 搜索/TOC/上下页/多语言内置、依赖 241MB 与构建 0.7s 都比 Next 方案小一个量级(实测对比见 website/README.md) | 前端多了 npm workspaces 与构建链(仅构建期); 网站与将来的产品 app 可能是两个框架(组件仍共享) |
 | 桌面壳用 Electrobun | 系统 WebView，体积小一个数量级 | WKWebView 的坑自己趟（Tauri 就死在 PDF 抖动上） |
 
 ## 六、搬迁历史

@@ -234,12 +234,12 @@ def test_docs_site_is_wired_correctly():
 
 
 def test_ui_components_live_only_in_the_shared_package():
-    """复用靠共享包: velora 组件只许在 apps/ui, 任何 app 里再放一份就红了。
+    """复用靠共享包: velora 组件只许在 packages/ui, 任何 app 里再放一份就红了。
 
     这是踩过的坑 —— 第一次集成时把组件拷进了站点 app, 结果产品前端将来根本复用不到。
     """
-    kit = REPO / "apps" / "ui"
-    assert (kit / "src" / "components" / "velora" / "marquee.tsx").is_file(), "共享组件库 apps/ui 不见了"
+    kit = REPO / "packages" / "ui"
+    assert (kit / "src" / "components" / "velora" / "marquee.tsx").is_file(), "共享组件库 packages/ui 不见了"
     pkg = json.loads((kit / "package.json").read_text(encoding="utf-8"))
     assert pkg["name"] == "@doc-anonymizer/ui"
     exports = pkg.get("exports", {})
@@ -257,10 +257,10 @@ def test_ui_components_live_only_in_the_shared_package():
         for p in app.rglob("*.tsx")
         if "velora" in p.parts or p.name in kit_names
     ]
-    assert not strays, f"这些组件不该出现在 app 里(应只放 apps/ui): {strays}"
+    assert not strays, f"这些组件不该出现在 app 里(应只放 packages/ui): {strays}"
 
     root_pkg = json.loads((REPO / "package.json").read_text(encoding="utf-8"))
-    assert set(root_pkg.get("workspaces", [])) >= {"apps/ui", "website"}, "根 package.json 的 workspaces 不全"
+    assert set(root_pkg.get("workspaces", [])) >= {"packages/ui", "website"}, "根 package.json 的 workspaces 不全"
 
 
 def test_tailwind_sources_resolve():
@@ -276,8 +276,8 @@ def test_tailwind_sources_resolve():
 
 
 def test_ui_kit_ships_the_whole_library():
-    """apps/ui 必须是完整组件库(不是我们页面用到的那几个), 且导入已规范化。"""
-    kit = REPO / "apps" / "ui"
+    """packages/ui 必须是完整组件库(不是我们页面用到的那几个), 且导入已规范化。"""
+    kit = REPO / "packages" / "ui"
     manifest = json.loads((kit / "src" / "manifest.json").read_text(encoding="utf-8"))
     items = manifest["items"]
     kinds = {i["type"] for i in items}

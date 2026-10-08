@@ -31,12 +31,12 @@ SWITCHER = re.compile(r"^\s*(?:\[English\]\([^)]*\.en\.md\)\s*\|\s*中文|Englis
 
 
 def render_velora_index(entry: dict) -> str:
-    """把 apps/ui/src/manifest.json 渲染成一页总览: 库里有啥, 一眼看到, 不用翻源码。"""
+    """把 packages/ui/src/manifest.json 渲染成一页总览: 库里有啥, 一眼看到, 不用翻源码。"""
     data = json.loads((REPO / entry["file"]).read_text(encoding="utf-8"))
     groups = {"ui": ("组件", "ui"), "block": ("区块", "ui/blocks")}
     parts = [
-        "这一页由 `apps/ui/src/manifest.json` 生成 —— 也就是共享组件包里**真实存在**的东西",
-        "（`cd apps/ui && npm run sync` 重新生成）。用法：",
+        "这一页由 `packages/ui/src/manifest.json` 生成 —— 也就是共享组件包里**真实存在**的东西",
+        "（`cd packages/ui && npm run sync` 重新生成）。用法：",
         "",
         "```tsx",
         'import { Marquee } from "@doc-anonymizer/ui/marquee";',

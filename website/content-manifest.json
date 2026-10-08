@@ -19,7 +19,7 @@
       "file": "README.md",
       "en": "README.en.md",
       "en_title": "Manual",
-      "en_hash": "4cd413cd36c87dd1"
+      "en_hash": "ed665424ddb4d7f2"
     },
     {
       "group": "dev",
@@ -29,7 +29,7 @@
       "file": "CONTRIBUTING.md",
       "en": "CONTRIBUTING.en.md",
       "en_title": "Contributing",
-      "en_hash": "244a485ab9dc0a71"
+      "en_hash": "347db7e10fdfc992"
     },
     {
       "group": "dev",
@@ -46,7 +46,7 @@
       "file": "docs/architecture.md",
       "en": "docs/architecture.en.md",
       "en_title": "Architecture",
-      "en_hash": "48d75fffb9a68e22"
+      "en_hash": "b93011ac98d62ce0"
     },
     {
       "group": "dev",
@@ -150,16 +150,16 @@
       "group": "dev",
       "slug": "components",
       "title": "组件库总览",
-      "description": "apps/ui 里的 velora 组件与区块（131 项，可直接 import）",
-      "file": "apps/ui/src/manifest.json",
+      "description": "packages/ui 里的 velora 组件与区块（131 项，可直接 import）",
+      "file": "packages/ui/src/manifest.json",
       "render": "velora-index"
     },
     {
       "group": "dev",
       "slug": "ui",
-      "title": "组件库（apps/ui）",
+      "title": "组件库（packages/ui）",
       "description": "131 项 velora 组件/区块怎么引、怎么加",
-      "file": "apps/ui/README.md"
+      "file": "packages/ui/README.md"
     },
     {
       "group": "dev",

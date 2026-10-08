@@ -36,10 +36,10 @@ Five packages under `packages/` (`docanon-contract` + three engine packages + `d
 one direction only: **core → engine → contract**, and each engine can be lifted out whole. Cross-package tests live in `tests/`.
 
 The frontend has two paths: **zero node at product runtime** (`apps/web/` is zero-build, `docanon web` serves the static files directly);
-**node is fine at build time** (npm workspaces: `apps/ui` shared components + `website/` site and docs,
+**node is fine at build time** (npm workspaces: `packages/ui` shared components + `website/` site and docs,
 Astro + Starlight, static output to `dist/`).
 
-**Components live only in `apps/ui`** (`@doc-anonymizer/ui`): both the website and the future product frontend import it — copying
+**Components live only in `packages/ui`** (`@doc-anonymizer/ui`): both the website and the future product frontend import it — copying
 another set of velora components into an app means reuse has failed (`tests/test_docs.py` will stop you). One `npm install` at the repo root is enough.
 
 ## Read before changing code
@@ -59,7 +59,7 @@ npm run build              # must pass: static output to website/dist/
 
 The content comes from the markdown in the repo: adding a page = adding one line to `website/content-manifest.json`
 (at build time `website/scripts/sync-content.py` generates the frontmatter Starlight needs, and a test checks that the file exists).
-Installing a new component: `cd apps/ui && npx shadcn@latest add @velora/<名字>` (the component goes into the shared package, not into the built app).
+Installing a new component: `cd packages/ui && npx shadcn@latest add @velora/<名字>` (the component goes into the shared package, not into the built app).
 The mechanics and the pitfalls we actually hit are written up in [website/README.md](website/README.md).
 
 ## Browser-side check (only needed if you changed previews or the UI)

@@ -5,7 +5,7 @@ description: Use when publishing a version: bumping versions, updating the chang
 
 # 发一个版本
 
-1. 版本号：五个 `packages/*/pyproject.toml`（`version`）、`website/package.json`、`apps/ui/package.json`
+1. 版本号：五个 `packages/*/pyproject.toml`（`version`）、`website/package.json`、`packages/ui/package.json`
    保持一致（语义化版本）。
 2. `CHANGELOG.md`：把 `[Unreleased]` 的内容落到 `## [x.y.z] — YYYY-MM-DD`，并留一个空的 `[Unreleased]`。
 3. 全量验证（必须真跑，贴结果）：
