@@ -82,7 +82,7 @@ COMMUNITY_FILES = [
 
 TOP_LEVEL = {"packages", "apps", "configs", "samples", "scripts", "tests", "docs", "var"}
 # 运行时才存在的东西: var/(权重、预览包、默认产物)、用户自选产物目录、壳的构建产物
-RUNTIME_PREFIXES = ("var/", "out/", "website/dist", "apps/desktop/build")
+RUNTIME_PREFIXES = ("var/", "out/", "website/dist", "apps/web/dist", "apps/desktop/build")
 
 # 名字一旦删掉/改名, 现状文档里就不该再有它
 REMOVED_NAMES = {
@@ -268,14 +268,30 @@ def test_ui_components_live_only_in_the_shared_package():
 
 def test_tailwind_sources_resolve():
     """Tailwind 4 的 @source 必须指向真实目录 —— 指错时类名被静默摇掉(踩过: website 搬家后没改,
-    数字组件的 sr-only 失灵、aurora 颜色全丢)。"""
+    数字组件的 sr-only 失灵、aurora 颜色全丢)。
+
+    每个入口 CSS(站点 + 产品前端的 Vite 源)都要查: 少了 @source 就是没扫共享组件库,
+    指错目录则类名被静默摇掉 —— 失败信息必须点名是哪个文件。
+    """
     import re as _re
 
-    css = REPO / "website" / "src" / "styles" / "global.css"
-    sources = _re.findall(r'@source\s+"([^"]+)"', css.read_text(encoding="utf-8"))
-    assert sources, "global.css 里没有 @source"
-    missing = [s for s in sources if not (css.parent / s).resolve().is_dir()]
-    assert not missing, f"@source 指向了不存在的目录: {missing}"
+    css_files = [
+        REPO / "website" / "src" / "styles" / "global.css",
+        REPO / "apps" / "web" / "src" / "styles.css",
+    ]
+    bad = []
+    for css in css_files:
+        rel = css.relative_to(REPO)
+        sources = _re.findall(r'@source\s+"([^"]+)"', css.read_text(encoding="utf-8"))
+        if not sources:
+            bad.append(f"{rel}: 没有 @source(少了就扫不到共享组件库的类名)")
+            continue
+        bad += [
+            f"{rel}: @source 指向了不存在的目录 -> {s}"
+            for s in sources
+            if not (css.parent / s).resolve().is_dir()
+        ]
+    assert not bad, "\n".join(bad)
 
 
 def test_ui_kit_ships_the_whole_library():

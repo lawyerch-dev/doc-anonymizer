@@ -340,3 +340,26 @@ def test_anonymize_inline_enabling_unavailable_onnx_is_400(ephemeral_server, mon
         _post(ephemeral_server, "/api/anonymize", {"token": up["token"], "config": inline})
     assert excinfo.value.code == 400
     assert "不可用" in json.loads(excinfo.value.read())["error"]
+
+
+def test_root_serves_the_built_index(ephemeral_server):
+    """`docanon web` 发的必须是构建产物(dist/index.html), 不是源码入口。"""
+    with urllib.request.urlopen(ephemeral_server + "/", timeout=5) as resp:
+        assert resp.status == 200
+        assert "text/html" in resp.headers.get("Content-Type", "")
+        html = resp.read().decode("utf-8")
+    assert '<div id="root">' in html, "发出去的不是 Vite 构建后的 index"
+    assert "/src/main.tsx" not in html, "发出去的是源码入口(未构建)"
+
+
+def test_built_assets_are_served(ephemeral_server):
+    """带哈希的 JS/CSS 落在 /assets/ 下, 必须能取到 —— 取不到就是白屏。"""
+    from docanon_core import resources
+
+    assets = sorted((resources.path("web") / "assets").glob("*.js"))
+    assert assets, "构建产物里没有 assets/*.js, 先跑 npm run build:web"
+    with urllib.request.urlopen(
+        f"{ephemeral_server}/assets/{assets[0].name}", timeout=5
+    ) as resp:
+        assert resp.status == 200
+        assert "javascript" in resp.headers.get("Content-Type", "")

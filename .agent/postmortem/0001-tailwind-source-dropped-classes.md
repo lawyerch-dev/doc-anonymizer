@@ -42,7 +42,7 @@
 ## 护栏
 
 - `tests/test_docs.py::test_tailwind_sources_resolve`：每个 `@source` 必须指向真实存在的目录
-  （现在 4 条 `@source` 全被查）。
+  （扫两个入口 CSS —— 站点 `global.css` 与产品前端 `styles.css`，共 4 条 `@source` 全被查）。
 - 站内链接同理：`test_website_internal_links_go_through_base`（手写 `href="/…"` 在子路径部署会 404）。
 - 文档纪律升级：**配置类改动必须真跑一遍并看计算样式/产物**，写进
   [`docs/cookbook/reviewing-a-change.md`](../../docs/cookbook/reviewing-a-change.md) 第 5 条。

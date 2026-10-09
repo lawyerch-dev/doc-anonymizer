@@ -42,7 +42,7 @@ def test_env_override_wins(tmp_path, monkeypatch):
     monkeypatch.setenv(resources.ENV_ROOT, str(fake))
     assert resources.root() == fake.resolve()
     assert resources.config_path("default.yaml") == fake.resolve() / "configs" / "default.yaml"
-    assert resources.web_index() == fake.resolve() / "apps" / "web" / "index.html"
+    assert resources.web_index() == fake.resolve() / "apps" / "web" / "dist" / "index.html"
     assert resources.samples_dir() == fake.resolve() / "samples"
 
 

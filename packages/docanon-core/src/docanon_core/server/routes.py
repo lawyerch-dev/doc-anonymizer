@@ -60,8 +60,8 @@ _CTYPES = {
 
 _PREVIEWABLE = {".docx", ".xlsx", ".pdf", ".png", ".jpg", ".jpeg", ".txt", ".md", ".csv"}
 
-# 前端自己的静态件(app.css / app.js): 零构建, 直接由本服务发出去
-_WEB_ASSETS = {"/app.css": "app.css", "/app.js": "app.js"}
+# 前端是构建产物(Vite → apps/web/dist): / 发 index.html, 其余静态件都带哈希落在 /assets/ 下
+_DIST_PREFIX = "/assets/"
 
 
 def _ctype(path: Path) -> str:
@@ -117,6 +117,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         p = self._path()
         if p in ("/", "/index.html"):
+            # _index() 走 resources.LAYOUT["web"], 现在指 apps/web/dist/index.html
             self._send(200, _index().read_bytes(), "text/html; charset=utf-8")
         elif p == "/health":
             # 带上 pid: 桌面壳用它确认"答话的是我自己拉起的那个后端", 而不是占着端口的旧孤儿
@@ -132,8 +133,8 @@ class Handler(BaseHTTPRequestHandler):
             })
         elif p.startswith("/api/configs/"):
             self._get_config(p[len("/api/configs/"):])
-        elif p in _WEB_ASSETS:
-            self._send_file(_web() / _WEB_ASSETS[p])
+        elif p.startswith(_DIST_PREFIX):
+            self._serve_static(_web(), p.lstrip("/"))
         elif p.startswith("/samples/"):
             self._serve_static(_samples(), p[len("/samples/"):])
         elif p.startswith("/file-viewer/"):
