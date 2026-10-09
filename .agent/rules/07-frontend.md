@@ -36,11 +36,16 @@
 - 加前端依赖/改构建：`npm run build:web`；dev 态 `npm run dev`（后端 + Vite 并发 + `/api /samples /uploads /outputs /file-viewer /health` 六条前缀代理），
   生产形态 `npm run build:web && npm run dev:backend`。
 
-## Web 配置面（分层脱敏口径）
+## Web 配置面（分层脱敏方案）
 
-`docanon web` 的"口径"不是选一个 yaml，而是**三层渐进披露**：L1 口径（内置预设只读 / 我的配置）→
-L2 逐类型策略 + 词典 → L3 检测器/模型。校验与落盘集中在
+`docanon web` 的"方案"（**界面用词**；代码与 API 里仍叫 profile/config）不是选一个 yaml，而是**三层渐进披露**：
+L1 方案（内置四套只读 / 我的配置）→ L2 逐类型策略 + 词典 → L3 检测器/模型。校验与落盘集中在
 `packages/docanon-core/src/docanon_core/server/profiles.py`（纯函数 + 文件读写），`routes.py` 只做 HTTP 胶水。
+
+- **面向用户的文案住在配置里/一处表里，别在组件里硬编码**：L1 的短名与"什么时候用它"取自每份 yaml 开头的
+  **前两条注释**（`profiles.describe`）；类型名、策略名、检测器名、模型备注在
+  `apps/web/src/lib/formats.ts`（`ENTITY_LABELS` / `STRATEGY_LABELS` / `DETECTOR_LABELS` / `ONNX_MODEL_INFO`），
+  **认不出的代码原样显示**（用户可自定义 `onnx.entity_map` 或加模型目录，猜不得）。
 
 - **内置只读**：`configs/*.yaml` 只能读；用户配置写 `var/configs/<name>.yaml`（与内置**同 schema**，
   复用 `load_config`），名字 `^[A-Za-z0-9_-]{1,32}$`（不含点 → 不与内置撞名、杜绝穿越），**原子写**。

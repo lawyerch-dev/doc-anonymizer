@@ -112,32 +112,44 @@ def build_config(data: dict) -> Config:
     return config_from_dict(normalize(data))
 
 
-def label_of(path: Path) -> str:
-    """取首行注释当标签; 读不了就用文件名主干(坏文件不能拖垮列表)。"""
+def describe(path: Path) -> tuple[str, str]:
+    """取开头连续的注释行: 第一条当简称, 第二条当"什么时候用它"(都是给用户看的)。
+
+    **只取前两条是有意的**: 这两条要显示在设置界面里, 必须短、必须人话; 再往下的注释是写给
+    改配置的人的细节(依赖、取舍、为什么这么配), 端到用户面前只会变成噪音。
+    读不了就用文件名主干 —— 坏文件不能拖垮整个列表。
+    """
     try:
-        text = path.read_text(encoding="utf-8")
+        lines = path.read_text(encoding="utf-8").splitlines()
     except (OSError, UnicodeDecodeError):
-        return path.stem
-    for line in text.splitlines():
-        line = line.strip()
-        if line.startswith("#"):
-            text = line.lstrip("#").strip()
+        return path.stem, ""
+    heads: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            text = stripped.lstrip("#").strip()
             if text:
-                return text
-        elif line:
+                heads.append(text)
+                if len(heads) == 2:
+                    break
+        elif stripped:  # 正文开始了, 注释块结束
             break
-    return path.stem
+    if not heads:
+        return path.stem, ""
+    return heads[0], (heads[1] if len(heads) > 1 else "")
 
 
 def list_profiles(current: str | None) -> list[dict]:
     out: list[dict] = []
     for f in sorted(resources.path("configs").glob("*.yaml")):
-        out.append({"name": f.name, "kind": "builtin",
-                    "label": label_of(f), "current": f.name == current})
+        label, hint = describe(f)
+        out.append({"name": f.name, "kind": "builtin", "label": label,
+                    "hint": hint, "current": f.name == current})
     user_root = user_dir()
     for f in (sorted(user_root.glob("*.yaml")) if user_root.is_dir() else []):
-        out.append({"name": f.stem, "kind": "user",
-                    "label": label_of(f) or f.stem, "current": f.stem == current})
+        label, hint = describe(f)
+        out.append({"name": f.stem, "kind": "user", "label": label or f.stem,
+                    "hint": hint, "current": f.stem == current})
     return out
 
 

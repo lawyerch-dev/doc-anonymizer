@@ -74,6 +74,22 @@ export function onnxModelInfo(dir: string): { name: string; hint: string; recomm
   return ONNX_MODEL_INFO[base] ?? { name: base, hint: "自备模型，没有备注", recommended: false };
 }
 
+/**
+ * L1 下拉的展示顺序 —— 把「推荐（默认）」放最前, 用户第一眼看到的就是该用的那套。
+ *
+ * 只排序不筛选: 没列进这里的(以后新增的内置、以及"我的配置")按后端给的原顺序排在后面,
+ * 一个都不会被藏掉。
+ */
+export const SCHEME_ORDER = ["onnx.yaml", "legal.yaml", "default.yaml", "llm.yaml"];
+
+export function orderSchemes<T extends { name: string }>(rows: T[]): T[] {
+  const rank = (name: string) => {
+    const i = SCHEME_ORDER.indexOf(name);
+    return i < 0 ? SCHEME_ORDER.length : i;
+  };
+  return [...rows].sort((a, b) => rank(a.name) - rank(b.name)); // sort 是稳定的: 同档保持原序
+}
+
 /** 每种策略的效果示例(L2 表格里给人看) */
 export const EFFECT: Record<string, string> = {
   redact: "**",

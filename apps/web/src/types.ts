@@ -3,6 +3,8 @@ export type Preset = { name: string; url: string; size: number; preview: boolean
 export type ConfigRow = {
   name: string;
   label: string;
+  /** 配置首行注释里的一句话说明(什么时候用它); 用户自存的配置通常没有 */
+  hint: string;
   kind: "builtin" | "user";
   current?: boolean;
 };

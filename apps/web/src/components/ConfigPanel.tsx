@@ -5,7 +5,7 @@ import {
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import { Input } from "@doc-anonymizer/ui/primitives/input";
 import { Label } from "@doc-anonymizer/ui/primitives/label";
-import { DETECTORS, DETECTOR_LABELS, EFFECT, ENTITY_TYPES, STRATEGIES, STRATEGY_LABELS, entityLabel, onnxModelInfo } from "../lib/formats";
+import { DETECTORS, DETECTOR_LABELS, EFFECT, ENTITY_TYPES, STRATEGIES, STRATEGY_LABELS, entityLabel, onnxModelInfo, orderSchemes } from "../lib/formats";
 import type { ConfigData, ConfigRow } from "../types";
 
 type Props = {
@@ -51,6 +51,9 @@ export function ConfigPanel(props: Props) {
   const importRef = useRef<HTMLInputElement>(null);
   const d = configData;
   const def = d?.strategies?.DEFAULT ?? "placeholder";
+  // 选中的那一套: 选项里只放短名, "什么时候用它"放在下面单独一行
+  const currentRow = configs.find((c) => c.name === configRef) ?? null;
+  const schemeOptions = orderSchemes(configs);
 
   const setStrategy = (entity: string, value: string) => {
     if (!d) return;
@@ -59,24 +62,31 @@ export function ConfigPanel(props: Props) {
 
   return (
     <div className="space-y-1">
-      {/* ---- L1 口径 ---- */}
-      <Label className="mb-1.5 block text-xs text-muted-foreground">脱敏口径</Label>
+      {/* ---- L1 方案: 选项只放短名, 长解释放下面, 免得下拉里全是字 ---- */}
+      <Label className="mb-1.5 block text-xs text-muted-foreground" htmlFor="schemeSel">
+        脱敏方案
+      </Label>
       <select
+        id="schemeSel"
         className="h-8 w-full rounded-md border border-input bg-background px-2 text-[13px]"
         value={configRef ?? ""}
         onChange={(e) => onSelectConfig(e.target.value)}
+        title={configRef ?? undefined}
       >
-        {configs.map((c) => (
+        {schemeOptions.map((c) => (
           <option key={c.name} value={c.name}>
             {c.label}
             {c.kind === "user" ? "（我的）" : ""}
-            {c.current ? "（当前）" : ""}
           </option>
         ))}
       </select>
-      <div className="mt-1 text-xs text-muted-foreground">
-        {configRef ? `${configRef}${configKind === "user" ? " · 我的配置" : " · 内置"}` : ""}
-      </div>
+      <p className="mt-1 text-xs leading-snug text-muted-foreground">
+        {currentRow?.hint || (configKind === "user" ? "你自己保存的方案" : "")}
+        {configKind === "user" ? <span className="ml-1 opacity-70">· 我的配置</span> : null}
+      </p>
+      <p className="text-[11px] leading-snug text-muted-foreground/80">
+        不确定选哪个：日常用「推荐（默认）」；要交出去的材料选「法律文书交付」。
+      </p>
 
       <Accordion multiple className="mt-2">
         {/* ---- L2 自定义脱敏 ---- */}

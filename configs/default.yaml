@@ -1,4 +1,5 @@
-# doc-anonymizer 默认配置
+# 最快（只用规则）
+# 只认格式固定的号码：手机号、身份证、银行卡、邮箱这类。不装任何模型也能用。
 # 各实体类型的脱敏策略: redact(整体 **) | mask(打码) | placeholder(<TYPE_n>) | pseudonym(假名) | remove | keep
 # 默认用 **: 绝不产出像真的内容("假名/假公司"只在你显式配 pseudonym 时才用)
 strategies:

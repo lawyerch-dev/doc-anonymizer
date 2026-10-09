@@ -130,17 +130,20 @@ Pick a sample or upload → preview the original → redact → compare side by 
 traces every hit back to its source (which engine, where, what matched, what it was replaced with). It listens
 on `127.0.0.1` only, with no auth (for local, single-user use).
 
-**The redaction preset is layered in three levels** (progressive disclosure — casual users only ever touch L1):
+**The redaction scheme is layered in three levels** (progressive disclosure — casual users only ever touch L1):
 
-- **L1 preset**: choose between **built-in presets** (`configs/*.yaml`, read-only) and **my configs**
-  (`var/configs/<name>.yaml`); create / save-as / export / import. The current preset name and its saved state
-  are shown on the right.
-- **L2 custom redaction**: per-type strategy (`redact` `**` / `mask` `138****0000` / `placeholder` /
-  `pseudonym` / `remove` / `keep`, each row with a worked example) + custom sensitive words; the
-  "use pseudonyms for people/orgs" switch merely flips the matrix between `redact` and `pseudonym`
-  (it introduces no second representation).
-- **L3 detection engines**: tick detectors (`rule` / `dictionary` / `onnx_ner` / `llm_ner`), pick ONNX model
-  dirs, set the LLM base URL / model.
+- **L1 scheme**: choose one of the four built-ins (`configs/*.yaml`, read-only) or **my configs**
+  (`var/configs/<name>.yaml`). The dropdown lists only a **short name** (e.g. "Recommended (default)");
+  "when to use which" is shown on its own line underneath — both come from the **first two comment lines** of
+  each yaml (edit the wording in the file and the UI follows), while anything below them is detail for whoever
+  edits the config and never reaches users. Create / save-as / export / import.
+- **L2 custom redaction**: per-type strategy (shown in plain language, e.g. "blank out with `**`"; maps to
+  `redact` / `mask` / `placeholder` / `pseudonym` / `remove` / `keep`, each row with a worked example) + custom
+  sensitive words; the "use pseudonyms for people/orgs" switch merely flips the matrix between `redact` and
+  `pseudonym` (it introduces no second representation).
+- **L3 detection engines**: tick what each layer should *recognise* (numbers & codes / my sensitive words /
+  Chinese names & orgs / local LLM), each with a one-line explanation; **a layer's settings appear only once it
+  is ticked** (model choice / LLM address), so unticked layers take up no space.
 
 Edit and **try a run inline with the current editor contents** (no need to save first); name and save or export
 once happy. Engine pre-check runs at run time — a missing model / unreachable LLM returns 400 + a reason
