@@ -31,7 +31,7 @@ export const COPY: Record<"zh" | "en", LandingCopy> = {
     title: "doc-anonymizer · 本地文档脱敏",
     metaDescription: "中文优先、全离线、保留原格式的本地文档脱敏工具",
     nav: { docs: "文档", architecture: "架构", github: "GitHub", switchLabel: "English" },
-    badge: "MIT · 本地运行 · 不联网",
+    badge: "MIT · 本地运行 · 默认不联网",
     hero: [
       { text: "把中文文档里的敏感信息，" },
       { br: true },

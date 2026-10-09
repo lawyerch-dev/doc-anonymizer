@@ -5,6 +5,24 @@
 
 ## [Unreleased]
 
+### Added
+
+- **大模型可在界面里选并下载**：L3「本地大模型」原先要填服务地址与模型名 —— 对非技术用户不可理解，
+  模型本身还得在终端跑 `./scripts/download_model.sh`。现在：
+  - 新资源 `configs/llm_models.yaml`（**数据而非代码**，自己加模型改这个文件）：每条给名字、一句话
+    "什么时候用"、仓库与文件名、大小；界面拿它列选项。
+  - 没下载的点「下载」即可（后台任务、进度条、可取消、**断了能续**：`.part` + `Range` 续传，
+    下完 `os.replace` 原子改名，界面永远看不到半截 `.gguf`）；已下载的显示启动命令。
+  - 新接口：`GET /api/models` 增 `llm_models`；`POST /api/models/download`（起 / 查 / 取消）。
+    **只收目录里的 `id`，不收 URL** —— 地址一律由目录的 `repo`+`file` 拼出，否则就是个任意下载口。
+  - 收录纪律（写进设计与测试）：**只收核实过的地址**，且不把没实测过的数字安到别的模型头上。
+    本次只收 [benchmarks](docs/benchmarks.md) 里两个实测 12/12 的 4B；`MiniCPM5-1B`（实测数据对不上）、
+    `Anonymizer-1.7B`/`Qwen3.5-9B`（查不到仓库或已弃用）一律不收。设计与决策：
+    [设计](docs/specs/2026-10-09-llm-model-download-design.md) ·
+    [笔记](.agent/notes/implemented/feature/2026-10-09-llm-model-download.md)。
+- **首次联网**：这是本项目第一次让应用主动联网 —— README 徽章从 `offline by design` 改为
+  `offline by default`，正文、SECURITY.md 与官网文案都写明"唯一例外是你主动点下载模型"。
+
 ### Changed
 
 - **「脱敏口径」改名「脱敏方案」，四套预设各自说清"什么时候用"**：`口径` 是内部行话，用户看不懂。L1 下拉

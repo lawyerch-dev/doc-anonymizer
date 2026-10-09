@@ -7,7 +7,7 @@
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="Platform: macOS arm64" src="https://img.shields.io/badge/platform-macOS%20arm64-lightgrey.svg">
   <img alt="Python 3.10–3.13" src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg">
-  <img alt="No network" src="https://img.shields.io/badge/network-offline%20by%20design-success.svg">
+  <img alt="No network by default" src="https://img.shields.io/badge/network-offline%20by%20default-success.svg">
 </p>
 
 <p align="center">
@@ -25,7 +25,8 @@
 Person names, phone numbers (mobile and landline), ID cards, passports, license plates, bank cards,
 emails, IPs, unified social credit codes, secrets, custom sensitive terms — detected and erased, emitting
 **same-format** files plus a reversible mapping table.
-**No network, no uploads, no cloud APIs.**
+**No network, no uploads, no cloud APIs** — the one exception being when you explicitly click
+"download model", which fetches that single file from modelscope.
 
 ## Features
 
@@ -143,7 +144,9 @@ on `127.0.0.1` only, with no auth (for local, single-user use).
   `pseudonym` (it introduces no second representation).
 - **L3 detection engines**: tick what each layer should *recognise* (numbers & codes / my sensitive words /
   Chinese names & orgs / local LLM), each with a one-line explanation; **a layer's settings appear only once it
-  is ticked** (model choice / LLM address), so unticked layers take up no space.
+  is ticked** (model choice / LLM address), so unticked layers take up no space. With "local LLM" ticked you
+  *pick* a model rather than typing a path: choose from `configs/llm_models.yaml`; if it is not downloaded yet,
+  hit "download" (progress, cancel, resumes if interrupted) and you get the command to start the server.
 
 Edit and **try a run inline with the current editor contents** (no need to save first); name and save or export
 once happy. Engine pre-check runs at run time — a missing model / unreachable LLM returns 400 + a reason
@@ -152,9 +155,11 @@ User configs share the built-in schema and live in the gitignored `var/configs/`
 (no edit, no delete).
 
 Endpoints: `/` `/assets/*` `/health` `/api/presets` `/api/configs` `/api/configs/{ref}` `/api/models`
-`/api/upload` `/api/anonymize` (plus `PUT`/`DELETE /api/configs/{name}`, `POST /api/configs/import`,
-`GET /api/configs/{name}/export`). `/api/configs` lists built-in + user and marks the current one; `/api/models`
-reports the selectable ONNX dirs and LLM defaults; `/api/upload` takes `{filename, content_b64}`;
+`/api/models/download` `/api/upload` `/api/anonymize` (plus `PUT`/`DELETE /api/configs/{name}`,
+`POST /api/configs/import`, `GET /api/configs/{name}/export`, `POST /api/models/download/cancel`).
+`/api/configs` lists built-ins and user configs and marks the current one; `/api/models` reports the ONNX
+dirs, the LLM defaults and the **downloadable model catalogue**; `/api/models/download` starts / polls /
+cancels the in-app model download (it takes a catalogue `id` only, **never a URL**); `/api/upload` takes `{filename, content_b64}`;
 `/api/anonymize` takes `{preset|token, config?}`, where `config` is a **config name** or an **inline object**,
 and returns `counts` and `trace`; uploads are capped at 50MB.
 
@@ -211,6 +216,10 @@ details such as ID numbers, bank cards, phones and addresses; courts, case numbe
 names, law firms and agents, dates and amounts are all left alone) · `default.yaml` (rules + dictionary) ·
 `onnx.yaml` (+ Chinese NER, swaps names and organizations too — for talks and case write-ups) ·
 `llm.yaml` (+ a local LLM; run `./scripts/serve_llm.sh` first).
+There is also `llm_models.yaml` — the **downloadable model catalogue**, not a redaction preset: each entry
+carries a name, one line of when-to-use, the repo and the filename, and the UI's "local LLM" section turns it
+into a picker with a download button. Add your own models by editing that file (see the
+[design](docs/specs/2026-10-09-llm-model-download-design.md)).
 
 **Use `legal.yaml` for delivery**: `onnx.yaml` treats the court as an organization, "审判员" and
 "委托诉讼代理人" as roles, and the judgment date as a date of birth — redacts them all, and the document can

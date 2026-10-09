@@ -7,7 +7,7 @@ import { Preview } from "./components/Preview";
 import { SettingsSheet } from "./components/SettingsSheet";
 import { StatsCard } from "./components/StatsCard";
 import * as api from "./lib/api";
-import type { AnonymizeResp, ConfigData, ConfigRow, Preset, Selection } from "./types";
+import type { AnonymizeResp, ConfigData, ConfigRow, LlmModelRow, Preset, Selection } from "./types";
 
 type Theme = "light" | "dark";
 
@@ -29,6 +29,7 @@ export default function App() {
   const [configKind, setConfigKind] = useState<"builtin" | "user" | null>(null);
   const [configDirty, setConfigDirty] = useState(false);
   const [modelDirs, setModelDirs] = useState<string[]>([]);
+  const [llmModels, setLlmModels] = useState<LlmModelRow[]>([]);
 
   const [selection, setSelection] = useState<Selection | null>(null);
   const [result, setResult] = useState<AnonymizeResp | null>(null);
@@ -86,11 +87,16 @@ export default function App() {
     }
   }, [loadConfigData]);
 
+  // 模型目录(ONNX 可选 + 可下载的大模型)。下载完成后要重取一次, "已下载"标记才会变。
+  const refreshModels = useCallback(() => {
+    api.loadModels()
+      .then((m) => { setModelDirs(m.onnx_dirs); setLlmModels(m.llm_models); })
+      .catch(() => { setModelDirs([]); setLlmModels([]); });
+  }, []);
+
   useEffect(() => { void refreshPresets(); }, [refreshPresets]);
   useEffect(() => { void loadConfigList(); }, [loadConfigList]);
-  useEffect(() => {
-    api.loadModels().then((m) => setModelDirs(m.onnx_dirs)).catch(() => setModelDirs([]));
-  }, []);
+  useEffect(() => { refreshModels(); }, [refreshModels]);
 
   const pickPreset = (p: Preset) => {
     setSelection({ preset: p.name, token: null, filename: p.name, url: p.url });
@@ -253,8 +259,10 @@ export default function App() {
           configData={configData}
           configKind={configKind}
           modelDirs={modelDirs}
+          llmModels={llmModels}
           onSelectConfig={(name) => void loadConfigData(name)}
           onChange={(next) => { setConfigData(next); setConfigDirty(true); }}
+          onModelsChanged={refreshModels}
           onSave={() => void saveConfig()}
           onImport={(f) => void importConfig(f)}
           onExport={() => { if (configRef) location.href = api.exportConfigUrl(configRef); }}

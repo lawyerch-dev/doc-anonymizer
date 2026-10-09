@@ -90,6 +90,13 @@ export function orderSchemes<T extends { name: string }>(rows: T[]): T[] {
   return [...rows].sort((a, b) => rank(a.name) - rank(b.name)); // sort 是稳定的: 同档保持原序
 }
 
+/** 字节 → 人话("2.78 GB"/"688 MB"), 给下载进度与模型大小用 */
+export function humanSize(bytes: number): string {
+  const gb = bytes / 1024 ** 3;
+  if (gb >= 1) return `${gb.toFixed(2)} GB`;
+  return `${Math.round(bytes / 1024 ** 2)} MB`;
+}
+
 /** 每种策略的效果示例(L2 表格里给人看) */
 export const EFFECT: Record<string, string> = {
   redact: "**",

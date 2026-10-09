@@ -7,7 +7,7 @@
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="Platform: macOS arm64" src="https://img.shields.io/badge/platform-macOS%20arm64-lightgrey.svg">
   <img alt="Python 3.10–3.13" src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg">
-  <img alt="No network" src="https://img.shields.io/badge/network-offline%20by%20design-success.svg">
+  <img alt="No network by default" src="https://img.shields.io/badge/network-offline%20by%20default-success.svg">
 </p>
 
 <p align="center">
@@ -23,7 +23,8 @@
 </p>
 
 人名、手机号（含座机）、身份证、护照、车牌、银行卡、邮箱、IP、统一社会信用代码、密钥、自定义敏感词
-—— 识别并抹掉，输出**同格式**文件 + 可还原对照表。**不联网、不上传、不依赖云端 API。**
+—— 识别并抹掉，输出**同格式**文件 + 可还原对照表。**不联网、不上传、不依赖云端 API**
+（唯一例外：你主动点「下载模型」时，才会去 modelscope 取你要的那一个文件）。
 
 ## 特性
 
@@ -136,16 +137,20 @@ flowchart TB
   `placeholder` / `pseudonym` / `remove` / `keep`，每行带效果示例）+ 自定义敏感词；「用假名替代人名/机构」
   开关只把 `redact` 与 `pseudonym` 之间批量切矩阵（不引入第二种表达）。
 - **L3 检测引擎**：按"能认出什么"勾选（号码与代码 / 我的敏感词 / 中文人名与机构 / 本地大模型），每个带
-  一句话说明；**勾了才显示它需要的配置**（模型选择 / 大模型地址），不勾就不占地方。
+  一句话说明；**勾了才显示它需要的配置**（模型选择 / 大模型地址），不勾就不占地方。勾了「本地大模型」时，
+  模型也是**选**而不是记路径：从 `configs/llm_models.yaml` 列出的模型里点一个，没下载就点「下载」
+  （带进度、可取消、断了能续），下好了给出起服务的命令。
 
 改完**直接用当前编辑器内容内联试跑**（不必先存盘），满意再命名保存或导出。运行期做引擎预检：缺模型 /
 连不上 LLM 返回 400 + 原因（不静默少一层）；列表接口**不**预检（不每次加载 ONNX）。
 用户配置与内置**同 schema**，落在已 gitignore 的 `var/configs/`；**内置只读**（拒改拒删）。
 
 接口：`/` `/assets/*` `/health` `/api/presets` `/api/configs` `/api/configs/{ref}` `/api/models`
-`/api/upload` `/api/anonymize`（另 `PUT`/`DELETE /api/configs/{name}`、`POST /api/configs/import`、
-`GET /api/configs/{name}/export`）。`/api/configs` 列内置+用户并标当前；`/api/models` 报可选 ONNX 目录与
-LLM 默认；`/api/upload` 入参 `{filename, content_b64}`；`/api/anonymize` 入参 `{preset|token, config?}`，
+`/api/models/download` `/api/upload` `/api/anonymize`（另 `PUT`/`DELETE /api/configs/{name}`、
+`POST /api/configs/import`、`GET /api/configs/{name}/export`、`POST /api/models/download/cancel`）。
+`/api/configs` 列内置+用户并标当前；`/api/models` 报可选 ONNX 目录、LLM 默认与**可下载的大模型目录**；
+`/api/models/download` 起步/查询/取消界面内的模型下载（只收目录里的 `id`，**不收 URL**）；
+`/api/upload` 入参 `{filename, content_b64}`；`/api/anonymize` 入参 `{preset|token, config?}`，
 `config` 可为**配置名**或**内联对象**，出参含 `counts` 与 `trace`；上传上限 50MB。
 
 ### 官网与文档站（可选）
@@ -197,6 +202,9 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 法院、案号、法官与书记员、当事人姓名、律所与代理人、日期、金额一律不动）·
 `default.yaml`（规则 + 词典）· `onnx.yaml`（+ 中文 NER，连人名机构一起换，适合对外讲课/写案例）·
 `llm.yaml`（+ 本地大模型，先 `./scripts/serve_llm.sh`）。
+另有 `llm_models.yaml`（**可下载的大模型目录**，不是脱敏方案）：每条给名字、一句话、仓库与文件名，
+界面里「本地大模型」那层就拿它列选项、点下载；自己加模型改这个文件即可（见
+[设计](docs/specs/2026-10-09-llm-model-download-design.md)）。
 
 **交付场景用 `legal.yaml`**：`onnx.yaml` 会把法院名当机构、把"审判员/委托诉讼代理人"当角色、
 把判决日期当生日一起抹掉，材料就交不出去了（实测过）。要抹哪个就列哪个，没列出的类型一律
@@ -252,6 +260,7 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 | 最初的设计方案（历史） | [docs/specs/2026-10-05-doc-anonymizer-design.md](docs/specs/2026-10-05-doc-anonymizer-design.md) |
 | 旧格式自动转换的设计与决策 | [设计](docs/specs/2026-10-08-legacy-office-conversion-design.md) · [决策笔记](.agent/notes/implemented/feature/2026-10-08-legacy-office-conversion.md) |
 | Web 分层脱敏配置的设计与决策 | [设计](docs/specs/2026-10-08-redaction-config-design.md) · [决策笔记](.agent/notes/implemented/feature/2026-10-08-web-redaction-config.md) |
+| 界面内选/下大模型的设计与决策 | [设计](docs/specs/2026-10-09-llm-model-download-design.md) · [决策笔记](.agent/notes/implemented/feature/2026-10-09-llm-model-download.md) |
 
 [MIT](LICENSE) © 2026 [LawyerCH](https://github.com/LawyerCH) ·
 致谢 [RapidOCR](https://github.com/RapidAI/RapidOCR)、[pypdfium2](https://github.com/pypdfium2-team/pypdfium2)、

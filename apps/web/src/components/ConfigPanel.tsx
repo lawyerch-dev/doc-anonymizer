@@ -6,7 +6,8 @@ import { Button } from "@doc-anonymizer/ui/primitives/button";
 import { Input } from "@doc-anonymizer/ui/primitives/input";
 import { Label } from "@doc-anonymizer/ui/primitives/label";
 import { DETECTORS, DETECTOR_LABELS, EFFECT, ENTITY_TYPES, STRATEGIES, STRATEGY_LABELS, entityLabel, onnxModelInfo, orderSchemes } from "../lib/formats";
-import type { ConfigData, ConfigRow } from "../types";
+import { LlmModels } from "./LlmModels";
+import type { ConfigData, ConfigRow, LlmModelRow } from "../types";
 
 type Props = {
   configs: ConfigRow[];
@@ -14,8 +15,10 @@ type Props = {
   configData: ConfigData | null;
   configKind: "builtin" | "user" | null;
   modelDirs: string[];
+  llmModels: LlmModelRow[];
   onSelectConfig: (name: string) => void;
   onChange: (next: ConfigData) => void;
+  onModelsChanged: () => void;
   onSave: () => void;
   onImport: (file: File) => void;
   onExport: () => void;
@@ -47,7 +50,7 @@ function DictField({ value, onCommit }: { value: string[]; onCommit: (next: stri
 }
 
 export function ConfigPanel(props: Props) {
-  const { configs, configRef, configData, configKind, modelDirs, onSelectConfig, onChange } = props;
+  const { configs, configRef, configData, configKind, modelDirs, llmModels, onSelectConfig, onChange, onModelsChanged } = props;
   const importRef = useRef<HTMLInputElement>(null);
   const d = configData;
   const def = d?.strategies?.DEFAULT ?? "placeholder";
@@ -252,30 +255,14 @@ export function ConfigPanel(props: Props) {
 
                 {/* 同理: 没勾「本地大模型」就别问地址, 免得像"已经在用" */}
                 {d.detectors.llm_ner ? (
-                  <>
-                    <Label className="mt-2 block text-xs text-muted-foreground" htmlFor="llmUrl">
-                      模型服务地址
-                    </Label>
-                    <Input
-                      id="llmUrl" className="mt-1 h-8"
-                      inputMode="url" autoComplete="off" spellCheck={false}
-                      placeholder="http://127.0.0.1:8080/v1"
-                      value={d.llm?.base_url ?? ""}
-                      onChange={(e) => onChange({ ...d, llm: { ...d.llm, base_url: e.target.value } })}
-                    />
-                    <Label className="mt-2 block text-xs text-muted-foreground" htmlFor="llmModel">
-                      模型名
-                    </Label>
-                    <Input
-                      id="llmModel" className="mt-1 h-8"
-                      autoComplete="off" spellCheck={false}
-                      value={d.llm?.model ?? ""}
-                      onChange={(e) => onChange({ ...d, llm: { ...d.llm, model: e.target.value } })}
-                    />
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      服务没起来时，脱敏会在开始前报错并告诉你原因，不会静默跳过这一层。
-                    </p>
-                  </>
+                  <LlmModels
+                    models={llmModels}
+                    baseUrl={d.llm?.base_url ?? ""}
+                    model={d.llm?.model ?? ""}
+                    onChangeBaseUrl={(v) => onChange({ ...d, llm: { ...d.llm, base_url: v } })}
+                    onChangeModel={(v) => onChange({ ...d, llm: { ...d.llm, model: v } })}
+                    onModelsChanged={onModelsChanged}
+                  />
                 ) : null}
               </>
             ) : null}

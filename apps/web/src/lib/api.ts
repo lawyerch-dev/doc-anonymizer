@@ -1,5 +1,6 @@
 import type {
-  AnonymizeResp, ConfigData, ConfigDetail, ConfigRow, Detection, ModelsResp, Preset, UploadResp,
+  AnonymizeResp, ConfigData, ConfigDetail, ConfigRow, Detection, DownloadState, LlmModelRow,
+  ModelsResp, Preset, UploadResp,
 } from "../types";
 
 async function json<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
@@ -9,6 +10,17 @@ async function json<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
     throw new Error(body.error);
   }
   return body;
+}
+
+/**
+ * 同 `json`, 但**不把 `error` 当请求失败**。
+ *
+ * 下载状态本身就带一个 `error` 字段(那是**任务**的失败原因)。若走 `json()`, 这个字段会被当成
+ * "请求失败"抛掉, 于是失败原因永远到不了界面 —— 正是"静默少一层"。所以状态类接口用这个。
+ */
+async function plainJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  const resp = await fetch(input, { cache: "no-store", ...init });
+  return (await resp.json()) as T;
 }
 
 const postJson = <T>(url: string, payload: unknown) =>
@@ -28,6 +40,19 @@ export const loadConfigData = (ref: string) =>
   json<ConfigDetail>(`/api/configs/${encodeURIComponent(ref)}`);
 
 export const loadModels = () => json<ModelsResp>("/api/models");
+
+export const startModelDownload = (id: string) =>
+  postJson<DownloadState>("/api/models/download", { id });
+
+// 状态与取消用 plainJson: 它们的响应里 `error` 是"任务为什么失败", 不是"这次请求失败"
+export const modelDownloadStatus = () => plainJson<DownloadState>("/api/models/download");
+
+export const cancelModelDownload = () =>
+  plainJson<DownloadState>("/api/models/download/cancel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
 
 export const uploadFile = (file: File) =>
   fileToBase64(file).then((content_b64) =>
@@ -67,4 +92,4 @@ export function totalCounts(counts: Record<string, number> | undefined): number 
   return Object.values(counts ?? {}).reduce((a, b) => a + b, 0);
 }
 
-export type { Detection };
+export type { Detection, LlmModelRow };

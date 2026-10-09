@@ -51,6 +51,28 @@ export type ConfigDetail = { ref: string; kind: "builtin" | "user"; data: Config
 export type ModelsResp = {
   onnx_dirs: string[];
   llm: { base_url: string; model: string };
+  /** 可下载的大模型目录(configs/llm_models.yaml) + 是否已下载 */
+  llm_models: LlmModelRow[];
+};
+
+export type LlmModelRow = {
+  id: string;
+  name: string;
+  hint: string;
+  repo: string;
+  file: string;
+  size_gb: number;
+  recommended: boolean;
+  downloaded: boolean;
+};
+
+/** 后端下载任务的状态(进程内单例, 一次一个) */
+export type DownloadState = {
+  id: string | null;
+  state: "idle" | "downloading" | "done" | "error" | "cancelled";
+  done_bytes: number;
+  total_bytes: number | null;
+  error: string | null;
 };
 
 export type Selection = {
