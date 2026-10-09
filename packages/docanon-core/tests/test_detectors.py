@@ -31,6 +31,25 @@ def test_new_patterns_stay_quiet_on_ordinary_text():
     assert RuleDetector().detect(block) == []
 
 
+def test_bank_card_with_grouping_is_detected():
+    """卡号写成 4 位一组(空格或连字符)必须认出来 —— 真实合同/单据基本都是这种写法,
+    只认连续数字 = 整类漏抹 = 隐私泄漏。"""
+    for text, span in (
+        ("账号 6222 0212 3456 7890 123 收", "6222 0212 3456 7890 123"),
+        ("账号 6222-0212-3456-7890 收", "6222-0212-3456-7890"),
+        ("账号 6222020200001234567 收", "6222020200001234567"),
+    ):
+        hits = [d for d in RuleDetector().detect(Block("b", text)) if d.entity_type == "BANK_CARD"]
+        assert len(hits) == 1, text
+        assert hits[0].span.text == span, text
+
+
+def test_bank_card_grouping_does_not_eat_date_runs():
+    """4 位一组的限制值在这里: "2026 03 01 2026 03 01" 是日期串不是卡号。"""
+    block = Block("b", "期间 2026 03 01 到 2026 03 01 结束")
+    assert [d for d in RuleDetector().detect(block) if d.entity_type == "BANK_CARD"] == []
+
+
 def test_resolve_prefers_rule_over_llm():
     rule = Detection(Span(0, 11, "13812340000"), "PHONE", "rule")
     llm = Detection(Span(0, 11, "13812340000"), "AMOUNT", "llm")
