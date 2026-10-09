@@ -19,6 +19,17 @@
   --selected-foreground: oklch(0.205 0 0);
 }
 
+/* 让浏览器知道当前是明还是暗: 原生控件的**内部**样式(多选框的对勾、下拉弹出列表、滚动条)
+   不受 CSS 变量管辖, 只认 color-scheme。少了这一句, 暗色下会冒出浅色的滚动条与
+   系统深色高亮的下拉项, 跟页面打架。 */
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
 @theme inline {
   --color-selected: var(--selected);
   --color-selected-foreground: var(--selected-foreground);

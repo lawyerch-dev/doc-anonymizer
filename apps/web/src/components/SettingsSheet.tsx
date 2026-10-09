@@ -26,7 +26,7 @@ export function SettingsSheet({ open, onOpenChange, children }: Props) {
       <SheetContent side="right" className="w-full gap-0 sm:max-w-lg!">
         <SheetHeader className="border-b">
           <SheetTitle>脱敏设置</SheetTitle>
-          <SheetDescription>
+          <SheetDescription className="text-pretty">
             口径、逐类型策略与检测引擎。改完可直接试跑，满意再保存为「我的配置」。
           </SheetDescription>
         </SheetHeader>

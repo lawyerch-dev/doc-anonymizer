@@ -7,6 +7,44 @@ export const ENTITY_TYPES = [
 
 export const STRATEGIES = ["redact", "mask", "placeholder", "pseudonym", "remove", "keep"] as const;
 
+/** 检测器的固定顺序(与后端 detectors 的键一致) */
+export const DETECTORS = ["rule", "dictionary", "onnx_ner", "llm_ner"] as const;
+
+/**
+ * 检测器 → 给用户看的中文名 + 一句话说明。
+ *
+ * `rule` / `onnx_ner` 这类名字是代码里的标识, 对用户毫无意义 —— 用户要判断的是
+ * "这一层能认出我文档里的什么", 所以名字说"认出什么", 说明说"靠什么认、有什么代价"。
+ */
+export const DETECTOR_LABELS: Record<string, { name: string; hint: string }> = {
+  rule: {
+    name: "号码与代码",
+    hint: "身份证、手机号、银行卡、邮箱、车牌这类有固定写法的",
+  },
+  dictionary: {
+    name: "我的敏感词",
+    hint: "「自定义脱敏」里你填的那些词",
+  },
+  onnx_ner: {
+    name: "中文人名与机构",
+    hint: "本机小模型，认人名、机构名、地址；不用联网，快",
+  },
+  llm_ner: {
+    name: "本地大模型",
+    hint: "连本机的大模型，能读懂复杂说法；慢一些，要先自己把服务起起来",
+  },
+};
+
+/** 策略代码 → 中文名(下拉里显示中文, 提交的仍是代码) */
+export const STRATEGY_LABELS: Record<string, string> = {
+  redact: "盖成 **",
+  mask: "部分打码",
+  placeholder: "换成占位符",
+  pseudonym: "换成假名",
+  remove: "直接删除",
+  keep: "保持原样",
+};
+
 /** 每种策略的效果示例(L2 表格里给人看) */
 export const EFFECT: Record<string, string> = {
   redact: "**",

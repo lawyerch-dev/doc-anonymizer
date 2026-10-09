@@ -5,7 +5,7 @@ import {
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import { Input } from "@doc-anonymizer/ui/primitives/input";
 import { Label } from "@doc-anonymizer/ui/primitives/label";
-import { EFFECT, ENTITY_TYPES, STRATEGIES, entityLabel } from "../lib/formats";
+import { DETECTORS, DETECTOR_LABELS, EFFECT, ENTITY_TYPES, STRATEGIES, STRATEGY_LABELS, entityLabel } from "../lib/formats";
 import type { ConfigData, ConfigRow } from "../types";
 
 type Props = {
@@ -35,6 +35,8 @@ function DictField({ value, onCommit }: { value: string[]; onCommit: (next: stri
     <Input
       id="dictInput"
       className="mt-1 h-8"
+      autoComplete="off"
+      placeholder="例如：内部项目代号，某客户名"
       value={text}
       onChange={(e) => {
         setText(e.target.value);
@@ -115,9 +117,10 @@ export function ConfigPanel(props: Props) {
                               className="rounded border border-input bg-background px-1 py-0.5"
                               value={cur}
                               onChange={(e) => setStrategy(t, e.target.value)}
+                              aria-label={`${entityLabel(t)} 的脱敏方式`}
                             >
                               {STRATEGIES.map((s) => (
-                                <option key={s} value={s}>{s}</option>
+                                <option key={s} value={s}>{STRATEGY_LABELS[s] ?? s}</option>
                               ))}
                             </select>
                           </td>
@@ -147,48 +150,96 @@ export function ConfigPanel(props: Props) {
           <AccordionContent>
             {d ? (
               <>
-                <div className="mb-2">
-                  {(["rule", "dictionary", "onnx_ner", "llm_ner"] as const).map((n) => (
-                    <label key={n} className="block text-xs">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(d.detectors[n])}
-                        onChange={(e) => onChange({ ...d, detectors: { ...d.detectors, [n]: e.target.checked } })}
-                      />{" "}
-                      {n}
-                    </label>
-                  ))}
+                <p className="mb-2 text-xs text-muted-foreground">
+                  勾选要用的识别方式，都用同一份文档试一遍；同一处被多个认出来时只算一次
+                  （规则与敏感词优先于大模型）。
+                </p>
+                <div className="mb-3 space-y-1">
+                  {DETECTORS.map((n) => {
+                    const { name, hint } = DETECTOR_LABELS[n];
+                    const on = Boolean(d.detectors[n]);
+                    return (
+                      <label
+                        key={n}
+                        className="flex cursor-pointer items-start gap-2 rounded-md px-1.5 py-1 text-xs hover:bg-accent/50"
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-0.5"
+                          checked={on}
+                          onChange={(e) => onChange({ ...d, detectors: { ...d.detectors, [n]: e.target.checked } })}
+                        />
+                        <span className="min-w-0">
+                          <span className={on ? "font-medium" : "text-muted-foreground"}>{name}</span>
+                          <span className="block text-[11px] leading-snug text-muted-foreground">{hint}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
                 </div>
 
-                <Label className="block text-xs text-muted-foreground" htmlFor="modelDirs">
-                  ONNX 模型目录（可多选）
-                </Label>
-                <select
-                  id="modelDirs"
-                  multiple
-                  size={3}
-                  className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
-                  value={d.onnx?.model_dirs ?? []}
-                  onChange={(e) => onChange({
-                    ...d,
-                    onnx: { ...d.onnx, model_dirs: Array.from(e.target.selectedOptions).map((o) => o.value) },
-                  })}
-                >
-                  {modelDirs.map((dir) => (
-                    <option key={dir} value={dir}>{dir}</option>
-                  ))}
-                </select>
+                {/* 只有勾了「中文人名与机构」才有模型目录可挑; 否则这行只是噪音 */}
+                {d.detectors.onnx_ner ? (
+                  <div className="mb-3">
+                    <div className="mb-1 text-xs text-muted-foreground">用哪个中文模型（可多选）</div>
+                    {modelDirs.length ? (
+                      <div className="space-y-1">
+                        {modelDirs.map((dir) => (
+                          <label
+                            key={dir}
+                            className="flex cursor-pointer items-center gap-2 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent/50"
+                            title={dir}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={(d.onnx?.model_dirs ?? []).includes(dir)}
+                              onChange={(e) => {
+                                const cur = d.onnx?.model_dirs ?? [];
+                                const next = e.target.checked
+                                  ? [...cur, dir]
+                                  : cur.filter((v) => v !== dir);
+                                onChange({ ...d, onnx: { ...d.onnx, model_dirs: next } });
+                              }}
+                            />
+                            <span className="truncate font-mono text-[11px]">{dir}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">
+                        本机还没有可用模型 —— 先跑 <code className="rounded bg-muted px-1">npm run models</code> 下载
+                      </p>
+                    )}
+                  </div>
+                ) : null}
 
-                <Label className="mt-2 block text-xs text-muted-foreground" htmlFor="llmUrl">LLM 地址</Label>
-                <Input
-                  id="llmUrl" className="mt-1 h-8" value={d.llm?.base_url ?? ""}
-                  onChange={(e) => onChange({ ...d, llm: { ...d.llm, base_url: e.target.value } })}
-                />
-                <Label className="mt-2 block text-xs text-muted-foreground" htmlFor="llmModel">LLM 模型名</Label>
-                <Input
-                  id="llmModel" className="mt-1 h-8" value={d.llm?.model ?? ""}
-                  onChange={(e) => onChange({ ...d, llm: { ...d.llm, model: e.target.value } })}
-                />
+                {/* 同理: 没勾「本地大模型」就别问地址, 免得像"已经在用" */}
+                {d.detectors.llm_ner ? (
+                  <>
+                    <Label className="mt-2 block text-xs text-muted-foreground" htmlFor="llmUrl">
+                      模型服务地址
+                    </Label>
+                    <Input
+                      id="llmUrl" className="mt-1 h-8"
+                      inputMode="url" autoComplete="off" spellCheck={false}
+                      placeholder="http://127.0.0.1:8080/v1"
+                      value={d.llm?.base_url ?? ""}
+                      onChange={(e) => onChange({ ...d, llm: { ...d.llm, base_url: e.target.value } })}
+                    />
+                    <Label className="mt-2 block text-xs text-muted-foreground" htmlFor="llmModel">
+                      模型名
+                    </Label>
+                    <Input
+                      id="llmModel" className="mt-1 h-8"
+                      autoComplete="off" spellCheck={false}
+                      value={d.llm?.model ?? ""}
+                      onChange={(e) => onChange({ ...d, llm: { ...d.llm, model: e.target.value } })}
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      服务没起来时，脱敏会在开始前报错并告诉你原因，不会静默跳过这一层。
+                    </p>
+                  </>
+                ) : null}
               </>
             ) : null}
           </AccordionContent>
