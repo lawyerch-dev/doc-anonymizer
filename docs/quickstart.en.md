@@ -57,7 +57,7 @@ restored.
 | Rules + dictionary only (fastest) | `configs/default.yaml` (this is the default when `-c` is omitted) | none |
 | **Material you hand over** (redact ID numbers/bank cards/phones/addresses only; organizations, names, roles, dates and amounts are left untouched) | `-c configs/legal.yaml` | `npm run models` (for addresses only) |
 | Names and organizations blotted to `**` too (talks, case write-ups) | `-c configs/onnx.yaml` | `npm run models` |
-| More flexible entity recognition | `-c configs/llm.yaml` | `./scripts/download_model.sh` + `./scripts/serve_llm.sh` |
+| More flexible entity recognition | `-c configs/llm.yaml` | in the web UI picking a model downloads it and starts the server for you; on the CLI use `./scripts/download_model.sh` + `./scripts/serve_llm.sh` |
 
 **Which one you pick decides whether the material is still usable**: `onnx.yaml` also blots out the court,
 the law firm, party names and the judgment date (to `**`), which leaves a judgment impossible to file. For delivery use

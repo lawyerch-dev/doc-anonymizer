@@ -1,6 +1,6 @@
 # 最准（本地大模型）
-# 上面两套都不够顺手时再用：能读懂复杂说法，但慢，且要先自己把大模型服务起起来。
-# 与 default.yaml 相同, 但打开 LLM NER 检测器(需先启动 llama-server)
+# 默认这套：能读懂复杂说法，认得更全；开跑前会自动把本机服务起好，不用自己去终端启动。
+# 与 default.yaml 相同, 但打开 LLM NER 检测器(用哪个模型在 configs/llm_models.yaml 里选)
 # 默认用 ** 盖掉人名/机构(不产假名); 想要可信假名就把 PERSON/ORG 改成 pseudonym
 strategies:
   PHONE: mask
@@ -29,11 +29,11 @@ detectors:
   llm_ner: true
 
 llm:
+  # 用哪个模型: id 取自 configs/llm_models.yaml。选了这个, Web 会自己把服务起好再用。
+  # 留空则改用下面 base_url/model 指向的"已经跑起来的服务"(自备服务, 高级)。
+  model_id: qwen3.8-4b-distill
   base_url: http://127.0.0.1:8080/v1
   model: qwen3.8-4b
   timeout: 180
   chunk_size: 1000
   disable_thinking: true
-
-ocr:
-  enabled: true

@@ -15,7 +15,8 @@
 - 配置读不到就报错（不许静默退化成空配置——那看起来和"没启用"一样，`packages/docanon-core/tests/test_resources.py` 锁两条）。
 - 不带 `-c` 走 `configs/default.yaml`：`onnx_ner`/`llm_ner` 均 `false`，只剩规则+词典，
   同一个 `samples/example.txt` 实测少掉 `PERSON` 与 `LOCATION`。桌面壳固定 `configs/onnx.yaml`。
-- `configs/llm.yaml` 需先 `./scripts/serve_llm.sh` 把 llama-server 起到 :8080。
+- `configs/llm.yaml` 的 `llm.model_id` 选了目录里的模型 → **Web** 开跑前自动起 `llama-server`
+  （`server/llm_server.py`，本机 127.0.0.1、端口 8090 起，`DOCANON_LLM_PORT` 可改）；留空 = 自备服务，那时才要自己 `./scripts/serve_llm.sh`（CLI 一律自备）。
 - `configs/llm_models.yaml` 是**可下载的大模型目录**（不是脱敏方案，故不在 L1 下拉里 ——
   `profiles.NOT_A_PROFILE` 白名单管着）。界面的「本地大模型」靠它列选项与下载；
   收录纪律见 `docs/specs/2026-10-09-llm-model-download-design.md`（只收核实过的地址）。
@@ -30,4 +31,5 @@ npm run models                   # 默认走 hf-mirror(官方 HF 本机实测超
 ./scripts/download_onnx_models.sh --check   # 只探端点通不通
 ```
 
-LLM 路线：`./scripts/download_model.sh` 取 GGUF 到 `var/models/`，再 `./scripts/serve_llm.sh`。
+LLM 路线：`./scripts/download_model.sh` 取 GGUF 到 `var/models/`（Web 里选中模型即下载），再起服务 ——
+CLI 用 `./scripts/serve_llm.sh`，Web 自动起。

@@ -15,8 +15,9 @@ from pathlib import Path
 
 from ..config import load_config
 from ..pipeline import prepare_detectors
+from . import llm_server
 from .lifecycle import ENV_EXIT_WITH_PARENT, _start_parent_watch, _watch_parent
-from .routes import Handler, _index, _vendor
+from .routes import Handler, _apply_managed_llm, _index, _vendor
 
 __all__ = [
     "Handler",
@@ -39,9 +40,12 @@ def serve(port: int = 8000, config_path: str | None = None, open_browser: bool =
     try:
         Handler.config = load_config(config_path)
         Handler.config_name = Path(config_path).name if config_path else "default.yaml"
+        # 启动配置里已经选了模型(-c llm.yaml) → 先把服务起好, 否则下面这关一定过不去
+        _apply_managed_llm(Handler.config)
         # 预检: 引擎没准备好就别说"打开窗口点一下就知道失败了"
         prepare_detectors(Handler.config)
     except Exception as exc:  # noqa: BLE001
+        llm_server.stop()
         print(f"Web 未启动: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
     _start_parent_watch()
@@ -62,6 +66,7 @@ def serve(port: int = 8000, config_path: str | None = None, open_browser: bool =
         print("\n已停止")
     finally:
         httpd.server_close()
+        llm_server.stop()  # 我们起的那个大模型服务跟着一起收
 
 
 def main() -> None:

@@ -134,7 +134,7 @@ on `127.0.0.1` only, with no auth (for local, single-user use).
 **The redaction scheme is layered in three levels** (progressive disclosure — casual users only ever touch L1):
 
 - **L1 scheme**: choose one of the four built-ins (`configs/*.yaml`, read-only) or **my configs**
-  (`var/configs/<name>.yaml`). The dropdown lists only a **short name** (e.g. "Recommended (default)");
+  (`var/configs/<name>.yaml`). The dropdown lists only a **short name** (e.g. "Most accurate (local LLM)");
   "when to use which" is shown on its own line underneath — both come from the **first two comment lines** of
   each yaml (edit the wording in the file and the UI follows), while anything below them is detail for whoever
   edits the config and never reaches users. Create / save-as / export / import.
@@ -142,11 +142,15 @@ on `127.0.0.1` only, with no auth (for local, single-user use).
   `redact` / `mask` / `placeholder` / `pseudonym` / `remove` / `keep`, each row with a worked example) + custom
   sensitive words; the "use pseudonyms for people/orgs" switch merely flips the matrix between `redact` and
   `pseudonym` (it introduces no second representation).
-- **L3 detection engines**: tick what each layer should *recognise* (numbers & codes / my sensitive words /
-  Chinese names & orgs / local LLM), each with a one-line explanation; **a layer's settings appear only once it
-  is ticked** (model choice / LLM address), so unticked layers take up no space. With "local LLM" ticked you
-  *pick* a model rather than typing a path: choose from `configs/llm_models.yaml`; if it is not downloaded yet,
-  hit "download" (progress, cancel, resumes if interrupted) and you get the command to start the server.
+- **L3 detection engines**: this layer answers exactly one question — **should a model recognise names,
+  organizations and addresses**: no model / the local small model / the local LLM ("both" only appears when the
+  current config already uses both). Choose a model and only then do the catalogue (`configs/llm_models.yaml`)
+  and "which LLM" show up: **click one and it is used**; if it is not installed the download starts on its own
+  (progress, cancel, resumes if interrupted). Starting the server is the app's job (it brings `llama-server` up
+  before the run and swaps it when you switch models) — no terminal, no address, no alias. Fixed-format numbers,
+  emails and your own word list are **always on** (they need no model and there is no reason to turn them off):
+  to leave one kind alone, set its strategy to `keep` in L2 — don't switch off an engine (that silently drops
+  detections).
 
 Edit and **try a run inline with the current editor contents** (no need to save first); name and save or export
 once happy. Engine pre-check runs at run time — a missing model / unreachable LLM returns 400 + a reason
@@ -215,10 +219,10 @@ directory holds two ledgers (accumulated per source file, so you can run in batc
 details such as ID numbers, bank cards, phones and addresses; courts, case numbers, judges and clerks, party
 names, law firms and agents, dates and amounts are all left alone) · `default.yaml` (rules + dictionary) ·
 `onnx.yaml` (+ Chinese NER, swaps names and organizations too — for talks and case write-ups) ·
-`llm.yaml` (+ a local LLM; run `./scripts/serve_llm.sh` first).
+`llm.yaml` (+ a local LLM; pick one in the UI and the server is started for you before the run).
 There is also `llm_models.yaml` — the **downloadable model catalogue**, not a redaction preset: each entry
 carries a name, one line of when-to-use, the repo and the filename, and the UI's "local LLM" section turns it
-into a picker with a download button. Add your own models by editing that file (see the
+into a picker (selecting installs and uses it). Add your own models by editing that file (see the
 [design](docs/specs/2026-10-09-llm-model-download-design.md)).
 
 **Use `legal.yaml` for delivery**: `onnx.yaml` treats the court as an organization, "审判员" and
@@ -243,7 +247,7 @@ what I name gets touched"). Hits that were identified but kept by config are lis
 | `rule` | ID cards / phones (mobile and landline) / passports / license plates / bank cards / emails / IPs / unified social credit codes / secrets / amounts | nothing |
 | `dictionary` | custom business-sensitive terms → `CUSTOM` | nothing |
 | `onnx_ner` | Chinese NER (person names / organizations / addresses, …), 34ms per item, no server needed | `var/models/onnx/*` |
-| `llm_ner` | local LLM NER that takes instructions and generates natural-looking fake names | `llama-server` + GGUF |
+| `llm_ner` | local LLM NER that takes instructions and generates natural-looking fake names | `llama-server` + GGUF (started for you in the web UI; start it yourself for the CLI) |
 
 `docanon engines` reports whether each layer is available (with the reason) and what it can actually do;
 for choosing between them, and for benchmark numbers, see [docs/benchmarks.md](docs/benchmarks.md).

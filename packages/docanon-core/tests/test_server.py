@@ -232,6 +232,57 @@ def test_api_models_lists_onnx_dirs_and_llm_defaults(ephemeral_server):
     body = _get(ephemeral_server, "/api/models")
     assert isinstance(body["onnx_dirs"], list)
     assert body["llm"]["base_url"].startswith("http")
+    assert body["llm_server"]["state"] in ("idle", "running", "error")
+
+
+def test_managed_llm_overrides_endpoint_from_the_selected_model(monkeypatch):
+    """选了目录里的模型 → 用托管服务的地址与别名, 而不是配置里那个"自备服务"的。"""
+    from docanon_core.config import config_from_dict
+    from docanon_core.server import routes
+
+    cfg = config_from_dict({
+        "detectors": {"llm_ner": True},
+        "llm": {"model_id": "qwen3.8-4b-distill", "base_url": "http://127.0.0.1:8080/v1"},
+    })
+    monkeypatch.setattr(routes.llm_server, "ensure",
+                        lambda mid: {"base_url": "http://127.0.0.1:8099/v1", "alias": mid})
+
+    routes._apply_managed_llm(cfg)
+
+    assert cfg.llm.base_url == "http://127.0.0.1:8099/v1"
+    assert cfg.llm.model == "qwen3.8-4b-distill"
+
+
+def test_managed_llm_is_skipped_without_a_model_id(monkeypatch):
+    """留空 model_id = 用自备服务(高级): 一发都不碰。"""
+    from docanon_core.config import config_from_dict
+    from docanon_core.server import routes
+
+    cfg = config_from_dict({"detectors": {"llm_ner": True}, "llm": {"model_id": ""}})
+    monkeypatch.setattr(routes.llm_server, "ensure", lambda mid: pytest.fail("不该去起服务"))
+
+    routes._apply_managed_llm(cfg)  # 不抛即通过
+
+
+def test_anonymize_when_the_managed_llm_will_not_start_is_400(ephemeral_server, monkeypatch):
+    """模型没装 / 没有 llama.cpp: 说清原因(400), 不是 500, 更不是静默少一层。"""
+    from docanon_core.server import llm_server, routes
+
+    up = _upload_text(ephemeral_server)
+    inline = _get(ephemeral_server, "/api/configs/default.yaml")["data"]
+    inline["detectors"]["llm_ner"] = True
+    inline["llm"]["model_id"] = "qwen3.8-4b-distill"
+
+    def boom(_mid):
+        raise llm_server.LLMServerError("「通用首选（4B 蒸馏）」还没安装 —— 先在设置里点「安装」")
+
+    monkeypatch.setattr(routes.llm_server, "ensure", boom)
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        _post(ephemeral_server, "/api/anonymize", {"token": up["token"], "config": inline})
+
+    assert excinfo.value.code == 400
+    assert "本地大模型起不来" in json.loads(excinfo.value.read())["error"]
 
 
 def test_api_models_lists_downloadable_llm_models(ephemeral_server):

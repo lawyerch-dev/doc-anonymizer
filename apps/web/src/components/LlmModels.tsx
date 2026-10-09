@@ -1,33 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@doc-anonymizer/ui/primitives/button";
-import { Input } from "@doc-anonymizer/ui/primitives/input";
-import { Label } from "@doc-anonymizer/ui/primitives/label";
 import * as api from "../lib/api";
 import { humanSize } from "../lib/formats";
 import type { DownloadState, LlmModelRow } from "../types";
 
 type Props = {
   models: LlmModelRow[];
-  /** 已跑起来的那个服务的地址与别名(不是文件路径) */
-  baseUrl: string;
-  model: string;
-  onChangeBaseUrl: (value: string) => void;
-  onChangeModel: (value: string) => void;
-  /** 下载完成后要让上层重取目录, "已下载"标记才会变 */
+  /** 选中哪个模型(写进 config 的 llm.model_id); 后端据此把服务起好 */
+  modelId: string;
+  onChangeModelId: (value: string) => void;
+  /** 下载完成后要让上层重取目录, "已安装"标记才会变 */
   onModelsChanged: () => void;
 };
 
 /**
- * "用哪个大模型": 目录里挑一个, 没下就下, 下好了给出起服务的命令。
+ * "用哪个大模型": 点一个就用它 —— 没装的话选中即开始下载, 起服务由后端在开跑前做。
  *
- * **选了模型不改「模型名」**: 那个字段是 llama-server 的 `--alias`(`scripts/serve_llm.sh` 固定用
- * `qwen3.8-4b`), 不是 gguf 文件名。把别名写成文件名会让"用别名启动的服务"对不上 —— 所以这里
- * 只讲清"该用哪个文件、怎么起服务", 不替用户猜别名, 地址与模型名留在下面的"自定义服务"里。
+ * 这里**不出现**服务地址、模型别名、启动命令: 那些是实现细节。用户要决定的只有"用哪个模型",
+ * 剩下的(起服务、换模型)是 app 的事 —— 把 `serve_llm.sh` 甩给用户复制, 等于没做完。
  */
-export function LlmModels({
-  models, baseUrl, model, onChangeBaseUrl, onChangeModel, onModelsChanged,
-}: Props) {
-  const [picked, setPicked] = useState<string | null>(null);
+export function LlmModels({ models, modelId, onChangeModelId, onModelsChanged }: Props) {
   const [dl, setDl] = useState<DownloadState | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -62,18 +54,23 @@ export function LlmModels({
   }, [dl?.state]);
 
   const ordered = [...models].sort((a, b) => Number(b.recommended) - Number(a.recommended));
-  const pickedRow = ordered.find((m) => m.id === picked) ?? null;
   const busy = dl?.state === "downloading";
   const pct =
     dl && dl.total_bytes ? Math.min(100, Math.round((dl.done_bytes / dl.total_bytes) * 100)) : null;
 
-  const startDownload = async (id: string) => {
+  const install = async (id: string) => {
     setErr(null);
     try {
       setDl(await api.startModelDownload(id));
     } catch (e) {
       setErr((e as Error).message);
     }
+  };
+
+  /** 选中它 = 用它; 还没装就顺手装上, 免得用户还要再点一次 */
+  const pick = (m: LlmModelRow) => {
+    onChangeModelId(m.id);
+    if (!m.downloaded) void install(m.id);
   };
 
   const cancel = async () => {
@@ -87,9 +84,11 @@ export function LlmModels({
   return (
     <div className="mb-3">
       <div className="mb-1 text-xs text-muted-foreground">用哪个大模型</div>
-      {ordered.length ? (
-        <div className="space-y-1">
-          {ordered.map((m) => (
+      <div className="space-y-1">
+        {ordered.map((m) => {
+          const on = modelId === m.id;
+          const installing = busy && dl?.id === m.id;
+          return (
             <label
               key={m.id}
               className="flex cursor-pointer items-start gap-2 rounded-md border border-input px-2 py-1.5 text-xs hover:bg-accent/50"
@@ -99,11 +98,11 @@ export function LlmModels({
                 type="radio"
                 name="llm-model"
                 className="mt-0.5"
-                checked={picked === m.id}
-                onChange={() => setPicked(m.id)}
+                checked={on}
+                onChange={() => pick(m)}
               />
               <span className="min-w-0">
-                <span className="font-medium">
+                <span className={on ? "font-medium" : ""}>
                   {m.name}
                   {m.recommended ? (
                     <span className="ml-1.5 rounded bg-selected/10 px-1 text-[10px] text-selected">
@@ -113,34 +112,22 @@ export function LlmModels({
                 </span>
                 <span className="block text-[11px] leading-snug text-muted-foreground">{m.hint}</span>
                 <span className="block text-[11px] leading-snug text-muted-foreground">
-                  {m.downloaded ? "已下载，可直接用" : `还没下载 · ${m.size_gb} GB`}
+                  {m.downloaded
+                    ? "已安装，可直接用"
+                    : installing
+                      ? "正在安装…"
+                      : `还没安装 · ${m.size_gb} GB（选中就开始下载）`}
                 </span>
               </span>
             </label>
-          ))}
-        </div>
-      ) : (
-        <p className="text-[11px] text-muted-foreground">模型目录读不到（后端会说明原因）</p>
-      )}
+          );
+        })}
+      </div>
 
-      {pickedRow ? (
-        <div className="mt-1.5 rounded-md border border-input bg-muted/30 px-2 py-1.5">
-          {pickedRow.downloaded ? (
-            <>
-              <p className="text-[11px] text-muted-foreground">在终端里起服务（复制这一行）:</p>
-              <code className="mt-0.5 block text-[11px] break-all">
-                ./scripts/serve_llm.sh 8080 var/models/{pickedRow.file}
-              </code>
-            </>
-          ) : (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="xs" disabled={busy} onClick={() => void startDownload(pickedRow.id)}>
-                下载（{pickedRow.size_gb} GB）
-              </Button>
-              <span className="text-[11px] text-muted-foreground">下完再回来，这里会变成启动命令</span>
-            </div>
-          )}
-        </div>
+      {!modelId ? (
+        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+          没选模型：会用配置里那个"已经跑起来的服务"。选一个模型就改由本机托管。
+        </p>
       ) : null}
 
       {busy || dl?.state === "cancelled" || dl?.state === "error" ? (
@@ -161,14 +148,14 @@ export function LlmModels({
                 />
               </div>
               <div className="mt-1 flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">中断了也没事，再点下载会接着下</span>
+                <span className="text-muted-foreground">中断了也没事，再点会接着下</span>
                 <Button variant="ghost" size="xs" onClick={() => void cancel()}>
                   取消
                 </Button>
               </div>
             </>
           ) : dl?.state === "cancelled" ? (
-            <p className="text-muted-foreground">已取消。已下的部分留着，再点下载会接着下。</p>
+            <p className="text-muted-foreground">已取消。已下的部分留着，选中它会接着下。</p>
           ) : (
             <p className="text-destructive">下载失败：{dl?.error}</p>
           )}
@@ -176,41 +163,6 @@ export function LlmModels({
       ) : null}
 
       {err ? <p className="mt-1 text-[11px] text-destructive">{err}</p> : null}
-
-      <details className="mt-2">
-        <summary className="cursor-pointer text-xs text-muted-foreground">自定义服务（高级）</summary>
-        <Label className="mt-2 block text-xs text-muted-foreground" htmlFor="llmUrl">
-          服务地址
-        </Label>
-        <Input
-          id="llmUrl"
-          className="mt-1 h-8"
-          inputMode="url"
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="http://127.0.0.1:8080/v1"
-          value={baseUrl}
-          onChange={(e) => onChangeBaseUrl(e.target.value)}
-        />
-        <Label className="mt-2 block text-xs text-muted-foreground" htmlFor="llmModel">
-          模型名
-        </Label>
-        <Input
-          id="llmModel"
-          className="mt-1 h-8"
-          autoComplete="off"
-          spellCheck={false}
-          value={model}
-          onChange={(e) => onChangeModel(e.target.value)}
-        />
-        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-          这两项说的是"已经跑起来的那个服务"：地址，以及它启动时用的别名（默认服务是 qwen3.8-4b）。
-        </p>
-      </details>
-
-      <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-        服务没起来时，脱敏会在开始前报错并告诉你原因，不会静默跳过这一层。
-      </p>
     </div>
   );
 }

@@ -43,7 +43,7 @@ export type ConfigData = {
   detectors: Record<string, boolean>;
   dictionary?: string[];
   onnx?: { model_dirs?: string[] };
-  llm?: { base_url?: string; model?: string };
+  llm?: { base_url?: string; model?: string; model_id?: string };
 };
 
 export type ConfigDetail = { ref: string; kind: "builtin" | "user"; data: ConfigData };
@@ -53,6 +53,16 @@ export type ModelsResp = {
   llm: { base_url: string; model: string };
   /** 可下载的大模型目录(configs/llm_models.yaml) + 是否已下载 */
   llm_models: LlmModelRow[];
+  /** 托管服务的状态(选了模型后由后端自己起) */
+  llm_server?: LlmServerState;
+};
+
+/** 后端托管的 llama-server 状态 */
+export type LlmServerState = {
+  state: "idle" | "running" | "error";
+  model_id: string;
+  port: number;
+  error: string;
 };
 
 export type LlmModelRow = {

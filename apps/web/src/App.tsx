@@ -7,6 +7,7 @@ import { Preview } from "./components/Preview";
 import { SettingsSheet } from "./components/SettingsSheet";
 import { StatsCard } from "./components/StatsCard";
 import * as api from "./lib/api";
+import { DEFAULT_SCHEME } from "./lib/formats";
 import type { AnonymizeResp, ConfigData, ConfigRow, LlmModelRow, Preset, Selection } from "./types";
 
 type Theme = "light" | "dark";
@@ -91,7 +92,11 @@ export default function App() {
       setConfigs(rows);
       setError(null);
       const saved = localStorage.getItem("docanon.config");
-      const pick = rows.find((c) => c.name === saved) ?? rows.find((c) => c.current) ?? rows[0];
+      // 记忆 > 界面默认那套 > 后端启动时用的那套 > 列表第一项
+      const pick = rows.find((c) => c.name === saved)
+        ?? rows.find((c) => c.name === DEFAULT_SCHEME)
+        ?? rows.find((c) => c.current)
+        ?? rows[0];
       if (pick) await loadConfigData(pick.name);
     } catch (e) {
       setError(`配置列表加载失败: ${(e as Error).message}`);

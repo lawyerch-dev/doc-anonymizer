@@ -1,4 +1,4 @@
-# 推荐（默认）
+# 通用（本机小模型）
 # 讲课、写案例用：人名、机构名、地址也一起换掉。在本机跑，不用联网。
 # ONNX 路线: 规则 + 词典 + ONNX 中文 NER, 不依赖 llama.cpp
 # 默认用 ** 盖掉人名/机构(不产假名); 想要可信假名就把 PERSON/ORG 改成 pseudonym
@@ -41,6 +41,3 @@ llm:
   model: qwen3.8-4b
   timeout: 180
   disable_thinking: true
-
-ocr:
-  enabled: true

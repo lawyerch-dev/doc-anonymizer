@@ -54,6 +54,3 @@ llm:
   model: qwen3.8-4b
   timeout: 180
   disable_thinking: true
-
-ocr:
-  enabled: true

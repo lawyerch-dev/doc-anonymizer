@@ -1,14 +1,37 @@
 """Web 用户配置: 名字规则 / 归一化 / 结构校验。"""
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
+from docanon_core import resources
+from docanon_core.config import Config
 from docanon_core.detectors import DETECTORS
 from docanon_core.server import profiles
 
 
 def test_detector_names_do_not_drift_from_registry():
     assert set(profiles.DETECTOR_NAMES) == set(DETECTORS)
+
+
+def test_builtin_profiles_have_no_unread_keys():
+    """内置配置的顶层键必须是 `Config` 真会读的那些。
+
+    往 yaml 里加一个没人读的键(曾经有过 `ocr:`), 用户会以为配了、其实是死的 —— 而且它会一路悄悄
+    活到界面上("配置里有这一项"和"这一项生效了"是两件事)。顶层键从 `Config` 的字段取, 加了不读的键
+    这里就红; 真要让某个键生效, 先在 `config_from_dict` 里读它(字段自然就有了)。
+    """
+    known = {f.name for f in dataclasses.fields(Config)} - {"raw"}
+    bad = []
+    for path in sorted(resources.path("configs").glob("*.yaml")):
+        if path.name in profiles.NOT_A_PROFILE:  # 不是脱敏方案的资源(llm_models.yaml)
+            continue
+        keys = set(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
+        unread = sorted(keys - known)
+        if unread:
+            bad.append(f"{path.name}: {unread}")
+    assert not bad, f"这些键不会被读取(删掉, 或让 config_from_dict 读它): {bad}; 已认识: {sorted(known)}"
 
 
 @pytest.mark.parametrize("name", ["mine", "my-cfg_1", "A" * 32])

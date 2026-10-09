@@ -52,7 +52,7 @@ npm run cli -- restore var/out/sample.md.redacted.md --mapping var/out/mapping.j
 | 只要规则 + 词典（最快） | `configs/default.yaml`（不带 `-c` 就是它） | 无 |
 | **交出去的材料**（只抹身份证/银行卡/手机/住址，机构、人名、角色、日期、金额一律不动） | `-c configs/legal.yaml` | `npm run models`（只为了取地址） |
 | 人名/机构也一起打掉为 `**`（对外讲课、写案例） | `-c configs/onnx.yaml` | `npm run models` |
-| 更灵活的实体识别 | `-c configs/llm.yaml` | `./scripts/download_model.sh` + `./scripts/serve_llm.sh` |
+| 更灵活的实体识别 | `-c configs/llm.yaml` | Web 里选中模型会自动下载并起服务；CLI 用 `./scripts/download_model.sh` + `./scripts/serve_llm.sh` |
 
 **选哪份取决于材料要不要能用**：`onnx.yaml` 会把法院、律所、当事人姓名、判决日期也打成 `**`，
 判决书/裁定书这类材料抹完就没法提交了；交付场景用 `configs/legal.yaml`（它把不能动的类型全设成

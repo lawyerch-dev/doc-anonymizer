@@ -32,7 +32,7 @@ detectors:
   rule: true
   dictionary: true
   onnx_ner: false      # ONNX 中文 NER(需 var/models/onnx/*)
-  llm_ner: false       # 需先启动 llama-server
+  llm_ner: false       # 本地大模型(Web 里选了模型会自动起服务)
 
 onnx:
   # 可多个, 结果取并集(如 gyr66 出机构, pii-engineer 出地址)
@@ -49,7 +49,3 @@ llm:
   chunk_size: 1000
   # 关闭 Qwen3.x thinking 模式, 直接出 JSON
   disable_thinking: true
-
-ocr:
-  # rapidocr 自动选择，无需额外配置；保留占位
-  enabled: true

@@ -50,6 +50,9 @@ class Config:
     detectors: dict[str, bool] = field(default_factory=dict)
     legacy_convert: bool = True
     llm: LLMConfig = field(default_factory=LLMConfig)
+    # 目录(configs/llm_models.yaml)里的模型 id: 选了它, Web 就会自己把服务起好再用(见 server/llm_server.py)。
+    # 留空 = 用 `llm.base_url`/`llm.model` 指向的那个"已经跑起来的服务"(高级/自备服务)。
+    llm_model_id: str = ""
     onnx: OnnxConfig = field(default_factory=OnnxConfig)
     raw: dict = field(default_factory=dict)
 
@@ -75,6 +78,7 @@ def config_from_dict(data: dict) -> Config:
             chunk_size=llm_raw.get("chunk_size", LLMConfig.chunk_size),
             disable_thinking=llm_raw.get("disable_thinking", True),
         ),
+        llm_model_id=str(llm_raw.get("model_id", "") or ""),
         onnx=OnnxConfig(
             model_dirs=onnx_raw.get("model_dirs") or OnnxConfig().model_dirs,
             entity_map=(

@@ -17,7 +17,7 @@ from urllib.parse import unquote
 from .. import convert, resources
 from ..pipeline import prepare_detectors, process_file
 from ..redaction.mapping import MappingStore
-from . import downloads, profiles
+from . import downloads, llm_server, profiles
 from docanon_engine_ner_llm import LLMConfig
 
 _MAX_BYTES = 50 * 1024 * 1024
@@ -82,6 +82,18 @@ def _safe_join(base: Path, rel: str) -> Path | None:
     return None
 
 
+def _apply_managed_llm(cfg) -> None:
+    """选了目录里的模型 → 开跑前把服务弄就绪, 并用它的地址与别名。
+
+    留空 `llm.model_id` 就走 `llm.base_url`/`llm.model`(自备服务, 高级) —— 这条路径一发都不碰。
+    """
+    if not cfg.detectors.get("llm_ner") or not cfg.llm_model_id:
+        return
+    info = llm_server.ensure(cfg.llm_model_id)
+    cfg.llm.base_url = info["base_url"]
+    cfg.llm.model = info["alias"]
+
+
 class Handler(BaseHTTPRequestHandler):
     config = None
     config_name = None
@@ -136,6 +148,7 @@ class Handler(BaseHTTPRequestHandler):
                 "onnx_dirs": profiles.available_onnx_dirs(),
                 "llm": {"base_url": LLMConfig.base_url, "model": LLMConfig.model},
                 "llm_models": llm_models,
+                "llm_server": llm_server.status(),
             })
         elif p == "/api/models/download":
             self._json(200, downloads.status())
@@ -202,6 +215,7 @@ class Handler(BaseHTTPRequestHandler):
         """
         selected = payload.get("config")
         if selected is None:
+            _apply_managed_llm(self.config)
             return self.config, self.config_name
         try:
             if isinstance(selected, dict):
@@ -213,9 +227,14 @@ class Handler(BaseHTTPRequestHandler):
                 name = selected
             else:
                 raise profiles.ProfileError("config 只能是配置名或配置对象")
+            _apply_managed_llm(cfg)  # 选了模型就先把它跑起来(起不来会抛, 见下)
             prepare_detectors(cfg)  # 少一层就报错: 缺模型/连不上在这里拦住
         except profiles.ProfileError as exc:
             self._json(400, {"error": f"配置不合法: {exc}"})
+            return None, None
+        except llm_server.LLMServerError as exc:
+            # 缺 llama.cpp / 模型没下 / 起不来: 是"用不了", 不是"服务器崩了"
+            self._json(exc.code, {"error": f"本地大模型起不来: {exc}"})
             return None, None
         except Exception as exc:  # noqa: BLE001
             self._json(400, {"error": f"配置不可用: {exc}"})
