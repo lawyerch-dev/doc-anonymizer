@@ -12,6 +12,9 @@ export default defineConfig({
   build: { outDir: "dist", emptyOutDir: true },
   server: {
     port: 5173,
+    // 绑 IPv4: 默认的 `localhost` 在 macOS + Node 上常常只监听 [::1], 而 README/quickstart/dev.sh
+    // 让我们开 http://127.0.0.1:5173 —— 不显式绑就会"照文档打不开"
+    host: "127.0.0.1",
     proxy: Object.fromEntries(PROXIED.map((p) => [p, { target: BACKEND }])),
   },
 });
