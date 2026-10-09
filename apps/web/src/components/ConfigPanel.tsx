@@ -5,7 +5,7 @@ import {
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import { Input } from "@doc-anonymizer/ui/primitives/input";
 import { Label } from "@doc-anonymizer/ui/primitives/label";
-import { DETECTORS, DETECTOR_LABELS, EFFECT, ENTITY_TYPES, STRATEGIES, STRATEGY_LABELS, entityLabel } from "../lib/formats";
+import { DETECTORS, DETECTOR_LABELS, EFFECT, ENTITY_TYPES, STRATEGIES, STRATEGY_LABELS, entityLabel, onnxModelInfo } from "../lib/formats";
 import type { ConfigData, ConfigRow } from "../types";
 
 type Props = {
@@ -178,33 +178,60 @@ export function ConfigPanel(props: Props) {
                   })}
                 </div>
 
-                {/* 只有勾了「中文人名与机构」才有模型目录可挑; 否则这行只是噪音 */}
+                {/* 只有勾了「中文人名与机构」才有模型可挑; 否则这行只是噪音 */}
                 {d.detectors.onnx_ner ? (
                   <div className="mb-3">
-                    <div className="mb-1 text-xs text-muted-foreground">用哪个中文模型（可多选）</div>
+                    <div className="mb-1 text-xs text-muted-foreground">用哪个中文模型</div>
                     {modelDirs.length ? (
-                      <div className="space-y-1">
-                        {modelDirs.map((dir) => (
-                          <label
-                            key={dir}
-                            className="flex cursor-pointer items-center gap-2 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent/50"
-                            title={dir}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={(d.onnx?.model_dirs ?? []).includes(dir)}
-                              onChange={(e) => {
-                                const cur = d.onnx?.model_dirs ?? [];
-                                const next = e.target.checked
-                                  ? [...cur, dir]
-                                  : cur.filter((v) => v !== dir);
-                                onChange({ ...d, onnx: { ...d.onnx, model_dirs: next } });
-                              }}
-                            />
-                            <span className="truncate font-mono text-[11px]">{dir}</span>
-                          </label>
-                        ))}
-                      </div>
+                      <>
+                        <p className="mb-1.5 text-[11px] text-muted-foreground">
+                          推荐两个都选：实测覆盖率最高；它们认的类别有重叠，重复的会自动去掉。
+                        </p>
+                        <div className="space-y-1">
+                          {modelDirs.map((dir) => {
+                            const info = onnxModelInfo(dir);
+                            const on = (d.onnx?.model_dirs ?? []).includes(dir);
+                            return (
+                              <label
+                                key={dir}
+                                className="flex cursor-pointer items-start gap-2 rounded-md border border-input px-2 py-1.5 text-xs hover:bg-accent/50"
+                                title={dir}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="mt-0.5"
+                                  checked={on}
+                                  onChange={(e) => {
+                                    const cur = d.onnx?.model_dirs ?? [];
+                                    const next = e.target.checked
+                                      ? [...cur, dir]
+                                      : cur.filter((v) => v !== dir);
+                                    onChange({ ...d, onnx: { ...d.onnx, model_dirs: next } });
+                                  }}
+                                />
+                                <span className="min-w-0">
+                                  <span className={on ? "font-medium" : "text-muted-foreground"}>
+                                    {info.name}
+                                    {info.recommended ? (
+                                      <span className="ml-1.5 rounded bg-selected/10 px-1 text-[10px] text-selected">
+                                        推荐
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                  <span className="block text-[11px] leading-snug text-muted-foreground">
+                                    {info.hint}
+                                  </span>
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        {(d.onnx?.model_dirs ?? []).length === 0 ? (
+                          <p className="mt-1 text-[11px] text-destructive">
+                            至少要选一个模型 —— 一个都不选，这一层就起不来。
+                          </p>
+                        ) : null}
+                      </>
                     ) : (
                       <p className="text-[11px] text-muted-foreground">
                         本机还没有可用模型 —— 先跑 <code className="rounded bg-muted px-1">npm run models</code> 下载

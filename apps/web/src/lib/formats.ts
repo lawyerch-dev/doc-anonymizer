@@ -45,6 +45,35 @@ export const STRATEGY_LABELS: Record<string, string> = {
   keep: "保持原样",
 };
 
+/**
+ * ONNX 模型目录 → 给用户看的名字与"它认什么"。
+ *
+ * 按**目录名**索引(不按完整路径): 模型目录可由 `onnx.model_dirs` 或下载脚本改名/新增,
+ * 完整路径是用户机器上的位置、不是身份。认不出的目录回退到显示目录名 —— 与"类型代码认不出
+ * 就照原样显示"同一原则, 宁可爱看不猜。
+ *
+ * 描述来自实测记录, 不编: 各模型认哪些类别见 `config.py` 的 `DEFAULT_ONNX_ENTITY_MAP`
+ * 与 [docs/benchmarks.md](../../../docs/benchmarks.md) 的选型表。
+ */
+export const ONNX_MODEL_INFO: Record<string, { name: string; hint: string; recommended: boolean }> = {
+  gyr66: {
+    name: "通用中文识别",
+    hint: "机构名、人名、地址、角色（如审判员）",
+    recommended: true,
+  },
+  "pii-engineer": {
+    name: "个人信息识别",
+    hint: "人名、手机号、身份证号、地址",
+    recommended: true,
+  },
+};
+
+/** 目录 → 模型备注; 没登记过的目录: 名字就用目录名, 并说清它没有备注 */
+export function onnxModelInfo(dir: string): { name: string; hint: string; recommended: boolean } {
+  const base = dir.replace(/\/+$/, "").split("/").pop() ?? dir;
+  return ONNX_MODEL_INFO[base] ?? { name: base, hint: "自备模型，没有备注", recommended: false };
+}
+
 /** 每种策略的效果示例(L2 表格里给人看) */
 export const EFFECT: Record<string, string> = {
   redact: "**",
