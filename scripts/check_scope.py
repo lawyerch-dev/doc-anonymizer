@@ -30,9 +30,9 @@ GROUPS: list[tuple[tuple[str, ...], str, list[tuple[str, str]]]] = [
         [("npm run test:py", "全量 Python 测试(引擎、产物、账本、还原、文档守卫都在里面)")],
     ),
     (
-        ("apps/ui/", "website/", "package.json", "package-lock.json"),
-        "前端(共享组件库 / 官网文档站 / 工作区)",
-        [("npm run test:web", "组件库导入规范化检查 + 文档站构建")],
+        ("packages/ui/", "apps/web/", "website/", "package.json", "package-lock.json"),
+        "前端(共享组件库 / 产品界面 / 官网文档站 / 工作区)",
+        [("npm run test:web", "组件库导入规范化检查 + 文档站构建 + 产品界面类型检查与构建")],
     ),
     (
         ("docs/", ".agent/", ".github/", "README.md", "CONTRIBUTING.md", "CHANGELOG.md", "AGENTS.md"),
@@ -51,7 +51,6 @@ FORCE_FULL = ("packages/docanon-contract/", "pyproject.toml", "requirements-dev.
 
 # 没有自动化检查的目录: 要说清楚, 而不是假装覆盖了
 MANUAL = {
-    "apps/web/": "产品界面(零构建, 由 core 提供): 起 `npm run dev` 手工点一遍",
     "apps/desktop/": "桌面壳: 起 `npm run dev:desktop` 手工验证(需 Hutch)",
 }
 

@@ -21,6 +21,7 @@ usage() {
 
   setup                一条命令装好环境(幂等): venv + 五个包 + 预览资源 + 缓存重定向
   web  [docanon 参数]  起 Web 界面(默认 -p 8000 -c configs/onnx.yaml)
+  webui                产品界面开发态(后端 + Vite dev server + 代理; 生产形态用 web)
   desktop              起桌面壳(Electrobun, 系统 WebView; 首次自动 hutch install)
   test [pytest 参数]   跑测试(默认 -q)
   cli  <docanon 参数>  直接调 docanon, 例: ./scripts/dev.sh cli run ./samples -o var/out
@@ -100,6 +101,26 @@ cmd_web() {
   exec .venv/bin/docanon web "${args[@]}"
 }
 
+# 产品界面的开发态: 后端(docanon web) + Vite dev server 并发跑, Vite 把 /api 等五条前缀代理给后端。
+# 生产形态不这样跑 —— 那是 `npm run build:web && ./scripts/dev.sh web`。
+cmd_webui() {
+  need_venv
+  has npm || die "产品界面的开发态要 node/npm: 装 node 后重试(或只起后端: ./scripts/dev.sh web)"
+  [ -d node_modules ] || { say "首次: 根目录 npm install(npm workspaces: ui + website + apps/web)…"; npm install --no-audit --no-fund; }
+
+  local port="$DEFAULT_PORT"
+  warn_if_no_onnx_models
+  say "→ 后端 http://127.0.0.1:$port · 前端 http://127.0.0.1:5173   (Ctrl+C 停止)"
+
+  .venv/bin/docanon web -p "$port" -c "$DEFAULT_CONFIG" &
+  # 故意不是 local: EXIT trap 在函数返回之后才跑, 那时局部变量已出栈 —— set -u 下会报
+  # "未绑定的变量"并跳过 kill, 后端就孤儿化占住 8000。做成全局变量才能在任何退出路径收走它。
+  backend_pid=$!
+  # 任何退出路径都要收走后端, 否则它孤儿化占住 8000(下次开就报端口被占)
+  trap 'kill "$backend_pid" 2>/dev/null || true' EXIT INT TERM
+  DOCANON_BACKEND="http://127.0.0.1:$port" npm run dev -w @doc-anonymizer/web
+}
+
 cmd_desktop() {
   need_venv
   if ! has hutch; then
@@ -176,6 +197,11 @@ PY
 
   say "== 资产 =="
   local d
+  if [ -f apps/web/dist/index.html ]; then
+    say "  $ok apps/web/dist     产品界面已构建"
+  else
+    say "  $no apps/web/dist     缺 —— docanon web 起不来; 跑: npm run build:web"
+  fi
   for d in var/vendor/file-viewer var/models/onnx/gyr66 var/models/onnx/pii-engineer; do
     if [ -d "$d" ]; then say "  $ok $d"; else say "  $no $d   缺"; fi
   done
@@ -223,6 +249,7 @@ shift || true
 case "$cmd" in
   setup) cmd_setup ;;
   web) cmd_web "$@" ;;
+  webui) cmd_webui ;;
   desktop) cmd_desktop ;;
   test) cmd_test "$@" ;;
   cli) cmd_cli "$@" ;;

@@ -60,3 +60,10 @@ def test_manual_only_area_is_called_out(repo_root):
     """app/desktop 没有自动化检查, 必须明说, 不能假装覆盖了。"""
     out = _scope(repo_root, "apps/desktop/src/index.ts")
     assert "手工验证" in out
+
+
+def test_product_frontend_change_picks_web_checks(repo_root):
+    """产品界面现在有自动化覆盖(类型检查 + 构建), 不该再落进"只能手工验证"。"""
+    out = _scope(repo_root, "apps/web/src/App.tsx")
+    assert "npm run test:web" in out
+    assert "手工验证" not in out

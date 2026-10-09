@@ -57,9 +57,11 @@ npm test               # one-shot full test run (all Python + component library 
 |---|---|
 | `npm run setup` | idempotent environment setup; `npm run doctor` tells you what is missing and why it cannot start |
 | `npm run dev` / `dev:website` / `dev:desktop` | product UI / website & docs site / desktop shell |
+| `npm run dev:backend` | backend for the product UI only (production shape: `npm run build:web`, then visit :8000) |
 | `npm test` | one-shot full test run (`test:py` runs Python only, `test:web` runs the frontend only) |
 | `npm run test:strict` | anti-false-green: once the environment is declared complete, **any skip counts as a failure** (run it after installing models, see `docs/cookbook/reviewing-a-change.md`) |
 | `npm run check:scope` | works out the **smallest** set of checks your change needs (not a blanket full run) |
+| `npm run build:web` | build the product UI → `apps/web/dist/` (served statically by `docanon web`) |
 | `npm run build` | build the static site → `website/dist/` |
 | `npm run cli -- <args>` | call docanon directly (mind npm's `--`) |
 | `npm run engines` / `models` / `doctor` | engine self-check / fetch models / environment self-check |
