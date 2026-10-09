@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-10-09
+
+面向"真实合同能直接用"的一版：默认方案改成**法律文书交付**档（规矩是"少抹能看出来，多抹看不出来"），
+产物命名改成 `【脱敏版】` 前缀并按文件系统上限确定性截断，跑的时候能看见阶段/进度/秒数也能取消，
+本地大模型从"自己起服务填地址"变成"界面里选一个就用"，另外修了一个会让**银行卡号整类漏抹**的隐私缺陷。
+
 ### Added
 
 - **跑的时候能看见进度、能取消**：最准档跑一份 5000 字的合同要 30-40 秒，界面上原先只有一句"脱敏中…" ——
@@ -343,5 +349,6 @@
 - 引擎起不来时**不产出任何文件**（退出码 1），不会把"少一层检测"的结果报成已处理。
 - `mapping.json` 含全部敏感原文，文档各处明确标注"切勿与脱敏件一起外发"。
 
-[Unreleased]: https://github.com/lawyerch-dev/doc-anonymizer/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/lawyerch-dev/doc-anonymizer/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/lawyerch-dev/doc-anonymizer/releases/tag/v0.2.0
 [0.1.0]: https://github.com/lawyerch-dev/doc-anonymizer/releases/tag/v0.1.0

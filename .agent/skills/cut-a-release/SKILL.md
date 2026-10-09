@@ -5,8 +5,11 @@ description: Use when publishing a version: bumping versions, updating the chang
 
 # 发一个版本
 
-1. 版本号：五个 `packages/*/pyproject.toml`（`version`）、`website/package.json`、`packages/ui/package.json`
-   保持一致（语义化版本）。
+1. 版本号：五个 `packages/*/pyproject.toml`（`version`）、`packages/docanon-core/src/docanon_core/__init__.py`
+   的 `__version__`、`website/package.json`、`packages/ui/package.json` 保持一致（语义化版本）。
+   改了 `website/` 与 `packages/ui/` 的版本要跟着跑一次 `npm install --package-lock-only`
+   （lock 里记着各 workspace 的版本，不同步 `npm ci` 会报不一致）。`apps/*` 与 `tests/e2e/*` 是私有 app，
+   不参与版本同步。
 2. `CHANGELOG.md`：把 `[Unreleased]` 的内容落到 `## [x.y.z] — YYYY-MM-DD`，并留一个空的 `[Unreleased]`。
 3. 全量验证（必须真跑，贴结果）：
 

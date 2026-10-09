@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "docanon-core"
-version = "0.1.0"
+version = "0.2.0"
 description = "docanon 核心: 抽取/检测编排、脱敏与回写、账本、CLI 与本地 Web"
 authors = [{ name = "lawyerch" }]
 requires-python = ">=3.10,<3.14"
