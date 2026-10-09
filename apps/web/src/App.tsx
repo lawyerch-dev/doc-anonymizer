@@ -196,15 +196,28 @@ export default function App() {
       </header>
 
       {error ? (
-        <div className="mx-6 mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+        // role=alert: 出错时屏幕阅读器要念出来, 不然"点了没反应"对看不见的人是零信息
+        <div
+          role="alert"
+          className="mx-6 mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+        >
           {error}
         </div>
+      ) : null}
+
+      {/* 窄屏抽屉的遮罩: 点空白关掉 —— 否则抽屉盖住半屏又没有出口, 只能靠"选一个文档"隐式消失 */}
+      {drawerOpen ? (
+        <div
+          className="fixed inset-0 z-30 bg-black/20 md:hidden"
+          onClick={() => setDrawerOpen(false)}
+          aria-hidden
+        />
       ) : null}
 
       <div className="flex min-h-0 flex-1 gap-4 p-4">
         {/* 左栏: 宽屏常驻; 窄屏收成抽屉 */}
         <aside
-          className={`min-h-0 w-[280px] flex-none space-y-3 overflow-auto md:block ${
+          className={`min-h-0 w-[280px] flex-none space-y-3 overflow-auto overscroll-contain md:block ${
             drawerOpen ? "fixed inset-y-0 left-0 z-40 w-[300px] bg-background p-4 shadow-xl" : "hidden"
           }`}
         >
@@ -220,8 +233,12 @@ export default function App() {
           <Button id="run" className="w-full" disabled={!selection || running} onClick={() => void run()}>
             {running ? "脱敏中…" : "开始脱敏"}
           </Button>
-          <Button variant="outline" size="sm" className="w-full md:hidden" onClick={() => setDrawerOpen(!drawerOpen)}>
-            {drawerOpen ? "收起面板" : "展开面板"}
+          {/* 这个按钮只可能在抽屉打开时可见(关着时 aside 整体 hidden), 所以只会有"收起"一个态 */}
+          <Button
+            variant="outline" size="sm" className="w-full md:hidden"
+            onClick={() => setDrawerOpen(false)}
+          >
+            收起面板
           </Button>
           {result ? (
             <StatsCard

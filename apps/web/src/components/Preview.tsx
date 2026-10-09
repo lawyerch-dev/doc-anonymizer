@@ -28,11 +28,16 @@ export function Preview({ pane, title, filename, url, placeholder, action }: Pro
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-card">
       <div className="flex min-h-11 items-center gap-2.5 border-b px-3.5 py-2 text-[13px]">
-        <b className="font-semibold">{title}</b>
-        <span className="truncate text-muted-foreground">{filename}</span>
-        <span className="ml-auto flex gap-2">
+        <b className="flex-none font-semibold">{title}</b>
+        {/* min-w-0: 没有它, flex 项不会收缩, 超长文件名会把右边的下载按钮挤出去(truncate 也就不生效) */}
+        <span className="min-w-0 truncate text-muted-foreground">{filename}</span>
+        <span className="ml-auto flex flex-none gap-2">
           {action && url ? (
-            <a href={action.href} download className="inline-flex">
+            <a
+              href={action.href}
+              download
+              className="inline-flex rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
               <span className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground">
                 {action.label}
               </span>

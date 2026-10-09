@@ -27,29 +27,30 @@ export function PresetList({ presets, activeName, loading, onPick, onRefresh, on
       {loading ? (
         <div className="text-xs text-muted-foreground">加载中…</div>
       ) : presets.length ? (
-        <div className="max-h-56 overflow-auto">
+        <div className="max-h-56 overflow-auto overscroll-contain">
           {presets.map((p) => {
             const active = p.name === activeName;
             return (
-              <div
+              // 真 <button>: 之前是 `div role="button"` —— 键盘 Enter/Space、焦点环、
+              // 屏幕阅读器都的"能按"语义都得自己补, 用原生元素则自带(.preset 这个类名保留给 E2E)
+              <button
                 key={p.name}
-                className={`preset mb-1.5 flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 text-[13px] transition-colors ${
+                type="button"
+                aria-pressed={active}
+                className={`preset mb-1.5 flex w-full cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[13px] transition-colors ${
                   active
                     ? "border-selected bg-selected font-semibold text-selected-foreground shadow-sm"
                     : "hover:border-primary/60 hover:bg-accent/60"
                 }`}
                 title={p.name}
                 onClick={() => onPick(p)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onPick(p); }}
               >
                 <span aria-hidden>📄</span>
                 <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                <span className={`ml-auto text-[11px] uppercase ${active ? "text-selected-foreground/80" : "text-muted-foreground"}`}>
+                <span className={`text-[11px] uppercase ${active ? "text-selected-foreground/80" : "text-muted-foreground"}`}>
                   {p.name.split(".").pop()}
                 </span>
-              </div>
+              </button>
             );
           })}
         </div>
