@@ -7,6 +7,13 @@
 
 ### Changed
 
+- **命中统计 / 设置表的类型名改成中文**：`PHONE`、`ID_CARD`、`USCC`… 这类代码对非技术用户不友好。
+  统一走 `apps/web/src/lib/formats.ts` 的一张 `ENTITY_LABELS` 映射（电话 / 身份证 / 统一社会信用代码…），
+  鼠标悬停在类型上仍能看到原始代码（方便对日志与配置排查）。
+  清单按**引擎的真实产出**登记：规则层 `detectors/rule.py` 的 PATTERNS、词典层固定给的 `CUSTOM`、
+  ONNX 层经 `config.py` 的 `DEFAULT_ONNX_ENTITY_MAP` 映射后的类型（含 gyr66 的 `POSITION`）、兜底 `DEFAULT`。
+  **没登记过的标签照原样显示代码**，不猜也不隐藏 —— 用户可以在配置里自定义 `onnx.entity_map`，
+  那时会冒出什么标签我们并不知道，编一个中文名比显示代码更糟。
 - **选中文档改为红色选中态**：文档列表里当前选中的那一项改成实心红底 + 白字（暗色下自动切成浅红底 + 深字），
   原先只是浅灰底 + 深色描边，不够醒目。为此在 `apps/web/src/styles.css` 新增一对**产品专属** token
   `--selected` / `--selected-foreground`：没有复用 kit 的 `--destructive`（那个红已被错误条与

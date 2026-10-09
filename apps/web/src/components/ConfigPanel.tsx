@@ -5,7 +5,7 @@ import {
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import { Input } from "@doc-anonymizer/ui/primitives/input";
 import { Label } from "@doc-anonymizer/ui/primitives/label";
-import { EFFECT, ENTITY_TYPES, STRATEGIES } from "../lib/formats";
+import { EFFECT, ENTITY_TYPES, STRATEGIES, entityLabel } from "../lib/formats";
 import type { ConfigData, ConfigRow } from "../types";
 
 type Props = {
@@ -109,7 +109,7 @@ export function ConfigPanel(props: Props) {
                       const cur = t in d.strategies ? d.strategies[t] : def;
                       return (
                         <tr key={t}>
-                          <td className="border-b px-1.5 py-1">{t}</td>
+                          <td className="border-b px-1.5 py-1" title={t}>{entityLabel(t)}</td>
                           <td className="border-b px-1.5 py-1">
                             <select
                               className="rounded border border-input bg-background px-1 py-0.5"

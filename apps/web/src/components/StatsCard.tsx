@@ -1,3 +1,5 @@
+import { entityLabel } from "../lib/formats";
+
 type Props = {
   counts: Record<string, number>;
   /** 命中合计(与逐类计数同源, 由调用方算好) */
@@ -34,7 +36,7 @@ export function StatsCard({ counts, total, totalMs, convertedFrom }: Props) {
           {entries.length ? (
             entries.map(([k, v]) => (
               <tr key={k}>
-                <td className="border-b px-2 py-1.5">{k}</td>
+                <td className="border-b px-2 py-1.5" title={k}>{entityLabel(k)}</td>
                 <td className="border-b px-2 py-1.5 tabular-nums">{v}</td>
               </tr>
             ))
