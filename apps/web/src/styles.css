@@ -1,0 +1,6 @@
+@import "tailwindcss";
+@import "@doc-anonymizer/ui/theme.css";
+
+/* Tailwind 4 要扫到共享组件包与本地源码, 否则 kit 里的类名会被摇掉 */
+@source "../../../packages/ui/src";
+@source "../";

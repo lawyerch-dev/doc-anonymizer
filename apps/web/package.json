@@ -1,0 +1,26 @@
+{
+  "name": "@doc-anonymizer/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "产品界面: Vite + React + Tailwind 4, 复用 @doc-anonymizer/ui; 产物 dist/ 由 docanon web 静态发出",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@doc-anonymizer/ui": "*",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.3.0",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vite": "^6.0.0"
+  }
+}
