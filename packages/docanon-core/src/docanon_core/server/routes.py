@@ -15,9 +15,9 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from .. import convert, resources
-from ..pipeline import prepare_detectors, process_file
+from ..pipeline import Cancelled, prepare_detectors, process_file
 from ..redaction.mapping import MappingStore
-from . import downloads, llm_server, profiles
+from . import downloads, llm_server, profiles, progress
 from docanon_engine_ner_llm import LLMConfig
 
 _MAX_BYTES = 50 * 1024 * 1024
@@ -152,6 +152,8 @@ class Handler(BaseHTTPRequestHandler):
             })
         elif p == "/api/models/download":
             self._json(200, downloads.status())
+        elif p.startswith("/api/progress/"):
+            self._json(200, progress.state(p[len("/api/progress/"):]))
         elif p.startswith("/api/configs/"):
             self._get_config(p[len("/api/configs/"):])
         elif p.startswith(_DIST_PREFIX):
@@ -263,6 +265,9 @@ class Handler(BaseHTTPRequestHandler):
             self._start_download(payload)
         elif p == "/api/models/download/cancel":
             self._json(200, downloads.cancel())
+        elif p == "/api/anonymize/cancel":
+            job = str(payload.get("job") or "")
+            self._json(200, {"cancelled": progress.cancel(job)})
         else:
             self._send(404, b"not found", "text/plain")
 
@@ -342,6 +347,27 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {"token": token, "filename": name, "url": f"/uploads/{token}/{name}"})
 
     def _anonymize(self, payload: dict) -> None:
+        """入口: 先把 job 登记好再干活 —— "准备引擎"(起大模型/载 ONNX)那几秒也要能看见。"""
+        job = payload.get("job")
+        if job is None:
+            self._anonymize_job(payload, None, None)
+            return
+        try:
+            cancel = progress.begin(str(job))
+        except progress.BadJobId as exc:
+            self._json(400, {"error": str(exc)})
+            return
+        try:
+            self._anonymize_job(payload, str(job), cancel)
+        finally:
+            progress.finish(str(job))
+
+    def _anonymize_job(self, payload: dict, job: str | None, cancel) -> None:
+        tick = None if job is None else (
+            lambda stage, done=0, total=0: progress.update(job, stage, done, total)  # noqa: E731
+        )
+        if tick is not None:
+            tick("prepare")   # 起本地大模型 / 加载 ONNX 都在这一段里, 别让它看起来像卡死
         cfg, cfg_name = self._resolve_config(payload)
         if cfg is None:
             return
@@ -379,7 +405,10 @@ class Handler(BaseHTTPRequestHandler):
         work.mkdir(parents=True, exist_ok=True)
         store = MappingStore()
         try:
-            res = process_file(src, work, cfg, store)
+            res = process_file(src, work, cfg, store, progress=tick, cancel=cancel)
+        except Cancelled:
+            self._json(409, {"error": "已取消 —— 没有写任何产物"})
+            return
         except Exception as exc:  # noqa: BLE001
             self._json(500, {"error": str(exc)})
             return

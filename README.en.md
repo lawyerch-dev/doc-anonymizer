@@ -114,7 +114,7 @@ Why the packages are split this way, the hard boundaries and the decision record
 .venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml        # process a file or directory
 .venv/bin/docanon run ./案件 -o var/out -c configs/onnx.yaml --resume  # resume after an interruption
 .venv/bin/docanon engines -c configs/onnx.yaml                         # how many detection layers this config runs
-.venv/bin/docanon restore var/out/sample.md.redacted.md --mapping var/out/mapping.json
+.venv/bin/docanon restore "var/out/【脱敏版】sample.md" --mapping var/out/mapping.json
 ```
 
 Exit codes: `0` everything processed · `1` bad input/config/engine (not a single file is written) · `2` some
@@ -134,10 +134,11 @@ on `127.0.0.1` only, with no auth (for local, single-user use).
 **The redaction scheme is layered in three levels** (progressive disclosure — casual users only ever touch L1):
 
 - **L1 scheme**: choose one of the four built-ins (`configs/*.yaml`, read-only) or **my configs**
-  (`var/configs/<name>.yaml`). The dropdown lists only a **short name** (e.g. "Most accurate (local LLM)");
+  (`var/configs/<name>.yaml`). The dropdown lists only a **short name** (e.g. "Legal delivery");
   "when to use which" is shown on its own line underneath — both come from the **first two comment lines** of
   each yaml (edit the wording in the file and the UI follows), while anything below them is detail for whoever
-  edits the config and never reaches users. Create / save-as / export / import.
+  edits the config and never reaches users. The default is "Legal delivery" (**too little is visible, too much
+  is not**). Create / save-as / export / import.
 - **L2 custom redaction**: per-type strategy (shown in plain language, e.g. "blank out with `**`"; maps to
   `redact` / `mask` / `placeholder` / `pseudonym` / `remove` / `keep`, each row with a worked example) + custom
   sensitive words; the "use pseudonyms for people/orgs" switch merely flips the matrix between `redact` and
@@ -159,13 +160,17 @@ User configs share the built-in schema and live in the gitignored `var/configs/`
 (no edit, no delete).
 
 Endpoints: `/` `/assets/*` `/health` `/api/presets` `/api/configs` `/api/configs/{ref}` `/api/models`
-`/api/models/download` `/api/upload` `/api/anonymize` (plus `PUT`/`DELETE /api/configs/{name}`,
-`POST /api/configs/import`, `GET /api/configs/{name}/export`, `POST /api/models/download/cancel`).
+`/api/models/download` `/api/upload` `/api/anonymize` `/api/progress/{job}` (plus `PUT`/`DELETE /api/configs/{name}`,
+`POST /api/configs/import`, `GET /api/configs/{name}/export`, `POST /api/models/download/cancel`,
+`POST /api/anonymize/cancel`).
 `/api/configs` lists built-ins and user configs and marks the current one; `/api/models` reports the ONNX
 dirs, the LLM defaults and the **downloadable model catalogue**; `/api/models/download` starts / polls /
 cancels the in-app model download (it takes a catalogue `id` only, **never a URL**); `/api/upload` takes `{filename, content_b64}`;
-`/api/anonymize` takes `{preset|token, config?}`, where `config` is a **config name** or an **inline object**,
+`/api/anonymize` takes `{preset|token, config?, job?}`, where `config` is a **config name** or an **inline object**,
 and returns `counts` and `trace`; uploads are capped at 50MB.
+`job` is a short id the UI generates: poll `/api/progress/{job}` while it runs (reading the file / recognising
+segment N / writing back), or stop it with `POST /api/anonymize/cancel` — cancelling **leaves no file at all**
+(a half-written product is more dangerous than none).
 
 ### Website & docs site (optional)
 
@@ -200,15 +205,19 @@ See [apps/desktop/README.md](apps/desktop/README.md).
 
 | Input | Output | How it is redacted |
 |---|---|---|
-| `.docx` | `x.docx.redacted.docx` | text rewritten run by run (hyperlinks, content controls, nested tables included), formatting kept |
-| `.xlsx` / `.csv` | `x.xlsx.redacted.xlsx` | cells rewritten, keeping sheet structure |
-| `.doc` / `.xls` / `.wps` (legacy Office) | `x.doc.redacted.docx` | converted to `.docx`/`.xlsx` by LibreOffice first, then redacted; **the output format changes and the layout may be reflowed** |
-| `.pdf` (text layer) | `x.pdf.redacted.pdf` | hit pages blacked out (**the page becomes a bitmap**) |
-| `.pdf` (scan) / `.png` `.jpg` `.tiff` … | same as above / `x.png.redacted.png` | OCR locates the text, then black boxes are drawn proportionally to character width |
-| `.txt` / `.md` | `x.txt.redacted.txt` | line-by-line plain-text replacement |
+| `.docx` | `【脱敏版】x.docx` | text rewritten run by run (hyperlinks, content controls, nested tables included), formatting kept |
+| `.xlsx` / `.csv` | `【脱敏版】x.xlsx` | cells rewritten, keeping sheet structure |
+| `.doc` / `.xls` / `.wps` (legacy Office) | `【脱敏版】x.doc.docx` | converted to `.docx`/`.xlsx` by LibreOffice first, then redacted; **the output format changes and the layout may be reflowed** |
+| `.pdf` (text layer) | `【脱敏版】x.pdf` | hit pages blacked out (**the page becomes a bitmap**) |
+| `.pdf` (scan) / `.png` `.jpg` `.tiff` … | same as above / `【脱敏版】x.png` | OCR locates the text, then black boxes are drawn proportionally to character width |
+| `.txt` / `.md` | `【脱敏版】x.txt` | line-by-line plain-text replacement |
 
-Files are named `<full name>.redacted.<original extension>`, keeping relative subdirectories. The `-o`
-directory holds two ledgers (accumulated per source file, so you can run in batches):
+Files are named `【脱敏版】<full name>` (the target extension is appended only when the format changed, e.g.
+`【脱敏版】x.doc.docx`, so that `x.doc` and `x.docx` in one directory do not collide), keeping relative
+subdirectories. Names beyond the filesystem's 255-byte limit are **truncated deterministically**: the
+extension is kept and a `~` + short hash is appended to the shortened stem so different sources never
+collide — the same input always yields the same artifact name. The `-o` directory holds two ledgers
+(accumulated per source file, so you can run in batches):
 
 - `manifest.json` — `ok` / `error` / `unsupported` per file. **Only `ok` files were redacted.**
 - `mapping.json` — original ↔ replacement. **Never send it out or commit it alongside the redacted files.**
@@ -252,6 +261,12 @@ what I name gets touched"). Hits that were identified but kept by config are lis
 `docanon engines` reports whether each layer is available (with the reason) and what it can actually do;
 for choosing between them, and for benchmark numbers, see [docs/benchmarks.md](docs/benchmarks.md).
 
+The model layers (`onnx_ner` / `llm_ner`) have two **deterministic guards** (no prompt wording — adding a
+"do not tag …" list to the 4B model actually *lost* entities on a real contract): law, document and work titles
+inside `《》` are never entities (the Civil Code was once blanked to `《**》`, removing the document's legal
+basis); and `AMOUNT` must carry a money trace (a digit / `¥` / 元/万/亿), so a duration like "十日" is not
+treated as an amount. `rule` / `dictionary` match exactly and are exempt from both.
+
 ## Known limitations
 
 - **A hit PDF page becomes a full-page bitmap** (the text layer is gone — nothing to select, search, or edit again).
@@ -272,7 +287,7 @@ for choosing between them, and for benchmark numbers, see [docs/benchmarks.md](d
   without LibreOffice the file is recorded as `unsupported` (exit code 2). To turn the conversion off, set
   `legacy_convert: false`. GBK CSVs must be converted to UTF-8 first.
 - The output directory must not live inside the input directory, or the next run will treat the previous run's
-  `.redacted.*` files as new documents and redact them again.
+  `【脱敏版】*` files as new documents and redact them again.
 - **It assists human review and does not guarantee zero misses**: OCR misreads and unusual spellings can slip through.
   Review by hand before delivery, especially scans and tables.
 

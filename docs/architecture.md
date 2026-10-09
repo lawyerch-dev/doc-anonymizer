@@ -91,7 +91,7 @@ doc-anonymizer/
 | 契约只标准库；引擎只依赖契约+自己；core 只用引擎公开面；pyproject 依赖与代码一致 | `tests/test_architecture.py` | 包边界烂掉，"整块搬走"不再成立 |
 | 引擎能整块搬走 | `tests/test_engine_portability.py`（拷到只有契约+自己的环境里 import） | 引擎偷偷依赖 core，搬走即炸 |
 | 资源根可验证、布局只有一处真相 | `packages/docanon-core/tests/test_{resources,layout}.py` | 非 editable 安装下静默读到空配置 |
-| 产物命名 `<全名>.redacted.<原扩展名>` + 保留子目录；账本每文件原子落盘、`--resume` 要求产物仍在 | `test_output_layout.py`、`test_job.py` | 同名覆盖；崩溃丢记录；把漏脱敏报成已处理 |
+| 产物命名 `【脱敏版】<全名>[.<目标扩展名>]` + 保留子目录；超 255 字节确定性截断（保扩展名 + `~短哈希`）；账本每文件原子落盘、`--resume` 要求产物仍在 | `test_output_layout.py`、`test_job.py` | 同名覆盖；崩溃丢记录；把漏脱敏报成已处理 |
 | PDF 命中页不留可提取文字（未命中页原样保留） | `test_pdf_output.py`（[决策记录](../.agent/notes/implemented/architecture/2026-10-06-pdf-hit-pages-rasterized.md)） | 给文字层盖黑块 = 原文仍可复制 = 没脱敏 |
 | **文档不与代码漂移**（路径、链接、测试文件名、AGENTS 里的测试数量） | `tests/test_docs.py` | 代码搬了文档还写旧的 —— 前后矛盾，读文档的人被带到沟里 |
 

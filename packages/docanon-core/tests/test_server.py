@@ -132,7 +132,7 @@ def test_anonymize_labels_legacy_conversion(tmp_path, monkeypatch, ephemeral_ser
 
     body = _post(ephemeral_server, "/api/anonymize", {"token": up["token"]})
 
-    assert body["output_name"] == "合同.doc.redacted.docx"
+    assert body["output_name"] == "【脱敏版】合同.doc.docx"
     assert body["trace"]["converted_from"] == ".doc"
 
 
@@ -454,3 +454,51 @@ def test_built_assets_are_served(ephemeral_server):
     ) as resp:
         assert resp.status == 200
         assert "javascript" in resp.headers.get("Content-Type", "")
+
+
+def test_bad_job_id_is_rejected(ephemeral_server):
+    """job id 会被当字典键 —— 不能随便收(路径穿越 / 撑爆内存)。"""
+    up = _upload_text(ephemeral_server)
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        _post(ephemeral_server, "/api/anonymize", {"token": up["token"], "job": "../evil"})
+    assert excinfo.value.code == 400
+    assert "job" in json.loads(excinfo.value.read())["error"]
+
+
+def test_progress_is_readable_and_ends_at_done(ephemeral_server):
+    """跑的时候进度读得到(前端就是靠它显示"识别第几段"), 跑完收尾成 done。"""
+    up = _upload_text(ephemeral_server)
+
+    body = _post(ephemeral_server, "/api/anonymize",
+                 {"token": up["token"], "job": "job-abc123"})
+
+    assert body["counts"].get("PHONE") == 1
+    state = _get(ephemeral_server, "/api/progress/job-abc123")
+    assert state["stage"] == "done"
+    assert state["cancelled"] is False
+
+
+def test_cancelled_run_is_409_not_a_broken_result(ephemeral_server, monkeypatch):
+    """取消: 409 + 一句人话, 且**不产出任何文件**(半截产物比没产物更危险)。"""
+    from docanon_core.pipeline import Cancelled
+    from docanon_core.server import routes
+
+    up = _upload_text(ephemeral_server)
+
+    def cancelled_midway(*args, **kwargs):
+        kwargs["progress"]("detect", 3, 9)          # 让进度停在半路
+        raise Cancelled("已取消")
+
+    monkeypatch.setattr(routes, "process_file", cancelled_midway)
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        _post(ephemeral_server, "/api/anonymize",
+              {"token": up["token"], "job": "job-cancel1"})
+
+    assert excinfo.value.code == 409
+    assert "已取消" in json.loads(excinfo.value.read())["error"]
+    assert _get(ephemeral_server, "/api/progress/job-cancel1")["stage"] == "done"
+
+
+def test_cancel_endpoint_reports_whether_it_knew_the_job(ephemeral_server):
+    assert _post(ephemeral_server, "/api/anonymize/cancel", {"job": "nobody"})["cancelled"] is False

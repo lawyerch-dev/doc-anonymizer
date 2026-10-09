@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from docanon_core.cli import main
 
-SUPPORTED_HINT = "redacted"
+SUPPORTED_HINT = "脱敏版"
 
 
 def _manifest(out_dir: Path) -> dict:
@@ -24,9 +25,9 @@ def test_same_stem_different_extension_do_not_overwrite(tmp_path):
 
     assert code == 0
     produced = sorted(p.name for p in out.iterdir() if SUPPORTED_HINT in p.name)
-    assert produced == ["名单.csv.redacted.csv", "名单.txt.redacted.txt"]
-    assert "乙文件" in (out / "名单.csv.redacted.csv").read_text(encoding="utf-8")
-    assert "甲文件" in (out / "名单.txt.redacted.txt").read_text(encoding="utf-8")
+    assert produced == ["【脱敏版】名单.csv", "【脱敏版】名单.txt"]
+    assert "乙文件" in (out / "【脱敏版】名单.csv").read_text(encoding="utf-8")
+    assert "甲文件" in (out / "【脱敏版】名单.txt").read_text(encoding="utf-8")
 
 
 def test_same_name_in_different_subdirs_do_not_overwrite(tmp_path):
@@ -39,8 +40,8 @@ def test_same_name_in_different_subdirs_do_not_overwrite(tmp_path):
     code = main(["run", str(tmp_path / "src"), "-o", str(out)])
 
     assert code == 0
-    assert "138****0000" in (out / "a" / "report.txt.redacted.txt").read_text(encoding="utf-8")
-    assert "139****5678" in (out / "b" / "report.txt.redacted.txt").read_text(encoding="utf-8")
+    assert "138****0000" in (out / "a" / "【脱敏版】report.txt").read_text(encoding="utf-8")
+    assert "139****5678" in (out / "b" / "【脱敏版】report.txt").read_text(encoding="utf-8")
 
 
 def test_single_file_input_keeps_flat_name(tmp_path):
@@ -51,7 +52,7 @@ def test_single_file_input_keeps_flat_name(tmp_path):
     code = main(["run", str(src), "-o", str(out)])
 
     assert code == 0
-    assert "138****0000" in (out / "doc.txt.redacted.txt").read_text(encoding="utf-8")
+    assert "138****0000" in (out / "【脱敏版】doc.txt").read_text(encoding="utf-8")
 
 
 def test_manifest_lists_unsupported_files(tmp_path):
@@ -114,7 +115,7 @@ def test_doc_converted_and_labelled(tmp_path, monkeypatch):
     assert entry["source_suffix"] == ".doc"
     assert entry["output_format"] == "docx"
     assert entry["converted"] is True
-    assert (out / "合同.doc.redacted.docx").is_file()
+    assert (out / "【脱敏版】合同.doc.docx").is_file()
     assert code == 0
 
 
@@ -218,3 +219,57 @@ def test_rerun_same_source_replaces_its_entry(tmp_path):
     assert [e["source"] for e in m["files"]] == ["甲.txt"]
     assert m["summary"]["processed"] == 1
     assert m["totals"]["PHONE"] == 2, "重跑同一文件要按最新一次计数, 不能累加成 3"
+
+
+def test_overlong_name_is_truncated_but_writable(tmp_path):
+    """超长文件名: 确定性截断(保扩展名 + ~短哈希), 真实写盘不炸。
+
+    源名本身(253 字节)能写盘, 但加上【脱敏版】前缀后(268 字节)超限 —— 用户真实会撞上的区间。
+    """
+    src = tmp_path / "src"
+    src.mkdir()
+    stem = "课题研究委托合同条款磋商纪要" * 5 + "关于本次磋商的补充说明材料"
+    long_name = stem + ".txt"
+    assert len(long_name.encode("utf-8")) <= 255, "前置条件: 源文件本身能写盘"
+    (src / long_name).write_text("张三 13812340000\n", encoding="utf-8")
+    out = tmp_path / "out"
+
+    code = main(["run", str(src), "-o", str(out)])
+
+    assert code == 0
+    produced = [p for p in out.iterdir() if p.suffix not in {".json"}]
+    assert len(produced) == 1, "截断不能把产物弄丢, 也不能跟别的产物撞车"
+    name = produced[0].name
+    assert len(name.encode("utf-8")) <= 255, "产物名必须落在文件系统 255 字节上限内"
+    assert name.startswith("【脱敏版】")
+    assert re.search(r"~[0-9a-f]{8}\.txt$", name), "截断后要带 ~短哈希 防撞名"
+    assert "138****0000" in produced[0].read_text(encoding="utf-8")
+
+
+def test_overlong_name_truncation_is_deterministic(tmp_path):
+    """同一输入永远得到同一个截断名, --resume/账本才对得上。"""
+    from docanon_core.pipeline import _output_path
+
+    src = tmp_path / ("很长的名字" * 60 + ".docx")
+    a = _output_path(src, tmp_path / "out", None, ".docx")
+    b = _output_path(src, tmp_path / "out", None, ".docx")
+    assert a.name == b.name
+    assert len(a.name.encode("utf-8")) <= 255
+    assert a.suffix == ".docx"
+
+
+def test_overlong_legacy_name_keeps_both_extensions(tmp_path):
+    from docanon_core.pipeline import _output_path
+
+    src = tmp_path / ("很长的名字" * 60 + ".doc")
+    p = _output_path(src, tmp_path / "out", None, ".docx")
+    assert len(p.name.encode("utf-8")) <= 255
+    assert p.name.endswith(".doc.docx"), "格式变了照样补目标扩展名"
+
+
+def test_two_different_overlong_names_do_not_collide(tmp_path):
+    from docanon_core.pipeline import _output_path
+
+    a = _output_path(tmp_path / ("甲" * 120 + ".txt"), tmp_path / "out", None, ".txt")
+    b = _output_path(tmp_path / ("乙" * 120 + ".txt"), tmp_path / "out", None, ".txt")
+    assert a.name != b.name, "不同源文件截断后哈希不同, 不能静默互覆"

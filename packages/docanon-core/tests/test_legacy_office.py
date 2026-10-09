@@ -70,7 +70,7 @@ def test_doc_becomes_redacted_docx(tmp_path, monkeypatch):
     assert res.converted_from == ".doc"
     assert res.output_format == "docx"
     produced = Path(res.output_path)
-    assert produced.name == "合同.doc.redacted.docx"
+    assert produced.name == "【脱敏版】合同.doc.docx"
     text = "\n".join(p.text for p in Document(str(produced)).paragraphs)
     assert "13812340000" not in text, "转换后的 docx 没被脱敏"
 
@@ -85,7 +85,7 @@ def test_xls_keeps_xlsx_extension(tmp_path, monkeypatch):
     res = process_file(src, out, load_config(), MappingStore())
 
     assert res.output_format == "xlsx"
-    assert Path(res.output_path).name == "表.xls.redacted.xlsx"
+    assert Path(res.output_path).name == "【脱敏版】表.xls.xlsx"
     assert "13912345678" not in openpyxl.load_workbook(res.output_path).active["A1"].value
 
 

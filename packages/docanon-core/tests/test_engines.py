@@ -114,7 +114,7 @@ def test_relative_model_dirs_resolve_from_resource_root_not_cwd(tmp_path, monkey
     assert code == 0
     entry = json.loads((out / "manifest.json").read_text(encoding="utf-8"))["files"][0]
     assert entry["counts"].get("PERSON") == 1, "ONNX 没加载成功就等于静默少一层检测"
-    assert "13812340000" not in (out / "example.txt.redacted.txt").read_text(encoding="utf-8")
+    assert "13812340000" not in (out / "【脱敏版】example.txt").read_text(encoding="utf-8")
 
 
 def test_missing_config_is_an_error_not_a_fallback(tmp_path):

@@ -71,3 +71,77 @@ def test_mapping_restore_roundtrip(tmp_path):
     for repl, original in store._reverse.items():
         out = out.replace(repl, original)
     assert "13812340000" in out
+
+
+def _stub(source: str, frag: str):
+    """只认一个片段的假检测器, 用来单独验合并/取舍, 不惊动真模型。"""
+    from docanon_contract import Detection, Span
+
+    class _D:
+        name = source
+
+        def detect(self, block):
+            start = block.text.find(frag)
+            if start < 0:
+                return []
+            return [Detection(span=Span(start, start + len(frag), frag),
+                              entity_type="ORG", source=source)]
+
+    return _D()
+
+
+def _block(text: str):
+    from docanon_contract import Block
+
+    return Block(block_id="b0", text=text, locator={"line": 0})
+
+
+def test_quoted_titles_are_not_redacted_by_model_layers():
+    """《》里是法规/文件名, 模型层把它当机构抹掉会把文件抹废(实测: 《民法典》->《**》)。"""
+    from docanon_core.pipeline import _detect_block
+
+    text = "依据《中华人民共和国民法典》及相关法规, 联系人张三。"
+    assert _detect_block(_block(text), [_stub("llm", "中华人民共和国民法典")]) == []
+    assert _detect_block(_block(text), [_stub("onnx", "民法典")]) == []
+
+
+def test_quoted_title_guard_does_not_cover_rule_or_dictionary():
+    """规则/词典是精确匹配(用户明确列的词、写死的号码格式) —— 不该被书名号护栏放过。"""
+    from docanon_core.pipeline import _detect_block
+
+    text = "依据《民法典》办理。"
+    assert len(_detect_block(_block(text), [_stub("dictionary", "民法典")])) == 1
+    assert len(_detect_block(_block(text), [_stub("rule", "民法典")])) == 1
+
+
+def test_model_layers_still_catch_what_is_outside_the_quotes():
+    from docanon_core.pipeline import _detect_block
+
+    got = _detect_block(_block("依据《民法典》, 联系人张三。"), [_stub("llm", "张三")])
+    assert [d.span.text for d in got] == ["张三"]
+
+
+def test_amount_without_money_marks_is_not_an_amount():
+    """AMOUNT 必须有"钱的痕迹" —— 实测期限"十日"被模型当金额抹掉, 合同期限就没了。"""
+    from docanon_contract import Detection, Span
+    from docanon_core.pipeline import _detect_block
+
+    def stub(source: str, frag: str, etype: str):
+        class _D:
+            name = source
+
+            def detect(self, block):
+                start = block.text.find(frag)
+                return [] if start < 0 else [
+                    Detection(span=Span(start, start + len(frag), frag),
+                              entity_type=etype, source=source)
+                ]
+
+        return _D()
+
+    text = "按总费用的1%支付违约金, 逾期超过十日的, 甲方可解除。"
+    # 模型层: "十日"没有钱的痕迹 -> 丢; "1%" 有钱的痕迹 -> 留
+    assert [d.span.text for d in _detect_block(_block(text), [stub("llm", "十日", "AMOUNT")])] == []
+    assert [d.span.text for d in _detect_block(_block(text), [stub("llm", "1%", "AMOUNT")])] == ["1%"]
+    # 规则层是精确匹配, 不受这条限制
+    assert [d.span.text for d in _detect_block(_block(text), [stub("rule", "十日", "AMOUNT")])] == ["十日"]

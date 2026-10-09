@@ -9,7 +9,7 @@
       "file": "docs/quickstart.md",
       "en": "docs/quickstart.en.md",
       "en_title": "Quickstart",
-      "en_hash": "e2d270580f6abed3"
+      "en_hash": "c0cb7fbdd3477648"
     },
     {
       "group": "start",
@@ -19,7 +19,7 @@
       "file": "README.md",
       "en": "README.en.md",
       "en_title": "Manual",
-      "en_hash": "93765212c12e6e8e"
+      "en_hash": "7f290a19f799f270"
     },
     {
       "group": "dev",
@@ -46,7 +46,7 @@
       "file": "docs/architecture.md",
       "en": "docs/architecture.en.md",
       "en_title": "Architecture",
-      "en_hash": "f7378ce01d677cdf"
+      "en_hash": "9977cda0fd2b585f"
     },
     {
       "group": "dev",

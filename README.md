@@ -111,7 +111,7 @@ flowchart TB
 .venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml        # 处理文件或目录
 .venv/bin/docanon run ./案件 -o var/out -c configs/onnx.yaml --resume  # 断了接着跑
 .venv/bin/docanon engines -c configs/onnx.yaml                         # 这份配置跑了几层检测
-.venv/bin/docanon restore var/out/sample.md.redacted.md --mapping var/out/mapping.json
+.venv/bin/docanon restore "var/out/【脱敏版】sample.md" --mapping var/out/mapping.json
 ```
 
 退出码：`0` 全部处理 · `1` 输入/配置/引擎有问题（一个文件都不写）· `2` 有文件没产出结果
@@ -130,9 +130,9 @@ flowchart TB
 **脱敏方案分三层**（渐进披露，普通用户只用第一层）：
 
 - **L1 方案**：在内置的四套（`configs/*.yaml`，只读）与**我的配置**（`var/configs/<名>.yaml`）间选一套。
-  选项里只放**短名**（如"最准（本地大模型）"），"什么时候用哪套"单独显示在下面 —— 这两句就是各自 yaml 开头的
+  选项里只放**短名**（如"法律文书交付"），"什么时候用哪套"单独显示在下面 —— 这两句就是各自 yaml 开头的
   **前两行注释**（改文案改注释，界面自动跟着变）；再往下写的是给改配置的人的细节，不会端到用户面前。
-  可新建 / 另存为 / 导出 / 导入。
+  默认停在「法律文书交付」（**少抹能看出来、多抹看不出来**）；可新建 / 另存为 / 导出 / 导入。
 - **L2 自定义脱敏**：逐类型策略（界面显示中文名，如"盖成 `**`"；对应 yaml 里的 `redact` / `mask` /
   `placeholder` / `pseudonym` / `remove` / `keep`，每行带效果示例）+ 自定义敏感词；「用假名替代人名/机构」
   开关只把 `redact` 与 `pseudonym` 之间批量切矩阵（不引入第二种表达）。
@@ -148,12 +148,15 @@ flowchart TB
 用户配置与内置**同 schema**，落在已 gitignore 的 `var/configs/`；**内置只读**（拒改拒删）。
 
 接口：`/` `/assets/*` `/health` `/api/presets` `/api/configs` `/api/configs/{ref}` `/api/models`
-`/api/models/download` `/api/upload` `/api/anonymize`（另 `PUT`/`DELETE /api/configs/{name}`、
-`POST /api/configs/import`、`GET /api/configs/{name}/export`、`POST /api/models/download/cancel`）。
+`/api/models/download` `/api/upload` `/api/anonymize` `/api/progress/{job}`（另 `PUT`/`DELETE /api/configs/{name}`、
+`POST /api/configs/import`、`GET /api/configs/{name}/export`、`POST /api/models/download/cancel`、
+`POST /api/anonymize/cancel`）。
 `/api/configs` 列内置+用户并标当前；`/api/models` 报可选 ONNX 目录、LLM 默认与**可下载的大模型目录**；
 `/api/models/download` 起步/查询/取消界面内的模型下载（只收目录里的 `id`，**不收 URL**）；
-`/api/upload` 入参 `{filename, content_b64}`；`/api/anonymize` 入参 `{preset|token, config?}`，
+`/api/upload` 入参 `{filename, content_b64}`；`/api/anonymize` 入参 `{preset|token, config?, job?}`，
 `config` 可为**配置名**或**内联对象**，出参含 `counts` 与 `trace`；上传上限 50MB。
+`job` 是界面自己生成的一个短 id：跑的时候用它读 `/api/progress/{job}`（在读原文件 / 识别第几段 / 写回），
+或用 `POST /api/anonymize/cancel` 叫停 —— 取消**不产出任何文件**（半截产物比没产物更危险）。
 
 ### 官网与文档站（可选）
 
@@ -186,14 +189,16 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 
 | 输入 | 产物 | 脱敏方式 |
 |---|---|---|
-| `.docx` | `x.docx.redacted.docx` | 按 run 改写文字（含超链接、内容控件、嵌套表格），保留格式 |
-| `.xlsx` / `.csv` | `x.xlsx.redacted.xlsx` | 改写单元格，保留表结构 |
-| `.doc` / `.xls` / `.wps`（旧版 Office） | `x.doc.redacted.docx` | 先由 LibreOffice 自动转成 `.docx`/`.xlsx` 再脱敏；**产物格式变了、版式可能被重排** |
-| `.pdf`（文字层） | `x.pdf.redacted.pdf` | 命中页涂黑（**该页变位图**） |
-| `.pdf`（扫描件）/ `.png` `.jpg` `.tiff` … | 同上 / `x.png.redacted.png` | OCR 定位后按字符宽度比例涂黑 |
-| `.txt` / `.md` | `x.txt.redacted.txt` | 按行替换纯文本 |
+| `.docx` | `【脱敏版】x.docx` | 按 run 改写文字（含超链接、内容控件、嵌套表格），保留格式 |
+| `.xlsx` / `.csv` | `【脱敏版】x.xlsx` | 改写单元格，保留表结构 |
+| `.doc` / `.xls` / `.wps`（旧版 Office） | `【脱敏版】x.doc.docx` | 先由 LibreOffice 自动转成 `.docx`/`.xlsx` 再脱敏；**产物格式变了、版式可能被重排** |
+| `.pdf`（文字层） | `【脱敏版】x.pdf` | 命中页涂黑（**该页变位图**） |
+| `.pdf`（扫描件）/ `.png` `.jpg` `.tiff` … | 同上 / `【脱敏版】x.png` | OCR 定位后按字符宽度比例涂黑 |
+| `.txt` / `.md` | `【脱敏版】x.txt` | 按行替换纯文本 |
 
-命名 `<源文件全名>.redacted.<原扩展名>`，保留相对子目录。`-o` 目录里两个账本（按源文件**累加**，可分批跑）：
+命名 `【脱敏版】<源文件全名>`（格式变了才在后面补目标扩展名，如 `【脱敏版】x.doc.docx` ——
+同目录里 `x.doc` 与 `x.docx` 才不会撞名），保留相对子目录。名字超过文件系统 255 字节上限时
+**确定性截断**：保住扩展名、源名截短后补 `~+短哈希` 防撞名，同一输入永远得到同一个产物名。`-o` 目录里两个账本（按源文件**累加**，可分批跑）：
 
 - `manifest.json` —— 每文件 `ok` / `error` / `unsupported`。**只有 `ok` 是脱敏过的。**
 - `mapping.json` —— 原文 ↔ 替换值。**切勿与脱敏件一起外发或提交。**
@@ -230,6 +235,11 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 
 `docanon engines` 会报每层是否可用（含原因）与实际能力；选型与基准见 [docs/benchmarks.md](docs/benchmarks.md)。
 
+模型层（`onnx_ner` / `llm_ner`）有两道**确定性护栏**（不靠提示词 —— 给 4B 模型加"不要标注…"清单，实测
+在同一份真合同上反而漏了实体）：`《》` 里的法规/文件/作品名不当实体（实测《民法典》被抹成 `《**》`，
+法律依据就没了）；`AMOUNT` 必须带"钱的痕迹"（数字 / `¥` / 元/万/亿），所以期限"十日"不会被当金额抹掉。
+`rule` / `dictionary` 是精确匹配，不受这两条限制。
+
 ## 已知限制
 
 - **PDF 命中页整页变位图**（文字层消失、不可选中/搜索/再编辑）。这是安全保证：给文字层盖黑块的话
@@ -243,7 +253,7 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 - `.doc` / `.xls` / `.wps` 自动转成 `.docx`/`.xlsx` 再脱敏（需 LibreOffice）：`npm run doctor` 看 `soffice`
   一行，缺就 `./scripts/fetch_libreoffice.sh`。产物格式因此变成 `.docx`/`.xlsx`，**版式可能被重排，交付前人工对一遍**；
   没有 LibreOffice 时记 `unsupported`（退出码 2）。要关掉自动转换：配置 `legacy_convert: false`。GBK 的 CSV 需先转 UTF-8。
-- 输出目录不能放在输入目录里面，否则下一次 run 会把上次的 `.redacted.*` 当新文档再脱敏一遍。
+- 输出目录不能放在输入目录里面，否则下一次 run 会把上次的 `【脱敏版】*` 当新文档再脱敏一遍。
 - **辅助人工复核，不保证零漏检**：OCR 错字、罕见写法都可能漏。交付前请人工过一遍，尤其扫描件与表格。
 
 ## 文档

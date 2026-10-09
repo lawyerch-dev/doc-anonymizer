@@ -27,7 +27,9 @@ DEFAULT_ONNX_ENTITY_MAP: dict[str, str] = {
     "address": "LOCATION",
     "mobile": "PHONE",
     "email": "EMAIL",
-    "position": "POSITION",
+    # **不映射 `position`**（审判员/课题组组长/法定代表人/领导 这类角色泛称）: 角色不是身份,
+    # 抹掉它只会把"课题负责人：王茹月"打成"**：**"这种半截话, 而没有任何一类用户想要角色消失
+    # （实测一份真合同踩过）。要让某个角色算实体, 在自己的配置里写 onnx.entity_map 加回去。
     "qq": "CUSTOM",
     "vx": "CUSTOM",
 }

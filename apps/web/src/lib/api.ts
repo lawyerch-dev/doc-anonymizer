@@ -1,6 +1,6 @@
 import type {
   AnonymizeResp, ConfigData, ConfigDetail, ConfigRow, Detection, DownloadState, LlmModelRow,
-  ModelsResp, Preset, UploadResp,
+  ModelsResp, Preset, ProgressState, UploadResp,
 } from "../types";
 
 async function json<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
@@ -60,8 +60,20 @@ export const uploadFile = (file: File) =>
   );
 
 export const anonymize = (payload: {
-  preset?: string; token?: string; config?: string | ConfigData;
+  preset?: string; token?: string; config?: string | ConfigData; job?: string;
 }) => postJson<AnonymizeResp>("/api/anonymize", payload);
+
+/** 跑的时候按 job id 读进度(轮询, 不占那条正在跑的请求) */
+export const runProgress = (job: string) =>
+  plainJson<ProgressState>(`/api/progress/${encodeURIComponent(job)}`);
+
+/** 叫停正在跑的那一份; 后端在写产物之前查信号, 所以取消 = 不留半成品 */
+export const cancelAnonymize = (job: string) =>
+  plainJson<{ cancelled: boolean }>("/api/anonymize/cancel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ job }),
+  });
 
 export const saveConfig = (name: string, data: ConfigData) =>
   json<{ saved: boolean; name: string }>(`/api/configs/${encodeURIComponent(name)}`, {

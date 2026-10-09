@@ -43,7 +43,7 @@ def test_manifest_output_paths_exist_for_scanned_pdf(tmp_path):
     for produced in entry["outputs"]:
         assert Path(produced).exists(), f"清单里的产物不存在: {produced}"
     # 扫描件现在保持原格式, 输出单个 PDF
-    pdf = out / "扫描件.pdf.redacted.pdf"
+    pdf = out / "【脱敏版】扫描件.pdf"
     assert pdf.exists()
 
 

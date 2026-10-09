@@ -80,12 +80,12 @@ def test_resume_redoes_file_whose_output_is_gone(tmp_path, calls):
     src = _case(tmp_path)
     out = tmp_path / "out"
     assert main(["run", str(src), "-o", str(out)]) == 0
-    (out / "甲.txt.redacted.txt").unlink()
+    (out / "【脱敏版】甲.txt").unlink()
     calls.clear()
 
     assert main(["run", str(src), "-o", str(out), "--resume"]) == 0
     assert calls == ["甲.txt"]
-    assert (out / "甲.txt.redacted.txt").exists()
+    assert (out / "【脱敏版】甲.txt").exists()
 
 
 def test_resume_retries_error_entries(tmp_path, calls):

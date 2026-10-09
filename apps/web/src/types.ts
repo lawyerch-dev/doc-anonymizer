@@ -65,6 +65,14 @@ export type LlmServerState = {
   error: string;
 };
 
+/** 跑一份文档时的进度(前端按 job id 轮询 `/api/progress/<job>`) */
+export type ProgressState = {
+  stage: "extract" | "detect" | "write" | "done" | "unknown";
+  done: number;
+  total: number;
+  cancelled: boolean;
+};
+
 export type LlmModelRow = {
   id: string;
   name: string;

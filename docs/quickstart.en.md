@@ -21,7 +21,7 @@ hf-mirror mirror).
 
 ```bash
 npm run cli -- run ./samples -o var/out -c configs/onnx.yaml
-ls var/out          # sample.docx.redacted.docx  manifest.json  mapping.json  …
+ls var/out          # 【脱敏版】sample.docx  manifest.json  mapping.json  …
 ```
 
 - Output keeps the same format and preserves subdirectories; in `manifest.json`, **only `ok` entries were redacted**;
@@ -43,7 +43,7 @@ back to its source.
 
 ```bash
 npm run cli -- run ./案件 -o var/out -c configs/onnx.yaml --resume
-npm run cli -- restore var/out/sample.md.redacted.md --mapping var/out/mapping.json -o restored.md
+npm run cli -- restore "var/out/【脱敏版】sample.md" --mapping var/out/mapping.json -o restored.md
 ```
 
 `--resume` decides by "the manifest marks it `ok` **and the output file is still there**".

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import { ConfigPanel } from "./components/ConfigPanel";
 import { LogModal } from "./components/LogModal";
@@ -7,8 +7,8 @@ import { Preview } from "./components/Preview";
 import { SettingsSheet } from "./components/SettingsSheet";
 import { StatsCard } from "./components/StatsCard";
 import * as api from "./lib/api";
-import { DEFAULT_SCHEME } from "./lib/formats";
-import type { AnonymizeResp, ConfigData, ConfigRow, LlmModelRow, Preset, Selection } from "./types";
+import { DEFAULT_SCHEME, progressInfo } from "./lib/formats";
+import type { AnonymizeResp, ConfigData, ConfigRow, LlmModelRow, Preset, ProgressState, Selection } from "./types";
 
 type Theme = "light" | "dark";
 
@@ -35,10 +35,15 @@ export default function App() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [result, setResult] = useState<AnonymizeResp | null>(null);
   const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<ProgressState | null>(null);
+  // 跑起来的时刻: 用来显示"已用 N 秒"(轮询每 600ms 触发一次重渲染, 秒数跟着走)
+  const [startedAt, setStartedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [logOpen, setLogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // 正在跑的 job id: 取消按钮要知道叫停谁
+  const runningJob = useRef<string | null>(null);
 
   // 暗色: 顶层加 .dark(theme.css 的 dark 变体就挂在这个 class 上)
   useEffect(() => {
@@ -140,8 +145,16 @@ export default function App() {
     if (!selection) return;
     setRunning(true);
     setError(null);
+    setProgress(null);
+    setStartedAt(Date.now());
+    // job id 只用来读进度/叫停(不带鉴权含义); 生成得够随机就行
+    const job = `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    runningJob.current = job;
+    const poll = window.setInterval(() => {
+      api.runProgress(job).then(setProgress).catch(() => {});
+    }, 600);
     try {
-      const payload: { preset?: string; token?: string; config?: string | ConfigData } = {};
+      const payload: { preset?: string; token?: string; config?: string | ConfigData; job?: string } = { job };
       if (selection.preset) payload.preset = selection.preset;
       else if (selection.token) payload.token = selection.token;
       // 未编辑 → 发口径名(日志显示真实口径); 编辑过 → 发内联对象
@@ -152,9 +165,25 @@ export default function App() {
       setResult(resp);
       setLogOpen(false);
     } catch (e) {
-      setError(`脱敏失败: ${(e as Error).message}`);
+      const msg = (e as Error).message;
+      // 用户自己按的取消: 不该当成"脱敏失败"弹红条
+      setError(msg.includes("已取消") ? null : `脱敏失败: ${msg}`);
     } finally {
+      window.clearInterval(poll);
+      setProgress(null);
+      setStartedAt(null);
+      runningJob.current = null;
       setRunning(false);
+    }
+  };
+
+  const cancelRun = async () => {
+    const job = runningJob.current;
+    if (!job) return;
+    try {
+      await api.cancelAnonymize(job);
+    } catch {
+      // 取消失败不提示: 请求跑完了就会自己收尾
     }
   };
 
@@ -180,6 +209,9 @@ export default function App() {
       setError(`导入失败: ${(e as Error).message}`);
     }
   };
+
+  const runInfo = progressInfo(progress);
+  const elapsed = startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -253,6 +285,38 @@ export default function App() {
           <Button id="run" className="w-full" disabled={!selection || running} onClick={() => void run()}>
             {running ? "脱敏中…" : "开始脱敏"}
           </Button>
+          {/* 最准档跑一份合同要 30+ 秒: 只说"脱敏中…"用户会以为卡死了 —— 给出阶段、进度、已用秒数, 并允许取消 */}
+          {running ? (
+            <div className="space-y-1.5" id="progress">
+              <p className="text-xs leading-snug text-foreground/80">{runInfo.label}</p>
+              {runInfo.pct !== null ? (
+                <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
+                  <div
+                    className="h-full bg-selected transition-[width] duration-300"
+                    style={{ width: `${runInfo.pct}%` }}
+                  />
+                </div>
+              ) : null}
+              <p className="text-[11px] tabular-nums leading-snug text-muted-foreground">
+                已用 {elapsed}s
+              </p>
+              {/* 8 秒还没完才解释 —— 快的档不该看到这句废话 */}
+              {elapsed >= 8 ? (
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  还在跑（本地大模型档跑长文档通常 30-60 秒），不想等可以取消。
+                </p>
+              ) : null}
+              <Button
+                id="cancelRun"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => void cancelRun()}
+              >
+                取消
+              </Button>
+            </div>
+          ) : null}
           {/* 这个按钮只可能在抽屉打开时可见(关着时 aside 整体 hidden), 所以只会有"收起"一个态 */}
           <Button
             variant="outline" size="sm" className="w-full md:hidden"

@@ -19,7 +19,7 @@ npm run doctor     # 确认: 工具链/预览资源/ONNX 模型 + 这份配置�
 
 ```bash
 npm run cli -- run ./samples -o var/out -c configs/onnx.yaml
-ls var/out          # sample.docx.redacted.docx  manifest.json  mapping.json  …
+ls var/out          # 【脱敏版】sample.docx  manifest.json  mapping.json  …
 ```
 
 - 产物同格式、保留子目录；`manifest.json` 里**只有 `ok` 是脱敏过的**；
@@ -39,7 +39,7 @@ npm run dev                 # → http://127.0.0.1:5173（Vite 热更；后端 :
 
 ```bash
 npm run cli -- run ./案件 -o var/out -c configs/onnx.yaml --resume
-npm run cli -- restore var/out/sample.md.redacted.md --mapping var/out/mapping.json -o restored.md
+npm run cli -- restore "var/out/【脱敏版】sample.md" --mapping var/out/mapping.json -o restored.md
 ```
 
 `--resume` 的判定是「清单标 `ok` **且产物文件还在**」。`restore` 只吃 txt/md/csv；

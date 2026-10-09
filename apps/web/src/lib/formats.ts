@@ -107,10 +107,13 @@ export function onnxModelInfo(dir: string): { name: string; hint: string; recomm
 /**
  * 打开界面时 L1 下拉默认停在哪一套(用户自己选过就以 localStorage 记的为准)。
  *
- * 后端启动时用的 `-c` 是另一回事: 那是"引擎预检按哪套来"。界面默认值在这里定, 改动只影响
- * "用户一进来看到/会用哪套"。
+ * 默认「法律文书交付」而不是「最准」: **少抹能看出来, 多抹看不出来**。实测一份真实合同, 默认停在
+ * 「最准」时, 模型把《民法典》当机构抹掉、把合同金额与期限一起抹成 `**` —— 用户点一下就拿走一份废件。
+ * 要连人名机构一起换的(讲课、写案例), 下拉里下一项就是, 提示行也写了。
+ *
+ * 后端启动时用的 `-c` 是另一回事: 那是"引擎预检按哪套来"。界面默认值在这里定。
  */
-export const DEFAULT_SCHEME = "llm.yaml";
+export const DEFAULT_SCHEME = "legal.yaml";
 
 /**
  * L1 下拉的展示顺序 —— 默认那一套放最前, 用户第一眼看到的就是该用的那套。
@@ -118,7 +121,7 @@ export const DEFAULT_SCHEME = "llm.yaml";
  * 只排序不筛选: 没列进这里的(以后新增的内置、以及"我的配置")按后端给的原顺序排在后面,
  * 一个都不会被藏掉。
  */
-export const SCHEME_ORDER = ["llm.yaml", "onnx.yaml", "legal.yaml", "default.yaml"];
+export const SCHEME_ORDER = ["legal.yaml", "onnx.yaml", "llm.yaml", "default.yaml"];
 
 export function orderSchemes<T extends { name: string }>(rows: T[]): T[] {
   const rank = (name: string) => {
@@ -149,11 +152,13 @@ export const EFFECT: Record<string, string> = {
  * 实体类型代码 → 给用户看的中文名。
  *
  * 清单来自引擎的真实产出, 不是猜的: 规则层 `detectors/rule.py` 的 PATTERNS、
- * 词典层固定给 `CUSTOM`、ONNX 层经 `config.py` 的 `DEFAULT_ONNX_ENTITY_MAP` 映射后的类型
- * (含 gyr66 的 `POSITION`)、以及兜底的 `DEFAULT`。
+ * 词典层固定给 `CUSTOM`、ONNX 层经 `config.py` 的 `DEFAULT_ONNX_ENTITY_MAP` 映射后的类型、
+ * 以及兜底的 `DEFAULT`。
  *
- * 漏网的照原样显示代码 —— 用户可以在配置里写自己的 `onnx.entity_map`, 那时会冒出什么标签
- * 我们并不知道; 编一个中文名比显示代码更糟。
+ * `POSITION` 现在默认不会被产出(角色的泛称不是身份, 实测会打出"**：**"这种半截话) —— 留着这一行
+ * 是给自备 `onnx.entity_map` 的人: 他们映射了什么我们并不知道, 有个中文名总比露代码强。
+ *
+ * 漏网的照原样显示代码 —— 编一个中文名比显示代码更糟。
  */
 export const ENTITY_LABELS: Record<string, string> = {
   PHONE: "电话",
@@ -178,6 +183,36 @@ export const ENTITY_LABELS: Record<string, string> = {
 /** 类型代码 → 中文名; 没登记过的原样返回代码 */
 export function entityLabel(code: string): string {
   return ENTITY_LABELS[code] ?? code;
+}
+
+/**
+ * 跑的时候给用户看的那一句 + 一根进度条。
+ *
+ * 最准档跑一份 5000 字的合同要 30-40 秒, 这时只说"脱敏中…"是不合格的: 用户会以为卡死了。
+ * "在起本地大模型 / 在读原文件 / 在识别第几段 / 在写回"是几种完全不同的等待, 而且要能看出**还在走**。
+ * `prepare` 这一段不给出百分比(那时还不知道有多少活), 但必须显示 —— 起模型那几秒最像卡住。
+ */
+const STAGE_LABELS: Record<string, string> = {
+  prepare: "正在准备引擎（首次可能要起本地大模型）",
+  extract: "正在读取原文件（旧格式会先转换）",
+  detect: "正在识别敏感信息",
+  write: "正在写回产物",
+  done: "完成",
+  unknown: "正在开始",
+};
+
+export function progressInfo(
+  state: { stage: string; done: number; total: number } | null,
+): { label: string; pct: number | null } {
+  if (!state) return { label: "正在开始…", pct: null };
+  const base = STAGE_LABELS[state.stage] ?? "处理中";
+  if (state.stage === "detect" && state.total) {
+    return {
+      label: `${base} ${state.done}/${state.total} 段`,
+      pct: Math.round((state.done / state.total) * 100),
+    };
+  }
+  return { label: `${base}…`, pct: null };
 }
 
 /** 命中位置 → 人话(与旧 app.js 的 locText 一致) */

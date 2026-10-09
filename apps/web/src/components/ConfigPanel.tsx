@@ -94,7 +94,8 @@ export function ConfigPanel(props: Props) {
         {configKind === "user" ? <span className="ml-1 opacity-70">· 我的配置</span> : null}
       </p>
       <p className="text-[11px] leading-snug text-muted-foreground/80">
-        不确定选哪个：默认「最准（本地大模型）」；要交出去的材料选「法律文书交付」。
+        不确定选哪个：默认「法律文书交付」（只抹号码与联系方式，人名、机构、金额都留住）；
+        要把人名机构也换掉（讲课、写案例）选「通用（本机小模型）」或「最准（本地大模型）」。
       </p>
 
       <Accordion multiple className="mt-2">
