@@ -4,6 +4,7 @@ import { ConfigPanel } from "./components/ConfigPanel";
 import { LogModal } from "./components/LogModal";
 import { PresetList } from "./components/PresetList";
 import { Preview } from "./components/Preview";
+import { SettingsSheet } from "./components/SettingsSheet";
 import { StatsCard } from "./components/StatsCard";
 import * as api from "./lib/api";
 import type { AnonymizeResp, ConfigData, ConfigRow, Preset, Selection } from "./types";
@@ -34,6 +35,7 @@ export default function App() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [logOpen, setLogOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // 暗色: 顶层加 .dark(theme.css 的 dark 变体就挂在这个 class 上)
@@ -172,13 +174,22 @@ export default function App() {
       <header className="flex flex-none items-baseline gap-3 border-b bg-card px-6 py-3">
         <h1 className="text-lg font-semibold">文档脱敏工具</h1>
         <span className="text-[13px] text-muted-foreground">选文档 → 预览 → 一键脱敏 → 原格式前后对比</span>
-        <Button
-          variant="ghost" size="xs" className="ml-auto"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          title="切换明暗"
-        >
-          {theme === "dark" ? "☀ 浅色" : "🌙 深色"}
-        </Button>
+        <div className="ml-auto flex items-center gap-1.5">
+          <Button
+            variant="ghost" size="xs"
+            onClick={() => setSettingsOpen(true)}
+            title="脱敏设置：口径、逐类型策略、检测引擎"
+          >
+            ⚙ 设置{configDirty ? " •" : ""}
+          </Button>
+          <Button
+            variant="ghost" size="xs"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            title="切换明暗"
+          >
+            {theme === "dark" ? "☀ 浅色" : "🌙 深色"}
+          </Button>
+        </div>
       </header>
 
       <div className="flex flex-none items-center gap-2.5 border-b bg-card px-6 py-2">
@@ -216,18 +227,15 @@ export default function App() {
             onRefresh={() => void refreshPresets()}
             onUpload={(f) => void upload(f)}
           />
-          <ConfigPanel
-            configs={configs}
-            configRef={configRef}
-            configData={configData}
-            configKind={configKind}
-            modelDirs={modelDirs}
-            onSelectConfig={(name) => void loadConfigData(name)}
-            onChange={(next) => { setConfigData(next); setConfigDirty(true); }}
-            onSave={() => void saveConfig()}
-            onImport={(f) => void importConfig(f)}
-            onExport={() => { if (configRef) location.href = api.exportConfigUrl(configRef); }}
-          />
+          {/* 配置搬进设置弹窗后, 左栏只留一行"这次用什么口径", 不打开设置也知道 */}
+          <div
+            className="rounded-xl border bg-card px-3.5 py-2 text-xs text-muted-foreground"
+            title={configRef ?? undefined}
+          >
+            口径：
+            {configRef ? `${configRef}${configKind === "user" ? " · 我的" : " · 内置"}` : "未加载"}
+            {configDirty ? " · 已修改" : ""}
+          </div>
           <Button id="run" className="w-full" disabled={!selection || running} onClick={() => void run()}>
             {running ? "脱敏中…" : "开始脱敏"}
           </Button>
@@ -237,9 +245,9 @@ export default function App() {
           {result ? <StatsCard counts={result.counts} /> : null}
         </aside>
 
-        {/* 窄屏唤起抽屉的按钮 */}
+        {/* 窄屏唤起抽屉的按钮(抽屉里只有选文档) */}
         <Button variant="outline" size="sm" className="md:hidden" onClick={() => setDrawerOpen(true)}>
-          选择 / 配置
+          选择文档
         </Button>
 
         <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
@@ -255,6 +263,21 @@ export default function App() {
           />
         </main>
       </div>
+
+      <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <ConfigPanel
+          configs={configs}
+          configRef={configRef}
+          configData={configData}
+          configKind={configKind}
+          modelDirs={modelDirs}
+          onSelectConfig={(name) => void loadConfigData(name)}
+          onChange={(next) => { setConfigData(next); setConfigDirty(true); }}
+          onSave={() => void saveConfig()}
+          onImport={(f) => void importConfig(f)}
+          onExport={() => { if (configRef) location.href = api.exportConfigUrl(configRef); }}
+        />
+      </SettingsSheet>
 
       <LogModal open={logOpen} trace={result?.trace ?? null} onClose={() => setLogOpen(false)} />
     </div>

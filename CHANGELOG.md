@@ -7,9 +7,16 @@
 
 ### Changed
 
+- **脱敏设置改为弹窗**：产品界面的口径（L1）/ 逐类型策略与自定义词典（L2）/ 检测引擎（L3）从左栏搬进
+  右侧设置弹窗，入口是页头「⚙ 设置」按钮（紧邻主题切换按钮）；有未保存改动时按钮带 `•`。左栏只留一行
+  「口径：… · 内置/我的 · 已修改」摘要，不打开设置也知道这次用什么口径。
+  顺带修掉一处会丢数据的隐患：词典 / LLM 地址 / LLM 模型名原先是**非受控 + `onBlur` 提交**，弹窗一关
+  组件即卸载、`onBlur` 不触发，刚打的字会丢 —— 改成受控提交（词典保留一份本地草稿，否则
+  `split/filter` 会把刚输入的分隔符当场吃掉）。弹窗复用共享库的 `primitives/sheet`（base-ui Dialog），
+  **未新增依赖**；后端 API 与 E2E 依赖的 DOM 钩子（`.preset` `#run` `#paneSrc` `#paneOut` `#stats`）不变。
 - **产品界面重写为 Vite + React + TS**：`apps/web/` 从零构建手写件（`index.html`+`app.css`+`app.js`）
   迁到 Vite 6 + React 19 + Tailwind 4，**复用**共享组件库 `@doc-anonymizer/ui`（velora + shadcn 基础件 +
-  设计 token）—— 外观与官网不再分叉。顺带重排为三栏（左栏配置渐进披露、中原文、右脱敏后）、补暗色与
+  设计 token）—— 外观与官网不再分叉。顺带重排布局（选文档在左、原文/脱敏后对照在右）、补暗色与
   空/加载态。产物落 `apps/web/dist`（gitignore），`resources.LAYOUT["web"]` 随之改指 `dist`，
   `docanon web` 仍只发静态文件（**运行期零 node、全离线**不变）；API 一字未改。
   新增 `npm run build:web` / `dev:backend`，`npm run dev` 改为"后端 + Vite dev server 并发 + 六条前缀代理"

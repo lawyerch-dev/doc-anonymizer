@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from "@doc-anonymizer/ui/primitives/accordion";
@@ -21,6 +21,29 @@ type Props = {
   onExport: () => void;
 };
 
+/**
+ * 自定义敏感词输入: 自己持一份"自由文本"草稿, 边打边把解析结果提交上去。
+ *
+ * 为什么不能直接用受控 + 现算: 值要经过 `split/filter(Boolean)`, 分隔符后的空段会被立刻丢掉 ——
+ * 打 "甲，" 的瞬间就被规整回 "甲", 用户永远打不出第二个词。所以草稿留在本地, 解析结果照常实时上报
+ * (这样"改过没有"是准的), 弹窗关掉也不会丢刚打的字。
+ * 换口径时由外层用 `key` 重挂载来重新灌入草稿。
+ */
+function DictField({ value, onCommit }: { value: string[]; onCommit: (next: string[]) => void }) {
+  const [text, setText] = useState(() => value.join("，"));
+  return (
+    <Input
+      id="dictInput"
+      className="mt-1 h-8"
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value);
+        onCommit(e.target.value.split(/[，,]/).map((s) => s.trim()).filter(Boolean));
+      }}
+    />
+  );
+}
+
 export function ConfigPanel(props: Props) {
   const { configs, configRef, configData, configKind, modelDirs, onSelectConfig, onChange } = props;
   const importRef = useRef<HTMLInputElement>(null);
@@ -33,7 +56,7 @@ export function ConfigPanel(props: Props) {
   };
 
   return (
-    <div className="rounded-xl border bg-card p-3.5">
+    <div className="space-y-1">
       {/* ---- L1 口径 ---- */}
       <Label className="mb-1.5 block text-xs text-muted-foreground">脱敏口径</Label>
       <select
@@ -108,15 +131,10 @@ export function ConfigPanel(props: Props) {
                 <Label className="mt-2 block text-xs text-muted-foreground" htmlFor="dictInput">
                   自定义敏感词（逗号分隔）
                 </Label>
-                <Input
+                <DictField
                   key={configRef ?? ""}
-                  id="dictInput"
-                  className="mt-1 h-8"
-                  defaultValue={(d.dictionary ?? []).join("，")}
-                  onBlur={(e) => onChange({
-                    ...d,
-                    dictionary: e.target.value.split(/[，,]/).map((s) => s.trim()).filter(Boolean),
-                  })}
+                  value={d.dictionary ?? []}
+                  onCommit={(dictionary) => onChange({ ...d, dictionary })}
                 />
               </>
             ) : null}
@@ -163,15 +181,13 @@ export function ConfigPanel(props: Props) {
 
                 <Label className="mt-2 block text-xs text-muted-foreground" htmlFor="llmUrl">LLM 地址</Label>
                 <Input
-                  key={configRef ?? ""}
-                  id="llmUrl" className="mt-1 h-8" defaultValue={d.llm?.base_url ?? ""}
-                  onBlur={(e) => onChange({ ...d, llm: { ...d.llm, base_url: e.target.value } })}
+                  id="llmUrl" className="mt-1 h-8" value={d.llm?.base_url ?? ""}
+                  onChange={(e) => onChange({ ...d, llm: { ...d.llm, base_url: e.target.value } })}
                 />
                 <Label className="mt-2 block text-xs text-muted-foreground" htmlFor="llmModel">LLM 模型名</Label>
                 <Input
-                  key={configRef ?? ""}
-                  id="llmModel" className="mt-1 h-8" defaultValue={d.llm?.model ?? ""}
-                  onBlur={(e) => onChange({ ...d, llm: { ...d.llm, model: e.target.value } })}
+                  id="llmModel" className="mt-1 h-8" value={d.llm?.model ?? ""}
+                  onChange={(e) => onChange({ ...d, llm: { ...d.llm, model: e.target.value } })}
                 />
               </>
             ) : null}
