@@ -110,9 +110,11 @@ cmd_webui() {
 
   local port="$DEFAULT_PORT"
   warn_if_no_onnx_models
-  say "→ 后端 http://127.0.0.1:$port · 前端 http://127.0.0.1:5173   (Ctrl+C 停止)"
+  say "→ 开发请开 http://127.0.0.1:5173 (Vite 热更, 别开 :$port —— 那是后端, 且是旧构建产物)   (Ctrl+C 停止)"
+  say "  (后端 :$port 是 Vite 的代理目标, 不弹浏览器 —— 由 Vite 转发 /api 等)"
 
-  .venv/bin/docanon web -p "$port" -c "$DEFAULT_CONFIG" &
+  # --no-browser: 别自动弹标签页; 开发看的是 :5173 的 Vite 实时页, 弹 :$port 的旧构建只会误导
+  .venv/bin/docanon web -p "$port" -c "$DEFAULT_CONFIG" --no-browser &
   # 故意不是 local: EXIT trap 在函数返回之后才跑, 那时局部变量已出栈 —— set -u 下会报
   # "未绑定的变量"并跳过 kill, 后端就孤儿化占住 8000。做成全局变量才能在任何退出路径收走它。
   backend_pid=$!
