@@ -109,6 +109,7 @@ export function ConfigPanel(props: Props) {
                   自定义敏感词（逗号分隔）
                 </Label>
                 <Input
+                  key={configRef ?? ""}
                   id="dictInput"
                   className="mt-1 h-8"
                   defaultValue={(d.dictionary ?? []).join("，")}
@@ -162,11 +163,13 @@ export function ConfigPanel(props: Props) {
 
                 <Label className="mt-2 block text-xs text-muted-foreground" htmlFor="llmUrl">LLM 地址</Label>
                 <Input
+                  key={configRef ?? ""}
                   id="llmUrl" className="mt-1 h-8" defaultValue={d.llm?.base_url ?? ""}
                   onBlur={(e) => onChange({ ...d, llm: { ...d.llm, base_url: e.target.value } })}
                 />
                 <Label className="mt-2 block text-xs text-muted-foreground" htmlFor="llmModel">LLM 模型名</Label>
                 <Input
+                  key={configRef ?? ""}
                   id="llmModel" className="mt-1 h-8" defaultValue={d.llm?.model ?? ""}
                   onBlur={(e) => onChange({ ...d, llm: { ...d.llm, model: e.target.value } })}
                 />
