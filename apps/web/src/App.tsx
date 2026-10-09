@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import { ConfigPanel } from "./components/ConfigPanel";
 import { LogModal } from "./components/LogModal";
@@ -159,16 +159,6 @@ export default function App() {
     }
   };
 
-  const opDetails = useMemo(() => {
-    if (!result) return selection ? `已选择: ${selection.filename}` : "未选择文档";
-    const types = Object.keys(result.counts ?? {}).join("+") || "无命中";
-    const ms = result.trace?.timing?.total_ms;
-    const converted = result.trace?.converted_from;
-    return `已脱敏 ${result.output_name} · 类型 ${types} · 命中 ${api.totalCounts(result.counts)} · ${
-      ms != null ? `${Math.round(ms)}ms` : ""
-    }${converted ? ` · 已由 ${converted} 转换, 版式可能被重排` : ""}`;
-  }, [result, selection]);
-
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <header className="flex flex-none items-baseline gap-3 border-b bg-card px-6 py-3">
@@ -178,9 +168,16 @@ export default function App() {
           <Button
             variant="ghost" size="xs"
             onClick={() => setSettingsOpen(true)}
-            title="脱敏设置：口径、逐类型策略、检测引擎"
+            title={`脱敏设置：口径、逐类型策略、检测引擎（当前口径：${configRef ?? "未加载"}）`}
           >
             ⚙ 设置{configDirty ? " •" : ""}
+          </Button>
+          <Button
+            variant="ghost" size="xs"
+            disabled={!result?.trace}
+            onClick={() => setLogOpen(true)}
+          >
+            运行日志
           </Button>
           <Button
             variant="ghost" size="xs"
@@ -191,19 +188,6 @@ export default function App() {
           </Button>
         </div>
       </header>
-
-      <div className="flex flex-none items-center gap-2.5 border-b bg-card px-6 py-2">
-        <span className="min-w-0 truncate text-xs tabular-nums text-muted-foreground" title={opDetails}>
-          {opDetails}
-        </span>
-        <Button
-          variant="ghost" size="xs" className="ml-auto"
-          disabled={!result?.trace}
-          onClick={() => setLogOpen(true)}
-        >
-          运行日志
-        </Button>
-      </div>
 
       {error ? (
         <div className="mx-6 mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -227,22 +211,20 @@ export default function App() {
             onRefresh={() => void refreshPresets()}
             onUpload={(f) => void upload(f)}
           />
-          {/* 配置搬进设置弹窗后, 左栏只留一行"这次用什么口径", 不打开设置也知道 */}
-          <div
-            className="rounded-xl border bg-card px-3.5 py-2 text-xs text-muted-foreground"
-            title={configRef ?? undefined}
-          >
-            口径：
-            {configRef ? `${configRef}${configKind === "user" ? " · 我的" : " · 内置"}` : "未加载"}
-            {configDirty ? " · 已修改" : ""}
-          </div>
           <Button id="run" className="w-full" disabled={!selection || running} onClick={() => void run()}>
             {running ? "脱敏中…" : "开始脱敏"}
           </Button>
           <Button variant="outline" size="sm" className="w-full md:hidden" onClick={() => setDrawerOpen(!drawerOpen)}>
             {drawerOpen ? "收起面板" : "展开面板"}
           </Button>
-          {result ? <StatsCard counts={result.counts} /> : null}
+          {result ? (
+            <StatsCard
+              counts={result.counts}
+              total={api.totalCounts(result.counts)}
+              totalMs={result.trace?.timing?.total_ms ?? null}
+              convertedFrom={result.trace?.converted_from ?? null}
+            />
+          ) : null}
         </aside>
 
         {/* 窄屏唤起抽屉的按钮(抽屉里只有选文档) */}
