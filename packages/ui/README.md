@@ -9,7 +9,7 @@
 |---|---|---|
 | `src/components/velora/` | **100** 个 [velora-ui](https://github.com/ColorlibHQ/velora-ui) 组件 | `@doc-anonymizer/ui/marquee` |
 | `src/components/blocks/` | **31** 个 velora 区块（hero/feature/pricing/faq/footer…） | `@doc-anonymizer/ui/blocks/hero-globe` |
-| `src/components/ui/` | 9 个 shadcn 基础件（button/input/label/badge…） | `@doc-anonymizer/ui/primitives/button` |
+| `src/components/ui/` | 10 个 shadcn 基础件（button/input/label/sheet/dialog…） | `@doc-anonymizer/ui/primitives/button` |
 | `src/theme.css` | 设计 token + 全部 keyframes（消费方 `@import` 即可） | `@import "@doc-anonymizer/ui/theme.css";` |
 | `src/manifest.json` | 上面这些的清单（网站"组件库总览"页就是它渲染的） | `@doc-anonymizer/ui/manifest.json` |
 

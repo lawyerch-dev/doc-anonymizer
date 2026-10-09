@@ -8,7 +8,7 @@
 
 | 目录 | 是什么 |
 |---|---|
-| `packages/ui/` | `@doc-anonymizer/ui`：**共享组件库** —— velora 100 个组件 + 31 个区块 + 9 个 shadcn 基础件 + 设计 token，只有这一份 |
+| `packages/ui/` | `@doc-anonymizer/ui`：**共享组件库** —— velora 100 个组件 + 31 个区块 + 10 个 shadcn 基础件 + 设计 token，只有这一份 |
 | `website/` | 官网 + 文档站：Astro 5 + Starlight + Tailwind 4，静态输出 `website/dist/` |
 | `apps/web/` | 产品界面：Vite + React + Tailwind 4，引同一个 `packages/ui`；产物 `dist/` |
 

@@ -44,6 +44,8 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   // 正在跑的 job id: 取消按钮要知道叫停谁
   const runningJob = useRef<string | null>(null);
+  // 日志弹窗关掉后焦点要回到这个按钮, 否则键盘用户被扔到页面开头(组件库的默认回收依赖"点击时按钮已聚焦")
+  const logBtnRef = useRef<HTMLButtonElement>(null);
 
   // 暗色: 顶层加 .dark(theme.css 的 dark 变体就挂在这个 class 上)
   useEffect(() => {
@@ -227,6 +229,7 @@ export default function App() {
             ⚙ 设置{configDirty ? " •" : ""}
           </Button>
           <Button
+            ref={logBtnRef}
             variant="ghost" size="xs"
             disabled={!result?.trace}
             onClick={() => setLogOpen(true)}
@@ -370,7 +373,12 @@ export default function App() {
         />
       </SettingsSheet>
 
-      <LogModal open={logOpen} trace={result?.trace ?? null} onClose={() => setLogOpen(false)} />
+      <LogModal
+        open={logOpen}
+        trace={result?.trace ?? null}
+        onClose={() => setLogOpen(false)}
+        returnFocusTo={logBtnRef}
+      />
     </div>
   );
 }
