@@ -2,15 +2,15 @@
 
 **两条契约，别搞混**：
 
-1. **产品运行期零 node、全离线**：`docanon web` 只发静态文件（现在是零构建的 `apps/web/`：
-   `index.html` + `app.css` + `app.js`）。
+1. **产品运行期零 node、全离线**：`docanon web` 只发静态文件（`apps/web/dist/`，
+   由 Vite 从 `apps/web/src/` 构建；**运行期不发 node**，构建期用 npm workspaces）。
 2. **构建期可以用 node**：npm workspaces（仓库根跑一次 `npm install`）。
 
 | 目录 | 是什么 |
 |---|---|
 | `packages/ui/` | `@doc-anonymizer/ui`：**共享组件库** —— velora 100 个组件 + 31 个区块 + 9 个 shadcn 基础件 + 设计 token，只有这一份 |
 | `website/` | 官网 + 文档站：Astro 5 + Starlight + Tailwind 4，静态输出 `website/dist/` |
-| `apps/web/` | 产品界面（零构建；将来换栈时引同一个 `packages/ui`） |
+| `apps/web/` | 产品界面：Vite + React + Tailwind 4，引同一个 `packages/ui`；产物 `dist/` |
 
 - **别把 velora 组件拷进任何 app**：复用靠包不靠复制，`tests/test_docs.py` 会拦
   （为什么：[决策记录](../notes/implemented/architecture/2026-10-07-shared-ui-package.md)）。
@@ -31,6 +31,10 @@
   `website/src/lib/site.ts` 的 `url()`（守卫会拦）；Starlight 自生成的链接跟着 `base` 走。
 - 唯一的 CI 就是[部署文档站](../../.github/workflows/deploy-website.yml)：先跑门禁再发布 Pages。
   详细步骤（含子路径预览的验证方法）见 [`docs/cookbook/shipping-the-website.md`](../../docs/cookbook/shipping-the-website.md)。
+- **DOM 契约**：`tests/e2e/webkit/` 按 `.preset` `#run` `#paneSrc` `#paneOut` `#stats` 选择元素 ——
+  改界面时这几个钩子（`#paneSrc`/`#paneOut` 的 `firstElementChild` 是预览挂载点）不许改名或挪位置。
+- 加前端依赖/改构建：`npm run build:web`；dev 态 `npm run dev`（后端 + Vite 并发 + 五条前缀代理），
+  生产形态 `npm run build:web && npm run dev:backend`。
 
 ## Web 配置面（分层脱敏口径）
 

@@ -7,6 +7,14 @@
 
 ### Changed
 
+- **产品界面重写为 Vite + React + TS**：`apps/web/` 从零构建手写件（`index.html`+`app.css`+`app.js`）
+  迁到 Vite 5 + React 19 + Tailwind 4，**复用**共享组件库 `@doc-anonymizer/ui`（velora + shadcn 基础件 +
+  设计 token）—— 外观与官网不再分叉。顺带重排为三栏（左栏配置渐进披露、中原文、右脱敏后）、补暗色与
+  空/加载态。产物落 `apps/web/dist`（gitignore），`resources.LAYOUT["web"]` 随之改指 `dist`，
+  `docanon web` 仍只发静态文件（**运行期零 node、全离线**不变）；API 一字未改。
+  新增 `npm run build:web` / `dev:backend`，`npm run dev` 改为"后端 + Vite dev server 并发 + 五条前缀代理"。
+  设计与决策：[设计](docs/specs/2026-10-09-web-ui-vite-migration-design.md) ·
+  [笔记](.agent/notes/implemented/architecture/2026-10-09-product-frontend-on-vite.md)。
 - **默认脱敏口径改为 `**`**：新增 `redact` 策略（把整段原文盖成 `**`），人名/机构/自定义词/兜底类型默认走它，
   不再生成"像真的假名/假公司"——此前的 `华信集团` 式假名会让人误以为没脱敏。`pseudonym`（可信假名）
   改为**显式配置才用**。`configs/{default,onnx,llm}.yaml` 的策略词表已同步。

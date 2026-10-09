@@ -1,7 +1,7 @@
 # doc-anonymizer 操作契约（入口）
 
 本地文档脱敏：中文优先、全离线、保留原格式。Python 五个包（`packages/docanon-*`）+ 共享组件库
-（`packages/ui`：velora 100 组件 + 31 区块）+ 零构建产品前端（`apps/web/`）+ Astro 官网/文档站（`website/`）。
+（`packages/ui`：velora 100 组件 + 31 区块）+ 产品前端（`apps/web/`，Vite+React，产物 dist/）+ Astro 官网/文档站（`website/`）。
 
 **这里是入口与索引**：细则按主题拆在 [`.agent/rules/`](.agent/rules/)，改哪块读哪篇
 （[`.agent/README.md`](.agent/README.md) 说明这套目录怎么用）。

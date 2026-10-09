@@ -44,7 +44,7 @@
 ```bash
 git clone https://github.com/lawyerch-dev/doc-anonymizer && cd doc-anonymizer
 npm run setup          # 一键装齐: Python venv + 五个包 + 预览资源 + npm install
-npm run dev            # 产品界面 → http://127.0.0.1:8000
+npm run dev            # 产品界面: 后端 + Vite dev（热更）→ http://127.0.0.1:5173
 npm run dev:website    # 官网/文档站 → http://127.0.0.1:4321
 npm test               # 一键全测（Python 全量 + 组件库检查 + 文档站构建）
 ```
@@ -55,7 +55,7 @@ npm test               # 一键全测（Python 全量 + 组件库检查 + 文档
 |---|---|
 | `npm run setup` | 幂等装齐环境；`npm run doctor` 告诉你缺什么、为什么起不来 |
 | `npm run dev` / `dev:website` / `dev:desktop` | 产品界面 / 官网文档站 / 桌面壳 |
-| `npm run dev:backend` | 只起产品界面的后端（生产形态：`npm run build:web` 后访问 :8000） |
+| `npm run dev:backend` | 只起产品界面的后端（生产形态：`npm run build:web && npm run dev:backend`） |
 | `npm test` | 一键全测（`test:py` 只跑 Python，`test:web` 只跑前端） |
 | `npm run test:strict` | 反假绿：声明环境齐备后**任何 skip 都算失败**（装了模型再跑，见 `docs/cookbook/reviewing-a-change.md`） |
 | `npm run check:scope` | 按改动范围算出**最小**该跑的检查（不是无脑全量） |
@@ -139,7 +139,7 @@ flowchart TB
 连不上 LLM 返回 400 + 原因（不静默少一层）；列表接口**不**预检（不每次加载 ONNX）。
 用户配置与内置**同 schema**，落在已 gitignore 的 `var/configs/`；**内置只读**（拒改拒删）。
 
-接口：`/` `/app.css` `/app.js` `/health` `/api/presets` `/api/configs` `/api/configs/{ref}` `/api/models`
+接口：`/` `/assets/*` `/health` `/api/presets` `/api/configs` `/api/configs/{ref}` `/api/models`
 `/api/upload` `/api/anonymize`（另 `PUT`/`DELETE /api/configs/{name}`、`POST /api/configs/import`、
 `GET /api/configs/{name}/export`）。`/api/configs` 列内置+用户并标当前；`/api/models` 报可选 ONNX 目录与
 LLM 默认；`/api/upload` 入参 `{filename, content_b64}`；`/api/anonymize` 入参 `{preset|token, config?}`，

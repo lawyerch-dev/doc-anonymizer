@@ -2,7 +2,8 @@
 
 **日常只用一个**：仓库根的 npm scripts（`npm run setup` / `dev` / `dev:website` / `test` / `doctor` …）。
 `scripts/dev.sh` 是它们的**实现层**（也能直接用：`./scripts/dev.sh help`），它包装下面这些脚本与命令，`setup` 会调用 `setup_dev.sh` 与（缺预览资源时）
-`fetch_file_viewer.sh`；`web`/`desktop`/`website` 分别起 `docanon web`、壳里的 `npm start`、`website/` 的 `astro dev`。
+`fetch_file_viewer.sh`；`web`/`webui`/`desktop`/`website` 分别起 `docanon web`、产品界面开发态（后端 + Vite dev）、
+壳里的 `npm start`、`website/` 的 `astro dev`。
 
 | 脚本 | 干什么 | 依赖 | 用法 |
 |---|---|---|---|

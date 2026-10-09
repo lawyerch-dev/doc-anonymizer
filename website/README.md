@@ -52,7 +52,7 @@ React 组件在 Astro 里是 island，记得带指令：`<Landing client:load />
 | 读仓库外部 markdown | 可用（同步脚本 / glob loader） | 可用（构建期 fs 读） |
 
 网站是内容站：Starlight 的现成能力省下的是天数级开发，体积与构建小一个量级；
-将来产品前端（`apps/web`）换 React 栈时照样引同一个 `packages/ui`，外观不会分叉。
+产品前端（`apps/web`）也照样引同一个 `packages/ui`，外观不会分叉。
 
 ## 实测出来的坑
 

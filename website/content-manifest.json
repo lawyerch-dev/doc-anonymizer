@@ -19,7 +19,7 @@
       "file": "README.md",
       "en": "README.en.md",
       "en_title": "Manual",
-      "en_hash": "de3fbe27f3e39143"
+      "en_hash": "ac88a9715412ab31"
     },
     {
       "group": "dev",
@@ -29,7 +29,7 @@
       "file": "CONTRIBUTING.md",
       "en": "CONTRIBUTING.en.md",
       "en_title": "Contributing",
-      "en_hash": "347db7e10fdfc992"
+      "en_hash": "9d222f9632b24f90"
     },
     {
       "group": "dev",
@@ -46,7 +46,7 @@
       "file": "docs/architecture.md",
       "en": "docs/architecture.en.md",
       "en_title": "Architecture",
-      "en_hash": "b93011ac98d62ce0"
+      "en_hash": "f7378ce01d677cdf"
     },
     {
       "group": "dev",

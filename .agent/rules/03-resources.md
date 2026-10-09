@@ -1,7 +1,7 @@
 # 资源根、配置与模型
 
 **布局只有一处真相**：`packages/docanon-core/src/docanon_core/resources.py` 的 `LAYOUT`（键→相对路径）。
-要挪 `configs/`、`apps/web/`、`samples/`、`var/models` 这些目录，只改这张表；
+要挪 `configs/`、`apps/web/dist/`、`samples/`、`var/models` 这些目录，只改这张表；
 `packages/docanon-core/tests/test_layout.py` 会立刻报出哪里对不上。访问器一律走 `path(key)`。
 
 **资源根是找出来的**（逐级向上找含 `configs/default.yaml` 的目录），不是 `parents[N]` 猜的：

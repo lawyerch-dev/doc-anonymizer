@@ -35,11 +35,11 @@ npm test                                                             # Python + 
 `packages/` 五个包（`docanon-contract` + 三个引擎包 + `docanon-core`），依赖只有一条方向：
 **core → 引擎 → contract**，引擎各自可整块搬走。跨包测试在 `tests/`。
 
-前端有两条路径：**产品运行期零 node**（`apps/web/` 零构建，`docanon web` 直接发静态文件）；
-**构建期可以用 node**（npm workspaces：`packages/ui` 共享组件 + `website/` 官网/文档站，
-Astro + Starlight，静态输出到 `dist/`）。
+前端有两条路径：**产品运行期零 node**（`apps/web/` 由 Vite 构建，产物 `dist/` 交 `docanon web` 发）；
+**构建期可以用 node**（npm workspaces：`packages/ui` 共享组件 + `apps/web` 产品界面 + `website/` 官网/文档站，
+官网是 Astro + Starlight，都静态输出到 `dist/`）。
 
-**组件只放 `packages/ui`**（`@doc-anonymizer/ui`）：网站与将来的产品前端都引它 —— 往 app 里再拷一份
+**组件只放 `packages/ui`**（`@doc-anonymizer/ui`）：网站与产品前端（`apps/web`）都引它 —— 往 app 里再拷一份
 velora 组件就等于复用失效（`tests/test_docs.py` 会拦）。根目录跑一次 `npm install` 即可。
 
 ## 改代码前必读

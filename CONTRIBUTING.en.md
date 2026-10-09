@@ -35,11 +35,11 @@ So "tests pass + output pasted" is the gate here.
 Five packages under `packages/` (`docanon-contract` + three engine packages + `docanon-core`), with dependencies flowing in
 one direction only: **core → engine → contract**, and each engine can be lifted out whole. Cross-package tests live in `tests/`.
 
-The frontend has two paths: **zero node at product runtime** (`apps/web/` is zero-build, `docanon web` serves the static files directly);
-**node is fine at build time** (npm workspaces: `packages/ui` shared components + `website/` site and docs,
-Astro + Starlight, static output to `dist/`).
+The frontend has two paths: **zero node at product runtime** (`apps/web/` is built by Vite and the `dist/` output is served by `docanon web`);
+**node is fine at build time** (npm workspaces: `packages/ui` shared components + the `apps/web` product UI + the `website/` site and docs,
+which is Astro + Starlight, all static output to `dist/`).
 
-**Components live only in `packages/ui`** (`@doc-anonymizer/ui`): both the website and the future product frontend import it — copying
+**Components live only in `packages/ui`** (`@doc-anonymizer/ui`): both the website and the product frontend (`apps/web`) import it — copying
 another set of velora components into an app means reuse has failed (`tests/test_docs.py` will stop you). One `npm install` at the repo root is enough.
 
 ## Read before changing code

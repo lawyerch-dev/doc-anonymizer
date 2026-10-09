@@ -53,9 +53,9 @@ docanon_core/
 doc-anonymizer/
 ├── packages/
 │   ├── docanon-*        五个 Python 包(见上); 每个包自带 tests/
-│   └── ui/              共享组件包 @doc-anonymizer/ui: velora 组件 + 设计 token(网站与将来换栈的产品前端共用)
+│   └── ui/              共享组件包 @doc-anonymizer/ui: velora 组件 + 设计 token(网站与产品前端共同引用)
 ├── apps/
-│   ├── web/             产品前端(零构建): index.html + app.css + app.js, docanon web 直接发
+│   ├── web/             产品前端(Vite+React): src/ 源码 → dist/ 产物, docanon web 发 dist/
 │   └── desktop/         Electrobun 壳(系统 WebView) + hutch.lock
 ├── configs/             运行期配置(default / onnx / llm) —— 随资源根走, 不进包
 ├── samples/             内置样例: Web 预设 + 测试数据(scripts/make_samples.py 生成)
@@ -112,11 +112,11 @@ doc-anonymizer/
 | 默认产物落 `var/out` | 跑一次工具不在仓库根留垃圾；`var/` 一条 gitignore 覆盖 | 与老文档/肌肉记忆里的 `-o out` 不同 |
 | `configs/` `samples/` 留在根、不进包 | 它们是资源根的内容，打包时与代码分开搬；`resources.LAYOUT` 统一管理 | 需要资源根与 `DOCANON_ROOT` 概念 |
 | **不做 wheel 自包含** | 前端 vendor 232MB、模型 GB 级，不该进包 | `pip install .` 到别处不可用（明确报错 + `DOCANON_ROOT`） |
-| 前端零构建、三个静态件 | 无 node 构建链；预览包是预构建产物；`app.js` 用 `@ts-check` + JSDoc 换编辑器提示 | 没有打包/压缩，也没有真类型检查 |
+| **前端改 Vite + React + TS**（构建期 node，运行期零 node；决策详情：[笔记](../.agent/notes/implemented/architecture/2026-10-09-product-frontend-on-vite.md)） | 复用 `packages/ui`（换栈不换外观）、有真类型检查与打包压缩 | 多一条构建链与 dist 前置依赖 |
 | PDF 命中页整页栅格化 | 盖黑块不改变内容流，原文仍可复制/搜索 | 命中页不可再编辑（已收窄到"只有命中的页"） |
 | 命令入口 = 仓库根的 npm scripts（`scripts/dev.sh` 退居实现层） | 前端本来就要 node：一键 `npm run dev` / `npm test` 比让人记 `./scripts/dev.sh <子命令>` 更好记；shell 逻辑留在 dev.sh，不塞进 package.json | 多一层包装（排查时仍可直接用 dev.sh 与底层命令） |
 | 开发文档：`AGENTS.md` 只做索引，细则拆到 `.agent/rules/` | 160 行的「什么都塞」没人读完再动手；按主题拆开后改前端只读前端那篇 | 文档多一层跳转；靠守卫（AGENTS ≤80 行、每篇 ≤60 行、每篇都被索引）防膨胀 |
-| 前端组件抽成共享包 `packages/ui`, 网站用 Astro + Starlight（决策详情：[共享包](../.agent/notes/implemented/architecture/2026-10-07-shared-ui-package.md) · [Astro 选型](../.agent/notes/implemented/architecture/2026-10-07-astro-starlight-for-website.md)） | velora(MIT shadcn 组件)是 React/Tailwind 4 的; 组件与 token 只放一份, `website/` 与将来重写的产品前端引同一个包 —— **复用靠包, 不靠复制**。网站选 Starlight 是因为 搜索/TOC/上下页/多语言内置、依赖 241MB 与构建 0.7s 都比 Next 方案小一个量级(实测对比见 website/README.md) | 前端多了 npm workspaces 与构建链(仅构建期); 网站与将来的产品 app 可能是两个框架(组件仍共享) |
+| 前端组件抽成共享包 `packages/ui`, 网站用 Astro + Starlight（决策详情：[共享包](../.agent/notes/implemented/architecture/2026-10-07-shared-ui-package.md) · [Astro 选型](../.agent/notes/implemented/architecture/2026-10-07-astro-starlight-for-website.md)） | velora(MIT shadcn 组件)是 React/Tailwind 4 的; 组件与 token 只放一份, `website/` 与产品前端(`apps/web`)引同一个包 —— **复用靠包, 不靠复制**。网站选 Starlight 是因为 搜索/TOC/上下页/多语言内置、依赖 241MB 与构建 0.7s 都比 Next 方案小一个量级(实测对比见 website/README.md) | 前端多了 npm workspaces 与构建链(仅构建期); 网站与产品 app 是两个框架(组件仍共享) |
 | 桌面壳用 Electrobun | 系统 WebView，体积小一个数量级 | WKWebView 的坑自己趟（Tauri 就死在 PDF 抖动上） |
 
 ## 六、搬迁历史

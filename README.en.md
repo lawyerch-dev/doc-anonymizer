@@ -46,7 +46,7 @@ Prerequisites: Apple Silicon macOS + Python 3.11/3.12.
 ```bash
 git clone https://github.com/lawyerch-dev/doc-anonymizer && cd doc-anonymizer
 npm run setup          # one-shot setup: Python venv + five packages + preview assets + npm install
-npm run dev            # product UI → http://127.0.0.1:8000
+npm run dev            # product UI: backend + Vite dev (hot reload) → http://127.0.0.1:5173
 npm run dev:website    # website/docs site → http://127.0.0.1:4321
 npm test               # one-shot full test run (all Python + component library checks + docs site build)
 ```
@@ -57,7 +57,7 @@ npm test               # one-shot full test run (all Python + component library 
 |---|---|
 | `npm run setup` | idempotent environment setup; `npm run doctor` tells you what is missing and why it cannot start |
 | `npm run dev` / `dev:website` / `dev:desktop` | product UI / website & docs site / desktop shell |
-| `npm run dev:backend` | backend for the product UI only (production shape: `npm run build:web`, then visit :8000) |
+| `npm run dev:backend` | backend for the product UI only (production shape: `npm run build:web && npm run dev:backend`) |
 | `npm test` | one-shot full test run (`test:py` runs Python only, `test:web` runs the frontend only) |
 | `npm run test:strict` | anti-false-green: once the environment is declared complete, **any skip counts as a failure** (run it after installing models, see `docs/cookbook/reviewing-a-change.md`) |
 | `npm run check:scope` | works out the **smallest** set of checks your change needs (not a blanket full run) |
@@ -148,7 +148,7 @@ once happy. Engine pre-check runs at run time — a missing model / unreachable 
 User configs share the built-in schema and live in the gitignored `var/configs/`; **built-ins are read-only**
 (no edit, no delete).
 
-Endpoints: `/` `/app.css` `/app.js` `/health` `/api/presets` `/api/configs` `/api/configs/{ref}` `/api/models`
+Endpoints: `/` `/assets/*` `/health` `/api/presets` `/api/configs` `/api/configs/{ref}` `/api/models`
 `/api/upload` `/api/anonymize` (plus `PUT`/`DELETE /api/configs/{name}`, `POST /api/configs/import`,
 `GET /api/configs/{name}/export`). `/api/configs` lists built-in + user and marks the current one; `/api/models`
 reports the selectable ONNX dirs and LLM defaults; `/api/upload` takes `{filename, content_b64}`;
