@@ -46,6 +46,7 @@ export default function App() {
     setPresetsLoading(true);
     try {
       setPresets(await api.loadPresets());
+      setError(null);
     } catch (e) {
       setError(`示例加载失败: ${(e as Error).message}`);
     } finally {
@@ -61,6 +62,7 @@ export default function App() {
       setConfigKind(detail.kind);
       setConfigDirty(false);
       localStorage.setItem("docanon.config", ref);
+      setError(null);
     } catch (e) {
       setConfigRef(null);
       setConfigData(null);
@@ -73,6 +75,7 @@ export default function App() {
     try {
       const rows = await api.loadConfigs();
       setConfigs(rows);
+      setError(null);
       const saved = localStorage.getItem("docanon.config");
       const pick = rows.find((c) => c.name === saved) ?? rows.find((c) => c.current) ?? rows[0];
       if (pick) await loadConfigData(pick.name);
@@ -138,6 +141,7 @@ export default function App() {
     if (!name) return;
     try {
       await api.saveConfig(name, configData);
+      localStorage.setItem("docanon.config", name);
       await loadConfigList();
     } catch (e) {
       setError(`保存失败: ${(e as Error).message}`);

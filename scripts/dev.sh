@@ -101,7 +101,7 @@ cmd_web() {
   exec .venv/bin/docanon web "${args[@]}"
 }
 
-# 产品界面的开发态: 后端(docanon web) + Vite dev server 并发跑, Vite 把 /api 等五条前缀代理给后端。
+# 产品界面的开发态: 后端(docanon web) + Vite dev server 并发跑, Vite 把 /api /samples /uploads /outputs /file-viewer /health 六条前缀代理给后端。
 # 生产形态不这样跑 —— 那是 `npm run build:web && ./scripts/dev.sh web`。
 cmd_webui() {
   need_venv
@@ -109,6 +109,9 @@ cmd_webui() {
   [ -d node_modules ] || { say "首次: 根目录 npm install(npm workspaces: ui + website + apps/web)…"; npm install --no-audit --no-fund; }
 
   local port="$DEFAULT_PORT"
+  # 后端 docanon web 只发 apps/web/dist; 缺它后端会 SystemExit(1), Vite 代理随之静默 404 ——
+  # 这是"少一层必须报错, 不许静默"那条硬边界, 所以在起后端之前先拦下来。
+  [ -f apps/web/dist/index.html ] || die "缺 apps/web/dist/index.html —— 后端 docanon web 会因此起不来, Vite 代理会静默 404。先构建: npm run build:web（或 npm run setup）"
   warn_if_no_onnx_models
   say "→ 开发请开 http://127.0.0.1:5173 (Vite 热更, 别开 :$port —— 那是后端, 且是旧构建产物)   (Ctrl+C 停止)"
   say "  (后端 :$port 是 Vite 的代理目标, 不弹浏览器 —— 由 Vite 转发 /api 等)"

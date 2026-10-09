@@ -6,7 +6,8 @@
 | 命令 | 做什么 |
 |---|---|
 | `npm run setup` | 一键装齐：Python venv + 五个包 + 预览资源 + 字节码缓存重定向 + `npm install` |
-| `npm run dev` | 起产品界面（默认 `-p 8000 -c configs/onnx.yaml`） |
+| `npm run dev` | 起产品界面开发态：Vite dev server → **:5173**（热更）+ 后端（默认 `-p 8000`，只作 Vite 的代理目标） |
+| `npm run dev:backend` | 只起后端（`docanon web`，发已构建的 `apps/web/dist`）；生产形态 = `npm run build:web` 后用它 |
 | `npm run dev:website` | 起官网/文档站 → :4321 |
 | `npm run dev:desktop` | 起桌面壳（首次自动 `hutch install`） |
 | `npm test` | 一键全测：Python 全量 + 组件库导入检查 + 文档站构建 |
@@ -14,6 +15,7 @@
 | `npm run check:scope` | 按改动范围算出**最小**该跑的检查（不是无脑全量；详见 06-testing） |
 | `npm run test:py` / `test:web` | 只跑其中一半 |
 | `npm run build` | 构建静态站 → `website/dist/` |
+| `npm run build:web` | 构建产品界面 → `apps/web/dist/`（`docanon web` 发它） |
 | `npm run cli -- <参数>` | 直接调 docanon（注意 npm 的 `--`） |
 | `npm run engines` / `models` / `doctor` | 引擎自检 / 取模型 / 环境自检 |
 

@@ -33,7 +33,7 @@ directory inside the input directory).
 ## 3. UI
 
 ```bash
-npm run dev                 # → http://127.0.0.1:8000 (website/docs site: npm run dev:website)
+npm run dev                 # → http://127.0.0.1:5173 (Vite HMR; backend :8000 is only its proxy target; website/docs site: npm run dev:website)
 ```
 
 Pick a sample or upload → view the original → redact → compare; "Run log" traces every hit

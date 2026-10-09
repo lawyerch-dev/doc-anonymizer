@@ -11,7 +11,7 @@ Date: 2026-10-09
 
 ## 决策
 
-产品界面迁到 **Vite 5 + React 19 + TS + Tailwind 4**，`import` 同一个 `@doc-anonymizer/ui`。
+产品界面迁到 **Vite 6 + React 19 + TS + Tailwind 4**，`import` 同一个 `@doc-anonymizer/ui`。
 产物落 `apps/web/dist`（gitignore），`resources.LAYOUT["web"]` 改指 `dist`；服务端只改静态映射，API 一字不改。
 
 ## 代价与取舍
@@ -23,6 +23,9 @@ Date: 2026-10-09
   输出到项目根会自我覆盖、`emptyOutDir` 还有清空源码的风险。
 - **保留 DOM 契约**（`.preset` `#run` `#paneSrc` `#paneOut` `#stats`）：E2E 按这些选择器跑，
   换框架不能顺手改名。
+- **为什么是 Vite 6 不是 5**：monorepo 里 Astro 已带 `vite@6.4.4`。若 `apps/web` 钉 `vite@^5`，
+  npm 会装出两份 vite 副本，`tsc` 在跨副本类型（`Plugin`/`UserConfig` 等）上直接报冲突；按 npm
+  的提示把 `apps/web` 也上调到 `^6` 后与 Astro 共用同一份，构建与类型检查才通过。
 
 ## 证据
 

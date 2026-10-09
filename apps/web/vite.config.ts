@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-// dev 期把后端的五条前缀转发过去(docanon web 默认 8000); 生产不走这里(dist 由 docanon web 直发)
+// dev 期把后端的六条前缀(/api /samples /uploads /outputs /file-viewer /health)转发过去(docanon web 默认 8000); 生产不走这里(dist 由 docanon web 直发)
 const BACKEND = process.env.DOCANON_BACKEND || "http://127.0.0.1:8000";
 const PROXIED = ["/api", "/samples", "/uploads", "/outputs", "/file-viewer", "/health"];
 

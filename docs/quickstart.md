@@ -30,7 +30,7 @@ ls var/out          # sample.docx.redacted.docx  manifest.json  mapping.json  �
 ## 3. 界面
 
 ```bash
-npm run dev                 # → http://127.0.0.1:8000（官网/文档站: npm run dev:website）
+npm run dev                 # → http://127.0.0.1:5173（Vite 热更；后端 :8000 只是它的代理目标；官网/文档站: npm run dev:website）
 ```
 
 选示例或上传 → 看原文 → 脱敏 → 对照；「运行日志」是逐条命中溯源。
