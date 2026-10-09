@@ -45,6 +45,17 @@ export default function App() {
     localStorage.setItem("docanon.theme", theme);
   }, [theme]);
 
+  // 设置里改了东西没保存就刷新/关页 → 让浏览器确认一次, 否则改动静默丢掉
+  useEffect(() => {
+    if (!configDirty) return;
+    const onLeave = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onLeave);
+    return () => window.removeEventListener("beforeunload", onLeave);
+  }, [configDirty]);
+
   const refreshPresets = useCallback(async () => {
     setPresetsLoading(true);
     try {
@@ -215,10 +226,14 @@ export default function App() {
       ) : null}
 
       <div className="flex min-h-0 flex-1 gap-4 p-4">
-        {/* 左栏: 宽屏常驻; 窄屏收成抽屉 */}
+        {/* 左栏: 宽屏常驻; 窄屏收成抽屉。
+            抽屉打开时若把窗口拉宽到 md, 这些 fixed/宽度/阴影要被 md: 前缀收回常态 ——
+            否则会留一个盖住半屏、又(因为按钮 md:hidden)没有出口的固定层 */}
         <aside
           className={`min-h-0 w-[280px] flex-none space-y-3 overflow-auto overscroll-contain md:block ${
-            drawerOpen ? "fixed inset-y-0 left-0 z-40 w-[300px] bg-background p-4 shadow-xl" : "hidden"
+            drawerOpen
+              ? "fixed inset-y-0 left-0 z-40 w-[300px] bg-background p-4 shadow-xl md:static md:w-[280px] md:bg-transparent md:p-0 md:shadow-none"
+              : "hidden"
           }`}
         >
           <PresetList
