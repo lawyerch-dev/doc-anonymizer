@@ -34,7 +34,9 @@ export function PresetList({ presets, activeName, loading, onPick, onRefresh, on
               <div
                 key={p.name}
                 className={`preset mb-1.5 flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 text-[13px] transition-colors ${
-                  active ? "border-primary bg-accent font-semibold text-accent-foreground" : "hover:border-primary/60 hover:bg-accent/60"
+                  active
+                    ? "border-selected bg-selected font-semibold text-selected-foreground shadow-sm"
+                    : "hover:border-primary/60 hover:bg-accent/60"
                 }`}
                 title={p.name}
                 onClick={() => onPick(p)}
@@ -44,7 +46,7 @@ export function PresetList({ presets, activeName, loading, onPick, onRefresh, on
               >
                 <span aria-hidden>📄</span>
                 <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                <span className="ml-auto text-[11px] uppercase text-muted-foreground">
+                <span className={`ml-auto text-[11px] uppercase ${active ? "text-selected-foreground/80" : "text-muted-foreground"}`}>
                   {p.name.split(".").pop()}
                 </span>
               </div>

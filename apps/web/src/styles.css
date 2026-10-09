@@ -4,3 +4,22 @@
 /* Tailwind 4 要扫到共享组件包与本地源码, 否则 kit 里的类名会被摇掉 */
 @source "../../../packages/ui/src";
 @source "../";
+
+/* "当前选中的那一项"的强调色(文档列表)。
+   为什么不复用 kit 的 --destructive: 那个红已经被错误条与"版式可能被重排"警告占用,
+   两种含义同色会互相干扰; 也不放进 packages/ui —— 这是产品语义, 不该让共享 kit 认识它。
+   明暗各一套, 与 kit 的 primary/primary-foreground 同法配对(深色底配深色文字)。 */
+:root {
+  --selected: oklch(0.577 0.245 27.325);
+  --selected-foreground: oklch(0.985 0 0);
+}
+
+.dark {
+  --selected: oklch(0.704 0.191 22.216);
+  --selected-foreground: oklch(0.205 0 0);
+}
+
+@theme inline {
+  --color-selected: var(--selected);
+  --color-selected-foreground: var(--selected-foreground);
+}
