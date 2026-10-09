@@ -1,0 +1,18 @@
+# 可选的大模型（本地跑）
+# 名字与一句话是给用户看的；repo / file 用来拼下载地址（只认目录，接口不收 URL）。
+# 收录纪律见 docs/specs/2026-10-09-llm-model-download-design.md：
+#   只收实测过的（数字与结论来自 docs/benchmarks.md 的实测表），没核实的地址不许进。
+models:
+  - id: qwen3.8-4b-distill
+    name: 通用首选（4B 蒸馏）
+    hint: 实测 12 处敏感信息全部认出，内存约 3G。装一个就够用。
+    repo: empero-ai/Qwen3.8-4B-Distill-GGUF
+    file: Qwen3.8-4B-Q4_K_M.gguf
+    size_gb: 2.78
+    recommended: true
+  - id: qwen3.5-4b
+    name: 备选（4B）
+    hint: 实测同样 12 处全认出，比首选稍慢一点（1.9 秒/例）。
+    repo: unsloth/Qwen3.5-4B-GGUF
+    file: Qwen3.5-4B-Q4_K_M.gguf
+    size_gb: 2.74

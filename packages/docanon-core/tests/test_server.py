@@ -234,6 +234,43 @@ def test_api_models_lists_onnx_dirs_and_llm_defaults(ephemeral_server):
     assert body["llm"]["base_url"].startswith("http")
 
 
+def test_api_models_lists_downloadable_llm_models(ephemeral_server):
+    """界面要拿这个名字/一句话/大小来渲染"选模型 + 下载", 所以字段一个都不能少。"""
+    rows = _get(ephemeral_server, "/api/models")["llm_models"]
+    assert {"qwen3.8-4b-distill", "qwen3.5-4b"} <= {r["id"] for r in rows}
+    for r in rows:
+        assert r["name"] and r["hint"], r["id"]
+        assert r["size_gb"] > 0, r["id"]
+        assert isinstance(r["downloaded"], bool), r["id"]
+        # 文件名要给界面(用它当 llama-server 的模型名), 但不能给完整 URL —— 地址只由后端拼
+        assert "/" not in r["file"], r["file"]
+
+
+def test_download_status_starts_idle(ephemeral_server):
+    assert _get(ephemeral_server, "/api/models/download")["state"] == "idle"
+
+
+def test_download_unknown_id_is_400_not_a_download(ephemeral_server):
+    """只收目录里的 id: 未知 id 必须当场拒绝, 不许变成"去下点别的"。"""
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        _post(ephemeral_server, "/api/models/download", {"id": "nope"})
+    assert excinfo.value.code == 400
+    assert "id" in json.loads(excinfo.value.read())["error"]
+
+
+def test_download_without_id_is_400(ephemeral_server):
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        _post(ephemeral_server, "/api/models/download", {})
+    assert excinfo.value.code == 400
+
+
+def test_model_catalog_is_not_offered_as_a_redaction_profile(ephemeral_server):
+    """`configs/llm_models.yaml` 是资源不是"脱敏方案" —— 出现在 L1 下拉里就是噪音。"""
+    names = {c["name"] for c in _get(ephemeral_server, "/api/configs")["configs"]}
+    assert "llm_models.yaml" not in names
+    assert {"default.yaml", "onnx.yaml", "legal.yaml"} <= names
+
+
 def test_api_config_export_builtin_yaml(ephemeral_server):
     with urllib.request.urlopen(
         ephemeral_server + "/api/configs/onnx.yaml/export", timeout=5

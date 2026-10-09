@@ -17,7 +17,7 @@ from urllib.parse import unquote
 from .. import convert, resources
 from ..pipeline import prepare_detectors, process_file
 from ..redaction.mapping import MappingStore
-from . import profiles
+from . import downloads, profiles
 from docanon_engine_ner_llm import LLMConfig
 
 _MAX_BYTES = 50 * 1024 * 1024
@@ -127,10 +127,18 @@ class Handler(BaseHTTPRequestHandler):
         elif p == "/api/configs":
             self._json(200, {"configs": profiles.list_profiles(self.config_name)})
         elif p == "/api/models":
+            try:
+                llm_models = downloads.list_models()
+            except downloads.DownloadError as exc:
+                self._json(exc.code, {"error": str(exc)})
+                return
             self._json(200, {
                 "onnx_dirs": profiles.available_onnx_dirs(),
                 "llm": {"base_url": LLMConfig.base_url, "model": LLMConfig.model},
+                "llm_models": llm_models,
             })
+        elif p == "/api/models/download":
+            self._json(200, downloads.status())
         elif p.startswith("/api/configs/"):
             self._get_config(p[len("/api/configs/"):])
         elif p.startswith(_DIST_PREFIX):
@@ -232,8 +240,25 @@ class Handler(BaseHTTPRequestHandler):
             self._anonymize(payload)
         elif p == "/api/configs/import":
             self._import_config(payload)
+        elif p == "/api/models/download":
+            self._start_download(payload)
+        elif p == "/api/models/download/cancel":
+            self._json(200, downloads.cancel())
         else:
             self._send(404, b"not found", "text/plain")
+
+    def _start_download(self, payload: dict) -> None:
+        """只收目录里的 id —— 地址由目录拼, 不收 URL(否则就是个任意下载口)。"""
+        model_id = payload.get("id")
+        if not isinstance(model_id, str) or not model_id:
+            self._json(400, {"error": "缺 id"})
+            return
+        try:
+            state = downloads.start(model_id)
+        except downloads.DownloadError as exc:
+            self._json(exc.code, {"error": str(exc)})
+            return
+        self._json(202, state)
 
     # ---------- 配置写入 ----------
     def do_PUT(self) -> None:  # noqa: N802

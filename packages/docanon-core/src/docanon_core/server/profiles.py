@@ -139,9 +139,16 @@ def describe(path: Path) -> tuple[str, str]:
     return heads[0], (heads[1] if len(heads) > 1 else "")
 
 
+# configs/ 下不是"脱敏方案"的 yaml: 它们也是资源, 但出现在 L1 下拉里就是噪音
+# (模型目录 `llm_models.yaml` 是给"本地大模型"那层选模型用的)。新增这类资源时记得登记。
+NOT_A_PROFILE = {"llm_models.yaml"}
+
+
 def list_profiles(current: str | None) -> list[dict]:
     out: list[dict] = []
     for f in sorted(resources.path("configs").glob("*.yaml")):
+        if f.name in NOT_A_PROFILE:
+            continue
         label, hint = describe(f)
         out.append({"name": f.name, "kind": "builtin", "label": label,
                     "hint": hint, "current": f.name == current})
