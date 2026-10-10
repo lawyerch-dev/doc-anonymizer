@@ -17,7 +17,7 @@ htmlcov/
 
 # ---- 下载/构建得到的资产(体积大, 不入库) ----
 # var/ 是"可再生资产"的唯一入口: var/models(权重) / var/vendor(file-viewer 预览包)
-# 壳的构建产物留在 apps/desktop/build/(Hutch 的 buildFolder 只接受项目相对路径, 不许 .. 跳出)
+# 壳的构建产物留在 apps/desktop/build/(PyInstaller 侧车; 不进 src-tauri/target, 那是 cargo 的地盘)
 var/
 *.gguf
 *.onnx
@@ -39,16 +39,17 @@ out*/
 *.swo
 .DS_Store
 
-# ---- 前端工作区(npm workspaces: packages/ui + website) ----
+# ---- 前端工作区(npm workspaces: packages/ui + website + apps/web + apps/desktop) ----
 node_modules/
 # 网站构建产物与生成的内容副本由 website/.gitignore 管(dist/ .astro/ src/content/docs/)
 
-# 桌面壳(Electrobun/Hutch)的下载缓存与运行期临时目录
-apps/desktop/.hutch/
-apps/desktop/.cottontail-tmp/
-apps/desktop/artifacts/
-# 打包用的资源根暂存区: Hutch 的 `copy` 只认本项目内的路径, 所以 scripts/dev.sh dist
-# 先把 configs/web/samples/vendor/sidecar 摆到这里再交给它(见 apps/desktop/README.md)
+# 桌面壳(Tauri)的构建产物: 壳自己的编译输出全在 src-tauri/target 下(与仓库根的 build/ 无关)
+apps/desktop/src-tauri/target/
+# Tauri 每次构建都会重写的能力/权限 schema, 是生成物不是源
+apps/desktop/src-tauri/gen/schemas/
+# 打包用的资源根暂存区: Tauri 只把**本项目内**的路径收进包, 所以 scripts/dev.sh dist
+# 先把 configs/web/samples/vendor/sidecar 摆到这里, 再由 tauri.dist.conf.json 整体收进包内 docanon/
+# (见 apps/desktop/README.md)
 apps/desktop/stage/
 
 # ---- agent 执行计划的临时工作区(ledger/简报/评审包, 不入库) ----

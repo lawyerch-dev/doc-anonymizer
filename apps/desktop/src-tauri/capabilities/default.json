@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "窗口里加载的是本地服务自己的页面, 不需要任何原生能力 —— 权限表故意留空, 少一层暴露面。",
+  "windows": ["main"],
+  "permissions": []
+}

@@ -2,7 +2,7 @@
 # 开发一键入口 —— ./scripts/dev.sh <命令>
 #
 # 为什么有它: 开发时"装依赖 / 起 Web / 起桌面壳 / 跑测试"都该是一条命令, 而且失败时直接告诉你缺什么。
-# 它不引入任何新工具, 只是把已有命令包了一层(底层还是 setup_dev.sh / docanon / hutch / pytest),
+# 它不引入任何新工具, 只是把已有命令包了一层(底层还是 setup_dev.sh / docanon / tauri / pytest),
 # 所以文档里写 dev.sh 与写底层命令都成立 —— 底层命令出问题时可以直接用它们排查。
 set -euo pipefail
 
@@ -22,13 +22,13 @@ usage() {
   setup                一条命令装好环境(幂等): venv + 五个包 + 预览资源 + 缓存重定向
   web  [docanon 参数]  起 Web 界面(默认 -p 8000 -c configs/onnx.yaml)
   webui                产品界面开发态(后端 + Vite dev server + 代理; 生产形态用 web)
-  desktop              起桌面壳(Electrobun, 系统 WebView; 首次自动 hutch install)
+  desktop              起桌面壳(Tauri, 系统 WebView; 后端 :8770)
   test [pytest 参数]   跑测试(默认 -q)
   cli  <docanon 参数>  直接调 docanon, 例: ./scripts/dev.sh cli run ./samples -o var/out
   engines [配置文件]   看这份配置实际加载了哪些引擎(默认 configs/onnx.yaml)
   models [额外参数]    取 ONNX NER 模型到 var/models/onnx(约 830MB; 默认走 hf-mirror 镜像)
   website              起官网+文档站(website/: Astro + Starlight + @doc-anonymizer/ui, 首次自动 npm install)
-  dist                 打可分发版(macOS: .app/.dmg; Windows: -Setup.exe; 自带 Python 侧车与资源; 慢, 几分钟)
+  dist                 打可分发版(macOS: .app/.dmg; Windows: -setup.exe; 自带 Python 侧车与资源; 慢, 几分钟)
   doctor               环境自检: 缺什么、为什么起不来
 
 例:
@@ -154,19 +154,12 @@ cmd_webui() {
 
 cmd_desktop() {
   need_venv
-  if ! has hutch; then
-    die "没装 Hutch(Electrobun 的 CLI)。装:
-  curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh
-只用浏览器的话不需要壳: ./scripts/dev.sh web"
-  fi
+  has npm || die "桌面壳要 node/npm: 装 node 后重试(只用浏览器的话不需要壳: ./scripts/dev.sh web)"
+  has cargo || die "桌面壳要 Rust 工具链: 装 rustup(https://rustup.rs)后重试"
+  [ -d node_modules ] || { say "首次: 根目录 npm install(Tauri CLI 在工作区里)…"; npm install --no-audit --no-fund; }
 
-  cd apps/desktop
-  if [ ! -d node_modules ]; then
-    say "首次: hutch install(装壳的 JS 依赖)…"
-    hutch install
-  fi
   say "→ 桌面壳启动中(系统 WebView; 后端 http://127.0.0.1:8770)…"
-  exec npm start
+  exec npm run dev -w docanon-desktop
 }
 
 cmd_test() {
@@ -191,14 +184,12 @@ cmd_models() {
 #
 # macOS 与 Windows **都走这里**(CI 也是), 所以这个函数里不许出现平台专属命令:
 # 解释器走 `py_cmd`、拷贝走 `copy_tree`、产物报告只 glob 不写死名字。
-# 顺序不能换: 侧车与资源都先摆到 apps/desktop/stage/docanon(Hutch 的 `copy` 只认本项目内的路径),
-# 由 apps/desktop/electrobun.config.ts 整体收进包里的 `docanon/`(macOS 在 Contents/Resources/app 下)。
+# 顺序不能换: 侧车与资源都先摆到 apps/desktop/stage/docanon, 再由 tauri.dist.conf.json 整体收进
+# 包里的 `docanon/`(macOS 落在 Contents/Resources, Windows 与可执行文件同级)。
 # 模型**不进包**(5.9G): 首次使用由界面上的"初始化"按方案下载到用户数据目录(见壳里的 DOCANON_DATA)。
 cmd_dist() {
   has npm || die "打可分发版要 node/npm: 装 node 后重试"
-  has hutch || die "打可分发版要 Hutch(Electrobun 的 CLI)。装:
-  macOS/Linux: curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh
-  Windows:     irm https://hutch.blackboard.sh/hutch/install.ps1 | iex"
+  has cargo || die "打可分发版要 Rust 工具链: 装 rustup(https://rustup.rs)后重试"
 
   local py; py="$(py_cmd)" || die "找不到 python —— 先跑 ./scripts/setup_dev.sh(或设置 DOCANON_PYTHON)"
   "$py" -c "import docanon_core" 2>/dev/null || die "$py 里没有 docanon —— 先跑一次 ./scripts/setup_dev.sh"
@@ -210,20 +201,9 @@ cmd_dist() {
     ./scripts/fetch_file_viewer.sh
   fi
   [ -d var/vendor/file-viewer ] || die "预览资源还是没到位 —— 发出去的包预览区会全空白, 先跑 ./scripts/fetch_file_viewer.sh"
-  # 图标是提交进仓库的打包输入; 缺了就现生成(要 rsvg-convert, 只在装了 librsvg 的机器上有)
-  [ -f apps/desktop/icon.png ] || ./scripts/make_app_icon.sh
-  # Hutch 要求 win.icon 的 PNG ≤256px(ICO 的上限), 给大了 Windows 构建会直接失败
-  # (`invalid Windows PNG icon: PngTooLarge`)。用 python 读 PNG 头校验 —— 跨平台,
-  # 而且**两个平台的打包都拦得住**, 不会等到 Windows 那一趟才发现。
-  "$py" - <<'PY' || die "apps/desktop/icon.png 必须是 256×256 的 PNG(Windows 图标的硬限制, 见 make_app_icon.sh)"
-import pathlib
-import struct
-
-raw = pathlib.Path("apps/desktop/icon.png").read_bytes()
-assert raw[:8] == b"\x89PNG\r\n\x1a\n", "不是 PNG"
-w, h = struct.unpack(">II", raw[16:24])
-assert (w, h) == (256, 256), f"现在是 {w}x{h}"
-PY
+  # 图标是提交进仓库的打包输入(icon.iconset 是源, src-tauri/icons 是 Tauri 各平台的档);
+  # 缺了就现生成(要 rsvg-convert, 只在装了 librsvg 的机器上有)
+  [ -f apps/desktop/src-tauri/icons/icon.icns ] || ./scripts/make_app_icon.sh
 
   say "== 1/5 前端产物 =="
   npm run build:web
@@ -255,17 +235,25 @@ PY
   copy_tree var/vendor/file-viewer           "$stage/var/vendor/file-viewer"
   copy_tree apps/desktop/build/sidecar/docanon-server/. "$stage/sidecar/"
 
-  say "== 4/5 装壳的 JS 依赖(仅首次) =="
-  [ -d apps/desktop/node_modules ] || (cd apps/desktop && hutch install)
+  say "== 4/5 装壳的依赖(Tauri CLI; 仅首次) =="
+  [ -d node_modules ] || npm install --no-audit --no-fund
 
-  say "== 5/5 打安装包(把上面这棵树压进包里, 慢的就是这一步) =="
-  # hutch 这一步末尾要造 dmg(调 hdiutil), 而 CI runner 上它**偶发** `create failed - Resource busy`
+  say "== 5/5 打安装包(把上面这棵树收进包里, 慢的就是这一步) =="
+  # 目标按平台给: Tauri 支持打包的目标不止两个平台, 但我们只对 macOS/Windows 做过验证,
+  # 别的平台就明确停手, 不装作支持
+  local bundles
+  case "$(uname -s)" in
+    Darwin) bundles="app,dmg" ;;
+    MINGW* | MSYS* | CYGWIN*) bundles="nsis" ;;
+    *) die "桌面版只打 macOS 与 Windows(其他平台没验证过)" ;;
+  esac
+  # tauri 这一步末尾要造 dmg(调 hdiutil), 而 CI runner 上它**偶发** `create failed - Resource busy`
   # (实测: 同一份代码连跑两次, 一次成功一次就栽在这)。这不是我们的问题, 但重试一次几乎总能过 ——
   # 重试只重跑这一步(PyInstaller 产物与资源暂存都还在), 代价约两分钟, 换"不因基础设施抖动而红"。
   local attempt=1
-  until (cd apps/desktop && npm run build); do
+  until (cd apps/desktop && npm run build -- --config src-tauri/tauri.dist.conf.json --bundles "$bundles"); do
     if [ "$attempt" -ge 3 ]; then
-      die "打安装包连续 3 次都失败 —— 上面就是 hutch 的原始输出"
+      die "打安装包连续 3 次都失败 —— 上面就是 tauri 的原始输出"
     fi
     attempt=$((attempt + 1))
     say "打安装包失败, 重试第 ${attempt} 次(hdiutil 在 CI 上会偶发 Resource busy)…"
@@ -274,10 +262,9 @@ PY
 
   say ""
   say "完成, 产物:"
-  # 产物名随平台变(macOS 是 *.dmg, Windows 是 *-Setup.zip 里面装着 Setup.exe), 只 glob 不写死 ——
+  # 产物名随平台变(macOS 是 .dmg 与 .app, Windows 是 *-setup.exe), 只 glob 不写死 ——
   # 写死的名字在另一个平台上会静默不报(第一次 CI 就是这么漏掉 Windows 那份的)
-  du -sh apps/desktop/build/artifacts/* 2>/dev/null | sed 's/^/  /' || true
-  ls -d apps/desktop/build/*/doc-anonymizer.app 2>/dev/null | sed 's/^/  /' || true
+  du -sh apps/desktop/src-tauri/target/release/bundle/*/* 2>/dev/null | sed 's/^/  /' || true
   say ""
   say "自测(脱离仓库也能跑): 把产物拷到 /tmp(「下载」)里双击。"
   say "发给别人: 未签名 —— macOS 首次要右键→「打开」, Windows 要「更多信息」→「仍要运行」。"
@@ -320,7 +307,7 @@ PY
       say "  $no 五个包          导入失败 —— 跑 ./scripts/setup_dev.sh"
     fi
   fi
-  for c in python3.12 npm node hutch; do
+  for c in python3.12 npm node cargo; do
     if has "$c"; then say "  $ok $c$(printf '%*s' $((16 - ${#c})) '')$(command -v "$c")"; else say "  · $c 缺(可选)"; fi
   done
 

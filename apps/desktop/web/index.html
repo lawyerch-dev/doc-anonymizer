@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>文档脱敏工具</title>
+<!--
+  启动页: 窗口先开出来加载这一页, 等本地服务 /health 就绪后由 Rust 侧切到真实界面
+  (见 src-tauri/src/backend.rs 的 start)。起不来时也不放空窗口干等, 而是把原因报在这里 ——
+  从访达双击启动的人看不到 stderr, 页面上没有就等于没说。
+
+  样式刻意与 packages/ui 的观感对齐: 纯色平面、无阴影、品牌色只用 Logo 那一处。
+-->
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #18181b;
+    --muted: #71717a;
+    --line: #e4e4e7;
+    --brand-from: #175dfc;
+    --brand-via: #2c7fff;
+    --brand-to: #00a6f4;
+    --danger: #b42318;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b0b0c;
+      --fg: #f4f4f5;
+      --muted: #a1a1aa;
+      --line: #27272a;
+      --danger: #f97066;
+    }
+  }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.6 -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  main { width: min(30rem, calc(100% - 3rem)); text-align: center; }
+  .mark { width: 56px; height: 56px; margin: 0 auto 1.25rem; }
+  h1 { font-size: 1rem; font-weight: 500; margin: 0; letter-spacing: .01em; }
+  .status { margin: .5rem 0 0; color: var(--muted); font-size: .8125rem; }
+  .hint { margin: 1.5rem 0 0; color: var(--muted); font-size: .75rem; }
+  .ring {
+    width: 18px; height: 18px; margin: 1.75rem auto 0;
+    border: 1.5px solid var(--line);
+    border-top-color: var(--brand-via);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .ring { animation-duration: 3s; } }
+
+  /* 失败态: 换成一句能照着做的原因, 不给"重试"按钮 —— 修不好原因, 点了还是失败 */
+  body[data-state="failed"] .ring { display: none; }
+  .reason {
+    display: none;
+    margin: 1.75rem 0 0; padding: .875rem 1rem;
+    border: 1px solid var(--line); border-radius: .625rem;
+    color: var(--danger); font-size: .8125rem; text-align: left;
+    -webkit-user-select: text; user-select: text;
+    word-break: break-word; white-space: pre-wrap;
+  }
+  body[data-state="failed"] .reason { display: block; }
+</style>
+</head>
+<body data-state="loading">
+<main>
+  <!-- 与 apps/web 的内联 Logo 同形(32 格盾牌 + 一条已抹实的横条), 只在这里出现品牌色 -->
+  <svg class="mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="var(--brand-from)" />
+        <stop offset="50%" stop-color="var(--brand-via)" />
+        <stop offset="100%" stop-color="var(--brand-to)" />
+      </linearGradient>
+    </defs>
+    <path d="M16 2.5 27.5 6.6v9.1c0 7.3-4.8 12.3-11.5 14.8C9.3 28 4.5 23 4.5 15.7V6.6L16 2.5Z" fill="url(#brand)" />
+    <g stroke="#fff" stroke-linecap="round">
+      <path d="M10.5 11h7" stroke-width="1.8" opacity=".75" />
+      <path d="M10.5 16h11" stroke-width="3.2" />
+      <path d="M10.5 21h7" stroke-width="1.8" opacity=".75" />
+    </g>
+  </svg>
+
+  <h1>文档脱敏工具</h1>
+  <p class="status" id="status">正在启动本地服务…</p>
+  <div class="ring" role="progressbar" aria-label="正在启动"></div>
+  <p class="hint">首次启动要加载本地识别引擎，通常不超过一分钟。</p>
+  <p class="reason" id="reason"></p>
+</main>
+<script>
+  // Rust 侧等不到后端时调这个(见 backend.rs)。文案保持"下一步能做什么", 不打印堆栈。
+  window.__docanonFail = function (why) {
+    document.body.dataset.state = 'failed';
+    document.getElementById('status').textContent = '启动失败';
+    document.getElementById('reason').textContent = why;
+  };
+</script>
+</body>
+</html>

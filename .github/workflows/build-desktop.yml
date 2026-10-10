@@ -1,8 +1,8 @@
-# 桌面版可分发包: macOS(.app/.dmg) 与 Windows(-Setup.exe)。
+# 桌面版可分发包: macOS(.app/.dmg) 与 Windows(-setup.exe)。
 #
-# **为什么必须在各自系统上原生构建**: hutch 是分平台的原生二进制(它的 Windows 版就是两个 .exe,
-# Mac 上根本执行不了), 而 PyInstaller 也不做交叉编译。所以这里是个矩阵, 两个平台各自跑同一条
-# `scripts/dev.sh dist` —— 打包步骤只有一份实现, CI 不复制它。
+# **为什么必须在各自系统上原生构建**: PyInstaller 不做交叉编译, 而 Tauri 打出来的也是宿主平台的
+# 原生包(Windows 上是 NSIS 安装器)。所以这里是个矩阵, 两个平台各自跑同一条 `scripts/dev.sh dist`
+# —— 打包步骤只有一份实现, CI 不复制它。
 #
 # 产物去向: 打 tag(v*) 时传到 GitHub Release; 手动触发时只留 Actions artifact(用来试跑)。
 # **未签名未公证**: macOS 首次要右键→「打开」, Windows 首次要「更多信息」→「仍要运行」。
@@ -23,14 +23,13 @@ jobs:
   dist:
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       # 一个平台挂了不该把另一个平台的产物也吞掉: 两边的问题往往互不相关
       fail-fast: false
       matrix:
         include:
-          # macos-15 = arm64(macos-15-intel 才是 Intel); 产品**只发 Apple Silicon** ——
-          # hutch 没有 macos-x64 产物, Intel Mac 装不了
+          # macos-15 = arm64(macos-15-intel 才是 Intel); 产品**只发 Apple Silicon**
           - os: macos-15
             target: macos-arm64
           - os: windows-latest
@@ -53,28 +52,19 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-dev.txt
 
-      # 两个平台的安装器不同: POSIX 是 install.sh, Windows 是 install.ps1(拿的是 install.sh 不认的
-      # MINGW 平台)。都带 no-modify-path: 别去改 runner 的 profile, 我们自己往 GITHUB_PATH 里加。
-      - name: 装 Hutch(Electrobun 的 CLI)
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh -s -- --no-modify-path
-          echo "$HOME/.hutch/bin" >> "$GITHUB_PATH"
+      # Rust 工具链是换掉 Hutch 之后新增的一步: Tauri CLI 由 npm 装(@tauri-apps/cli),
+      # 但编译壳本身要 rustc/cargo。缓存挂在 src-tauri 上, 第二次跑省掉整轮依赖编译。
+      - uses: dtolnay/rust-toolchain@stable
 
-      - name: 装 Hutch(Electrobun 的 CLI)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Invoke-WebRequest -UseBasicParsing -Uri https://hutch.blackboard.sh/hutch/install.ps1 -OutFile install-hutch.ps1
-          powershell -ExecutionPolicy Bypass -File ./install-hutch.ps1 -NoModifyPath
-          "$env:USERPROFILE\.hutch\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
 
       - name: 装五个包(editable)
         shell: bash
         run: python -m pip install -q --upgrade pip && python -m pip install -q -r requirements-dev.txt
 
-      - name: "装前端依赖(npm workspaces: packages/ui + apps/web)"
+      - name: "装前端依赖(npm workspaces: packages/ui + apps/web + apps/desktop)"
         run: npm ci
 
       # 前端产物 / 预览资源(232MB) / OCR 权重 / PyInstaller 侧车 / 摆资源根 / 打安装包
@@ -84,11 +74,31 @@ jobs:
         shell: bash
         run: ./scripts/dev.sh dist
 
-      # 全量留一份(含 -update.json 与 .tar.zst, 排查用), 手动触发时这就是唯一产物
+      # "资源真的进了包吗"这件事不能靠"构建绿了"推断: 资源根没进包的症状是**装完才能发现**
+      # 的(界面打开是空白/预览区 404)。所以这里直接看包内有没有那个标记文件。
+      - name: 检查包内资源根
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            marker=apps/desktop/src-tauri/target/release/bundle/macos/doc-anonymizer.app/Contents/Resources/docanon/configs/default.yaml
+          else
+            marker=""
+          fi
+          if [ -n "$marker" ]; then
+            [ -f "$marker" ] || { echo "包内没有资源根: $marker"; exit 1; }
+            echo "包内资源根就位: $marker"
+          else
+            # Windows 的 NSIS 安装器是个自解压 exe, 包内布局要装完才看得到 ——
+            # 那一侧由下面的冒烟测试用**同一棵树**(stage/docanon)兜住
+            echo "Windows: 资源根布局由冒烟测试覆盖"
+          fi
+
+      # 全量留一份(含 .app 目录与中间产物, 排查用), 手动触发时这就是唯一产物
       - uses: actions/upload-artifact@v4
         with:
           name: doc-anonymizer-${{ matrix.target }}
-          path: apps/desktop/build/artifacts/*
+          path: apps/desktop/src-tauri/target/release/bundle/*/*
           if-no-files-found: error
 
       # 冒烟: 用**打进安装包的那份侧车**把全部样例真跑一遍(含 png/扫描 pdf, 会走 OCR)。
@@ -107,12 +117,10 @@ jobs:
             "$exe" run samples -o "$RUNNER_TEMP/smoke-out" -c configs/default.yaml
           echo "样例全部处理完 —— 包内侧车与 OCR 链路在 ${{ matrix.target }} 上可用"
 
-      # Release 只传用户真正要的。各平台产物名不一样, 而且**不是猜出来的**:
-      #   macOS   → macos-arm64-doc-anonymizer.dmg                        (拖进「应用程序」)
-      #   Windows → win-x64-doc-anonymizer-Setup.zip                      (解压后跑里面的 Setup.exe)
-      # 所以这里用排除法而不是白名单 —— 白名单写 *.exe 会一个都匹配不到(实测 Windows 的 exe
-      # 是**装在 zip 里**的), 而且以后产物改名也不会静默漏发。
-      # 排除的两类都是给 Electrobun 自带更新器用的(我们没配 release.baseUrl), 传上去只让人多下 200MB。
+      # Release 只传用户真正要的:
+      #   macOS   → doc-anonymizer_<版本>_aarch64.dmg          (拖进「应用程序」)
+      #   Windows → doc-anonymizer_<版本>_x64-setup.exe        (双击就装, 不再是"解压出 Setup.exe")
+      # 用白名单而不是排除法, 但**必须兜住"一个都没匹配到"**: 漏发在网页上完全看不出来。
       - name: 传到 Release(仅 tag 触发)
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
@@ -125,10 +133,9 @@ jobs:
           # 两个平台并行跑; 谁先到谁建 release, 后到的用已有那份(不 --generate-notes 覆盖)
           gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" --generate-notes
           assets=()
-          for f in apps/desktop/build/artifacts/*; do
-            case "$f" in *.tar.zst | *-update.json) continue ;; esac
-            assets+=("$f")
+          for f in apps/desktop/src-tauri/target/release/bundle/*/*; do
+            case "$f" in *.dmg | *-setup.exe) assets+=("$f") ;; esac
           done
-          [ ${#assets[@]} -gt 0 ] || { echo "没找到可分发的产物"; exit 1; }
+          [ ${#assets[@]} -gt 0 ] || { echo "没找到可分发的产物(dmg / *-setup.exe)"; exit 1; }
           printf '要传的资产:\n'; printf '  %s\n' "${assets[@]}"
           gh release upload "$tag" "${assets[@]}" --clobber

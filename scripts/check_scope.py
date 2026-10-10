@@ -51,7 +51,7 @@ FORCE_FULL = ("packages/docanon-contract/", "pyproject.toml", "requirements-dev.
 
 # 没有自动化检查的目录: 要说清楚, 而不是假装覆盖了
 MANUAL = {
-    "apps/desktop/": "桌面壳: 起 `npm run dev:desktop` 手工验证(需 Hutch)",
+    "apps/desktop/": "桌面壳: 起 `npm run dev:desktop` 手工验证(需 Rust 工具链)",
 }
 
 

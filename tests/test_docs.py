@@ -36,8 +36,9 @@ RECORDS = [
 # 现状文档: 扫全部 .md(新写的文档自动纳入检查, 不用来改这份清单)。
 # apps/ 下也扫(桌面壳与文档站的 README 同样是现状文档), 但别把 node_modules 里的包文档卷进来。
 # 构建产物不是"文档": 同步出来的内容副本、依赖、打包输出都跳过
-# stage 是 `dev.sh dist` 摆出来的资源根暂存区(内含 vendor 的第三方说明, 会点上本仓库压根没有的路径)
-GENERATED_PARTS = ("node_modules", ".astro", "dist", "out", "superpowers", "stage")
+# stage 是 `dev.sh dist` 摆出来的资源根暂存区(内含 vendor 的第三方说明, 会点上本仓库压根没有的路径);
+# target 是 Tauri 壳的编译输出(里面也有整棵被收进包的资源树)
+GENERATED_PARTS = ("node_modules", ".astro", "dist", "out", "superpowers", "stage", "target")
 
 
 def _is_generated(path: pathlib.Path) -> bool:
@@ -49,12 +50,22 @@ def _is_generated(path: pathlib.Path) -> bool:
 
 
 def _markdown_under(*roots: str) -> set[pathlib.Path]:
-    return {
-        path
-        for root in roots
-        for path in (REPO / root).rglob("*.md")
-        if not _is_generated(path)
-    }
+    """这些根下的 .md —— 遍历时就跳过生成目录, 而不是走完再筛。
+
+    壳的 `src-tauri/target/` 里有十万量级的文件, 走完再筛会让整套测试从 13 秒涨到 26 秒
+    (实测过), 而结果一个都不多。
+    """
+    skip = {*GENERATED_PARTS, ".venv", ".git", "__pycache__"}
+    found: set[pathlib.Path] = set()
+    for root in roots:
+        for dirpath, dirnames, filenames in os.walk(REPO / root):
+            dirnames[:] = [d for d in dirnames if d not in skip]
+            found.update(
+                pathlib.Path(dirpath) / name
+                for name in filenames
+                if name.endswith(".md") and not _is_generated(pathlib.Path(dirpath) / name)
+            )
+    return found
 
 
 # 记录类目录: 写的是"当时是什么样", 允许旧名字与旧路径(与 CHANGELOG/设计历史同待遇)
@@ -85,7 +96,7 @@ COMMUNITY_FILES = [
 TOP_LEVEL = {"packages", "apps", "configs", "samples", "scripts", "tests", "docs", "var"}
 # 运行时才存在的东西: var/(权重、预览包、默认产物)、用户自选产物目录、壳的构建产物与打包暂存区
 RUNTIME_PREFIXES = ("var/", "out/", "website/dist", "apps/web/dist", "apps/desktop/build",
-                    "apps/desktop/stage")
+                    "apps/desktop/stage", "apps/desktop/src-tauri/target")
 
 # 名字一旦删掉/改名, 现状文档里就不该再有它
 REMOVED_NAMES = {

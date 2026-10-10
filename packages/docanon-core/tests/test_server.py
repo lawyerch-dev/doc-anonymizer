@@ -2,7 +2,7 @@
 
 - `/health` 要报自己的 pid: 桌面壳拿它确认"答话的是我拉起的那个后端", 而不是占着端口的旧孤儿。
 - 路径要 unquote: 浏览器把中文文件名按 %XX 发来(接口自己发的 `output_url` 就是中文路径)。
-- 壳被 SIGKILL / 崩溃 / 走 Electrobun 自己的 SIGTERM quit 序列时, JS 侧的 child.kill()
+- 壳被 SIGKILL / 崩溃 / 走壳自己的 SIGTERM quit 序列时, 壳侧的 child.kill()
   没有机会执行(实测过), 所以真正的兜底是 Python 侧的父进程监视。
 
 真服务的起停见 `conftest.py` 的 `ephemeral_server`。

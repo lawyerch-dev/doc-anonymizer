@@ -1,14 +1,15 @@
 {
 	"name": "docanon-desktop",
-	"version": "0.1.0",
+	"version": "0.0.0",
 	"private": true,
-	"description": "doc-anonymizer 桌面壳 (Electrobun): 系统 WebView + Python sidecar",
+	"description": "doc-anonymizer 桌面壳 (Tauri v2): 系统 WebView + Python 侧车",
 	"scripts": {
-		"start": "hutch electrobun dev",
-		"dev": "hutch electrobun dev --watch",
-		"build": "hutch electrobun build --env=stable"
+		"dev": "tauri dev",
+		"build": "tauri build",
+		"tauri": "tauri",
+		"icon": "tauri icon icon.iconset/icon_512x512@2x.png"
 	},
 	"devDependencies": {
-		"@types/bun": "latest"
+		"@tauri-apps/cli": "^2"
 	}
 }

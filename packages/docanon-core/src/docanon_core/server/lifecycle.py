@@ -1,6 +1,6 @@
 """sidecar 生命周期: 桌面壳被强杀时, 后端不许变成占着端口的孤儿。
 
-Electrobun 自己的 SIGTERM quit 序列不触发 JS 的 window close / process.exit, 所以壳侧的
+桌面壳的 SIGTERM quit 序列不触发窗口 close / 进程退出处理, 所以壳侧的
 `child.kill()` 在强杀路径上根本没机会执行 —— 兜底必须在 Python 这一侧。
 """
 from __future__ import annotations
