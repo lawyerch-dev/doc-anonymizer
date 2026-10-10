@@ -259,11 +259,23 @@ PY
   [ -d apps/desktop/node_modules ] || (cd apps/desktop && hutch install)
 
   say "== 5/5 打安装包(把上面这棵树压进包里, 慢的就是这一步) =="
-  (cd apps/desktop && npm run build)
+  # hutch 这一步末尾要造 dmg(调 hdiutil), 而 CI runner 上它**偶发** `create failed - Resource busy`
+  # (实测: 同一份代码连跑两次, 一次成功一次就栽在这)。这不是我们的问题, 但重试一次几乎总能过 ——
+  # 重试只重跑这一步(PyInstaller 产物与资源暂存都还在), 代价约两分钟, 换"不因基础设施抖动而红"。
+  local attempt=1
+  until (cd apps/desktop && npm run build); do
+    if [ "$attempt" -ge 3 ]; then
+      die "打安装包连续 3 次都失败 —— 上面就是 hutch 的原始输出"
+    fi
+    attempt=$((attempt + 1))
+    say "打安装包失败, 重试第 ${attempt} 次(hdiutil 在 CI 上会偶发 Resource busy)…"
+    sleep 10
+  done
 
   say ""
   say "完成, 产物:"
-  # 产物名随平台变(.app/.dmg vs -Setup.exe), 只 glob 不写死 —— 写死的名字在另一个平台上会静默不报
+  # 产物名随平台变(macOS 是 *.dmg, Windows 是 *-Setup.zip 里面装着 Setup.exe), 只 glob 不写死 ——
+  # 写死的名字在另一个平台上会静默不报(第一次 CI 就是这么漏掉 Windows 那份的)
   du -sh apps/desktop/build/artifacts/* 2>/dev/null | sed 's/^/  /' || true
   ls -d apps/desktop/build/*/doc-anonymizer.app 2>/dev/null | sed 's/^/  /' || true
   say ""

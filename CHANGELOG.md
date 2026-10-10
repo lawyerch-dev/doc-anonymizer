@@ -49,7 +49,8 @@
     Release，手动触发时留成 artifact 试跑。**必须在各自系统上打** —— Hutch 是分平台的原生二进制
     （Windows 版就是两个 `.exe`），PyInstaller 也不做交叉编译。**只发 Apple Silicon**（Hutch 没有
     `macos-x64` 产物），**不签名不公证**（macOS 首次右键→「打开」，Windows 首次「仍要运行」）。
-- **Windows 版**：Electrobun 的 Windows 产物是 `*-Setup.exe`（per-user 安装，不要管理员）。
+- **Windows 版**：Electrobun 在 Windows 上产出的是 `win-x64-doc-anonymizer-Setup.zip`（**zip 里才是
+  `Setup.exe`**，per-user 安装、不要管理员）。
   为它改掉了五处 mac-only 的地方：数据目录按平台落（`%LOCALAPPDATA%\docanon`）、侧车路径补 `.exe`、
   PATH 补丁只对 macOS 生效且用 `path.delimiter`、`win.icon` 另出一份 `icon.png`（Hutch 自己转 ICO）、
   以及 **`DOCANON_EXIT_WITH_PARENT` 换机制** —— macOS 靠 `getppid()` 变号（父死被 reparent）判断
@@ -58,6 +59,10 @@
   - 第一次 CI 就红在图标上：**`icon.png` 必须是 256×256**（ICO 的最大边长），给 1024 时 Hutch
     直接 `invalid Windows PNG icon: PngTooLarge` 并让整个 Windows 构建失败。现在脚本只出 256，
     `--check` 与 `dev.sh dist` 都会校验（读 PNG 头，跨平台）—— 免得又出现"本地好好的、CI 上红在另一个平台"。
+  - 第二次 CI 反过来红在 macOS：`hdiutil: create failed - Resource busy`（造 dmg 的最后一步，
+    偶发、与代码无关）。`dev.sh dist` 给这一步留了最多 3 次重试。
+  - Release 的资产筛选改成排除法：Windows 的可分发产物是 **zip 不是 exe**，写 `*.exe` 白名单
+    会一个都匹配不到（真漏过一次）；排除 Electrobun 更新器用的 `*.tar.zst` 与 `*-update.json` 即可。
 - **App 图标**：`apps/desktop/icon.svg`（品牌标 + macOS 圆角底，几何按系统图标网格、配色取主题 brand
   三档）→ `scripts/make_app_icon.sh` → `icon.iconset/` + `icon.png` → Hutch 转成包内 `AppIcon.icns`
   与 Windows 的 ICO。此前 Dock 里是默认白图标（构建日志一直在报 `icon source not found`）。标签页

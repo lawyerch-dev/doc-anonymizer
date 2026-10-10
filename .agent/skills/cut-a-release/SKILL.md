@@ -21,8 +21,9 @@ npm run doctor               # 环境自检
 
 4. 打 tag 并推送：`git tag -a vX.Y.Z -m "..." && git push --tags`（远程没配就先 `git remote add`）。
    **这一步会自动出安装包**：`.github/workflows/build-desktop.yml` 在 macOS 与 Windows 的 runner 上
-   各打一份并传到 Release（`macos-arm64-dmg` + `windows-x64-Setup.exe`）。想去掉某个资产就删 Release 里的附件，
-   不要改 workflow 的产物名。包装不出来会红在 Actions 里 —— 那就是"这次发布没完成"。
+   各打一份并传到 Release —— 用户下载的是 `macos-arm64-doc-anonymizer.dmg` 与
+   `win-x64-doc-anonymizer-Setup.zip`（**zip 里才是 `Setup.exe`**，文件名别在 Release 说明里写错）。
+   打不出来会红在 Actions 里 —— 那就是"这次发布没完成"。
    （要先试跑又不打 tag：Actions 里手动 `workflow_dispatch`，产物留在该次 run 的 artifact 里。）
 5. 网站部署：`SITE_BASE=… SITE_URL=… npm run build` 后把 `website/dist/` 发到静态托管。
 

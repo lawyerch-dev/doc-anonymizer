@@ -91,8 +91,12 @@ jobs:
           path: apps/desktop/build/artifacts/*
           if-no-files-found: error
 
-      # Release 只传用户真正要的: macOS 的 .dmg 与 Windows 的 -Setup.exe。
-      # .tar.zst 是 Electrobun 自带更新器的底座, 我们不用它(delta patch 也没配) —— 传上去只会让人多下一份 220MB。
+      # Release 只传用户真正要的。各平台产物名不一样, 而且**不是猜出来的**:
+      #   macOS   → macos-arm64-doc-anonymizer.dmg                        (拖进「应用程序」)
+      #   Windows → win-x64-doc-anonymizer-Setup.zip                      (解压后跑里面的 Setup.exe)
+      # 所以这里用排除法而不是白名单 —— 白名单写 *.exe 会一个都匹配不到(实测 Windows 的 exe
+      # 是**装在 zip 里**的), 而且以后产物改名也不会静默漏发。
+      # 排除的两类都是给 Electrobun 自带更新器用的(我们没配 release.baseUrl), 传上去只让人多下 200MB。
       - name: 传到 Release(仅 tag 触发)
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
@@ -100,12 +104,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          shopt -s nullglob   # 没有匹配时别把字面量路径当成真文件传上去
           tag="${GITHUB_REF_NAME}"
           # 两个平台并行跑; 谁先到谁建 release, 后到的用已有那份(不 --generate-notes 覆盖)
           gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" --generate-notes
-          shopt -s nullglob
-          # 平台产物名不一样(.dmg vs -Setup.exe), 目录也可能不同, 所以两处都 glob 一遍
-          assets=(apps/desktop/build/artifacts/*.dmg apps/desktop/build/artifacts/*.exe
-                  apps/desktop/build/*/*.dmg apps/desktop/build/*/*.exe)
-          [ ${#assets[@]} -gt 0 ] || { echo "没找到可分发的产物(dmg/exe)"; exit 1; }
+          assets=()
+          for f in apps/desktop/build/artifacts/*; do
+            case "$f" in *.tar.zst | *-update.json) continue ;; esac
+            assets+=("$f")
+          done
+          [ ${#assets[@]} -gt 0 ] || { echo "没找到可分发的产物"; exit 1; }
+          printf '要传的资产:\n'; printf '  %s\n' "${assets[@]}"
           gh release upload "$tag" "${assets[@]}" --clobber

@@ -79,17 +79,20 @@ PyInstaller 也不做交叉编译 —— 所以 Mac 上只能出 macOS 包、Win
 官方包由 [`.github/workflows/build-desktop.yml`](../../.github/workflows/build-desktop.yml)
 在 `macos-15` 与 `windows-latest` 两个 runner 上并行打出，传到 GitHub Release。
 
-| 平台 | 产物 | 用户拿到后 |
+| 平台 | 产物（实测名） | 用户拿到后 |
 |---|---|---|
-| macOS（**仅 Apple Silicon**） | `doc-anonymizer.app` + `*.dmg`（实测 211MB / 214MB） | 拖进「应用程序」→ 首次**右键 →「打开」** |
-| Windows（x64） | `*-Setup.exe` | 双击安装（per-user，不要管理员）→ SmartScreen 点**「更多信息」→「仍要运行」** |
+| macOS（**仅 Apple Silicon**） | `doc-anonymizer.app` + `macos-arm64-doc-anonymizer.dmg`（211MB / 214MB） | 拖进「应用程序」→ 首次**右键 →「打开」** |
+| Windows（x64） | `win-x64-doc-anonymizer-Setup.zip`（179MB，**里面装着 `doc-anonymizer-Setup.exe`**） | 解压 → 双击 `Setup.exe`（per-user，不要管理员）→ SmartScreen 点**「更多信息」→「仍要运行」** |
+
+两个平台的 `artifacts/` 里还会各有一份 `stable-*-*.tar.zst` 与 `*-update.json` —— 那是 Electrobun
+自带更新器的底包（我们没配 `release.baseUrl`，没在用），**不要发给用户**，Release 那一步已排除它们。
 
 **只发 Apple Silicon**：Hutch 的发布清单里没有 `macos-x64`，Intel Mac 装不了（不是没编译，是这条工具链没有）。
 
 体积账要分清：**下载 211MB，但首次启动会在 macOS 的 `~/Library/Application Support/dev.docanon.app/`
 解出约 700MB**（Electrobun 的自解包要留一份未压缩的 tar，那是它更新/卸载机制的底座）。模型另算。
 
-五条实测出来的约束：
+实测出来的约束（前五条是设计，后两条是基础设施脾气）：
 
 1. **资源根必须走 Hutch 的 `copy` 进包**。Hutch 的 `copy` 只认本项目（`apps/desktop`）内的路径，
    所以 `dev.sh dist` 先把资源摆到 `stage/docanon`（镜像仓库布局，已被 .gitignore），由
@@ -102,6 +105,13 @@ PyInstaller 也不做交叉编译 —— 所以 Mac 上只能出 macOS 包、Win
 5. **`DOCANON_EXIT_WITH_PARENT` 在 Windows 上得换机制**。macOS 靠 `getppid()` 变号（父死被 reparent）
    判断壳没了；Windows 没有 reparent、`getppid()` 不变，所以那边改成用 `OpenProcess` 直接探父进程存活
    （`server/lifecycle.py`，两条路各有一条测试）。
+
+还有两条是**踩过才知道**的基础设施脾气：
+
+- **`hdiutil` 在 CI 上偶发 `create failed - Resource busy`**（造 dmg 的最后一步）。同一份代码连跑两次，
+  一次成功一次就栽在这，跟代码无关。`dev.sh dist` 因此给这一步留了最多 3 次重试。
+- **Windows 的可分发产物是 zip 不是 exe**（`win-x64-doc-anonymizer-Setup.zip` 里装着 `Setup.exe`）——
+  所以 Release 的资产筛选用排除法，不写 `*.exe` 白名单（写死会一个都匹配不到，第一次就漏发了）。
 
 还没做、也知道的缺口：**没签名没公证**（两个平台首次打开都要手工放行一次）；
 **「最准」那一档要大模型**，得用户自己下 GGUF，且必须本机装了 `llama.cpp`（侧车的 PATH 里补了
