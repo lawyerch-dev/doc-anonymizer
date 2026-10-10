@@ -47,6 +47,9 @@ node_modules/
 apps/desktop/.hutch/
 apps/desktop/.cottontail-tmp/
 apps/desktop/artifacts/
+# 打包用的资源根暂存区: Hutch 的 `copy` 只认本项目内的路径, 所以 scripts/dev.sh dist
+# 先把 configs/web/samples/vendor/sidecar 摆到这里再交给它(见 apps/desktop/README.md)
+apps/desktop/stage/
 
 # ---- agent 执行计划的临时工作区(ledger/简报/评审包, 不入库) ----
 .superpowers/

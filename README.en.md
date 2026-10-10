@@ -199,9 +199,13 @@ For details, the measured framework comparison, and pitfalls, see [website/READM
 ### Desktop shell (optional)
 
 ```bash
-cd apps/desktop && hutch install && npm start   # system WebView, :8770
+npm run dev:desktop       # dev: system WebView, :8770
+npm run dist:desktop      # distributable .app/.dmg (~210MB, ships the Python backend and resources; runs outside the repo)
 ```
 
+Development never needs the shell (`.venv/bin/docanon web` serves the same UI); **it is the only artefact
+meant to be handed to someone else**. First launch walks the user through picking a scheme and prepares
+whatever it needs in the background (models are not shipped inside the app).
 See [apps/desktop/README.md](apps/desktop/README.md).
 
 ## Supported formats & outputs
@@ -236,6 +240,10 @@ There is also `llm_models.yaml` — the **downloadable model catalogue**, not a 
 carries a name, one line of when-to-use, the repo and the filename, and the UI's "local LLM" section turns it
 into a picker (selecting installs and uses it). Add your own models by editing that file (see the
 [design](docs/specs/2026-10-09-llm-model-download-design.md)).
+There is also `onnx_models.yaml` — the **recognition-model catalogue** (likewise not a preset): the first-run
+"Prepare" step uses it to fill in whatever the chosen scheme needs (mirrors are speed-tested first; a model
+counts as installed only when every file is there). **Models never ship inside the installer** (5.9G) — open
+the app once, click once, and the backend prepares everything quietly; the UI only ever says "preparing".
 
 **Use `legal.yaml` for delivery**: `onnx.yaml` treats the court as an organization, "审判员" and
 "委托诉讼代理人" as roles, and the judgment date as a date of birth — redacts them all, and the document can

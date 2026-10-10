@@ -12,11 +12,11 @@
 npm run setup          # 一键装齐: Python venv + 五个包 + 预览资源 + npm install
 npm run dev            # 产品界面 → :5173（Vite 热更；后端 :8000 只是它的代理目标）
 npm run dev:website    # 官网/文档站 → :4321
-npm test               # 一键全测: Python（266 项，约 13 秒）+ 组件库检查 + 文档站构建
+npm test               # 一键全测: Python（284 项，约 13 秒）+ 组件库检查 + 文档站构建
 npm run doctor         # 环境自检: 缺什么、为什么起不来
 ```
 
-其余：`npm run cli -- <参数>` / `engines` / `models` / `dev:desktop` / `build`。
+其余：`npm run cli -- <参数>` / `engines` / `models` / `dev:desktop` / `dist:desktop` / `build`。
 装了模型后（提交/发版本前）：`npm run test:strict`（反假绿）+ `npm run check:scope`（最小检查集）。
 npm scripts 是入口，`scripts/dev.sh` 是实现层。
 命令与脚本细则 → [`01-commands.md`](.agent/rules/01-commands.md)。

@@ -27,7 +27,8 @@ class ProfileError(ValueError):
 
 
 def user_dir() -> Path:
-    return resources.root() / "var" / "configs"
+    """用户自建方案的落盘处。走 `resources.path` 而不是自己拼 —— 打包后它必须落在用户目录。"""
+    return resources.path("user_configs")
 
 
 def is_builtin(ref: str) -> bool:
@@ -140,8 +141,9 @@ def describe(path: Path) -> tuple[str, str]:
 
 
 # configs/ 下不是"脱敏方案"的 yaml: 它们也是资源, 但出现在 L1 下拉里就是噪音
-# (模型目录 `llm_models.yaml` 是给"本地大模型"那层选模型用的)。新增这类资源时记得登记。
-NOT_A_PROFILE = {"llm_models.yaml"}
+# (模型目录 `llm_models.yaml` 是"本地大模型"那层选模型用的; `onnx_models.yaml` 是首次初始化
+# 按方案下载识别模型用的)。新增这类资源时记得登记。
+NOT_A_PROFILE = {"llm_models.yaml", "onnx_models.yaml"}
 
 
 def list_profiles(current: str | None) -> list[dict]:
@@ -199,9 +201,13 @@ def export_yaml(ref: str) -> str:
 
 
 def available_onnx_dirs() -> list[str]:
-    """var/models/onnx 下的模型目录(相对资源根, 与 config.onnx.model_dirs 同一坐标系)。"""
+    """数据根下 var/models/onnx 里的模型目录(相对**数据根**, 与 config.onnx.model_dirs 同一坐标系)。
+
+    相对数据根而不是资源根: 这两个根在打包形态下不是同一个目录, 而 model_dirs 是给
+    `resources.resolve_model_dir` 解的, 两边必须用同一把尺子, 否则界面上列出来的模型选不中。
+    """
     base = resources.path("models") / "onnx"
     if not base.is_dir():
         return []
-    root = resources.root()
-    return sorted(p.relative_to(root).as_posix() for p in base.iterdir() if p.is_dir())
+    data = resources.data_root()
+    return sorted(p.relative_to(data).as_posix() for p in base.iterdir() if p.is_dir())

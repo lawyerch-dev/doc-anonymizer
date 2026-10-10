@@ -36,7 +36,8 @@ RECORDS = [
 # 现状文档: 扫全部 .md(新写的文档自动纳入检查, 不用来改这份清单)。
 # apps/ 下也扫(桌面壳与文档站的 README 同样是现状文档), 但别把 node_modules 里的包文档卷进来。
 # 构建产物不是"文档": 同步出来的内容副本、依赖、打包输出都跳过
-GENERATED_PARTS = ("node_modules", ".astro", "dist", "out", "superpowers")
+# stage 是 `dev.sh dist` 摆出来的资源根暂存区(内含 vendor 的第三方说明, 会点上本仓库压根没有的路径)
+GENERATED_PARTS = ("node_modules", ".astro", "dist", "out", "superpowers", "stage")
 
 
 def _is_generated(path: pathlib.Path) -> bool:

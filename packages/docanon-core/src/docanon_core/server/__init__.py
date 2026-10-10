@@ -15,7 +15,7 @@ from pathlib import Path
 
 from ..config import load_config
 from ..pipeline import prepare_detectors
-from . import llm_server
+from . import llm_server, prepare
 from .lifecycle import ENV_EXIT_WITH_PARENT, _start_parent_watch, _watch_parent
 from .routes import Handler, _apply_managed_llm, _index, _vendor
 
@@ -27,6 +27,21 @@ __all__ = [
     "_start_parent_watch",
     "_watch_parent",
 ]
+
+
+def _preparable(config) -> bool:
+    """这份配置是不是"下点东西就能用"(缺的正是界面能自己准备的那些)。
+
+    加这一层是因为打包后的**首次使用**: 装完还没有模型, 而模型正是要在界面上点"准备"下下来的 ——
+    这时候要是照旧退出, 用户连那个按钮都看不到, 永远没有第一次。
+
+    只对"有东西可准备"放行。配置写错、模型文件损坏、连不上自备的大模型服务都不算可准备,
+    一律照旧当场退出(那才是 02-packages/05-security 里"少一层必须报错"要拦的东西)。
+    """
+    try:
+        return not prepare.needed(config)["ready"]
+    except Exception:  # noqa: BLE001 - 连"要补什么"都算不出来, 就不是可准备, 该退
+        return False
 
 
 def serve(port: int = 8000, config_path: str | None = None, open_browser: bool = True) -> None:
@@ -42,12 +57,25 @@ def serve(port: int = 8000, config_path: str | None = None, open_browser: bool =
         Handler.config_name = Path(config_path).name if config_path else "default.yaml"
         # 启动配置里已经选了模型(-c llm.yaml) → 先把服务起好, 否则下面这关一定过不去
         _apply_managed_llm(Handler.config)
-        # 预检: 引擎没准备好就别说"打开窗口点一下就知道失败了"
-        prepare_detectors(Handler.config)
     except Exception as exc:  # noqa: BLE001
         llm_server.stop()
         print(f"Web 未启动: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
+
+    try:
+        # 预检: 引擎没准备好就别说"打开窗口点一下就知道失败了"
+        prepare_detectors(Handler.config)
+    except Exception as exc:  # noqa: BLE001
+        if not _preparable(Handler.config):
+            llm_server.stop()
+            print(f"Web 未启动: {exc}", file=sys.stderr)
+            raise SystemExit(1) from exc
+        # 还没准备好, 但界面能自己补上 → 照样开服务。**不是放行**: 每次脱敏仍然预检
+        # (routes._anonymize), 在那之前点脱敏会被明确拦下, 不会产出"少了识别层"的产物。
+        print(
+            f"警告: 检测引擎尚未就绪({exc}); 界面会引导完成准备, 在那之前脱敏会被拦下",
+            file=sys.stderr,
+        )
     _start_parent_watch()
     if not _vendor().is_dir():
         print(

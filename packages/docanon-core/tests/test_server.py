@@ -225,6 +225,25 @@ def test_api_config_get_returns_editable_data(ephemeral_server):
     assert "model_dirs" in data["onnx"]
 
 
+def test_prepare_status_starts_idle(ephemeral_server):
+    """界面首启靠这个接口判断"要不要准备"; 空闲时必须是个明确的 idle, 不是 404。"""
+    assert _get(ephemeral_server, "/api/prepare")["state"] == "idle"
+
+
+def test_prepare_for_a_scheme_needing_nothing_is_done(ephemeral_server):
+    """「最快」不依赖任何模型 → 请求准备立即 done(界面据此直接放行, 不留一个假的进度条)。
+
+    这条同时验证: 准备接口**不做引擎预检** —— 预检会因为"模型还没下"而报错, 那正是要解决的事。
+    """
+    body = _post(ephemeral_server, "/api/prepare", {"config": "default.yaml"})
+    assert body["state"] == "done"
+
+
+def test_prepare_cancel_is_idempotent_when_idle(ephemeral_server):
+    body = _post(ephemeral_server, "/api/prepare/cancel", {})
+    assert body["state"] in ("idle", "done")
+
+
 def test_api_config_get_unknown_is_404(ephemeral_server):
     with pytest.raises(urllib.error.HTTPError) as excinfo:
         _get(ephemeral_server, "/api/configs/nope.yaml")

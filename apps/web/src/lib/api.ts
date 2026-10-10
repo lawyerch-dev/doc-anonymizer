@@ -1,6 +1,6 @@
 import type {
   AnonymizeResp, ConfigData, ConfigDetail, ConfigRow, Detection, DownloadState, Health, LlmModelRow,
-  ModelsResp, Preset, ProgressState, UploadResp,
+  ModelsResp, Preset, PrepareState, ProgressState, UploadResp,
 } from "../types";
 
 async function json<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
@@ -35,6 +35,16 @@ export const loadPresets = () =>
 
 /** 版本号从后端读(单一真相在 pyproject/__version__), 前端不留第二份 */
 export const loadHealth = () => json<Health>("/health");
+
+/** 首次"初始化": 按方案在后台补齐所需资源(界面只说"正在准备") */
+export const startPrepare = (ref: string) => postJson<PrepareState>("/api/prepare", { config: ref });
+export const prepareStatus = () => plainJson<PrepareState>("/api/prepare");
+export const cancelPrepare = () =>
+  plainJson<PrepareState>("/api/prepare/cancel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
 
 export const loadConfigs = () =>
   json<{ configs: ConfigRow[] }>("/api/configs").then((r) => r.configs);

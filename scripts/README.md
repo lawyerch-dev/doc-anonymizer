@@ -3,11 +3,12 @@
 **日常只用一个**：仓库根的 npm scripts（`npm run setup` / `dev` / `dev:website` / `test` / `doctor` …）。
 `scripts/dev.sh` 是它们的**实现层**（也能直接用：`./scripts/dev.sh help`），它包装下面这些脚本与命令，`setup` 会调用 `setup_dev.sh` 与（缺预览资源时）
 `fetch_file_viewer.sh`；`web`/`webui`/`desktop`/`website` 分别起 `docanon web`、产品界面开发态（后端 + Vite dev）、
-壳里的 `npm start`、`website/` 的 `astro dev`。
+壳里的 `npm start`、`website/` 的 `astro dev`；`dist` 打可分发版（侧车 + 资源根收进 `.app`，详见
+[apps/desktop/README.md](../apps/desktop/README.md)）。
 
 | 脚本 | 干什么 | 依赖 | 用法 |
 |---|---|---|---|
-| `dev.sh` | **实现层**（npm scripts 调它）：装环境、起 Web/官网/桌面壳、跑测试、取模型、自检 | 无（包装其余） | `./scripts/dev.sh help` |
+| `dev.sh` | **实现层**（npm scripts 调它）：装环境、起 Web/官网/桌面壳、跑测试、取模型、打可分发版、自检 | 无（包装其余） | `./scripts/dev.sh help` |
 | `setup_dev.sh` | 建 `.venv`、装五个包 editable + 测试依赖、字节码缓存重定向到 `var/pycache`（幂等） | python3.12 / pip | `./scripts/setup_dev.sh` |
 | `make_samples.py` | 生成 `samples/`（txt/md/docx/pdf 文字/扫描/png/xlsx/csv） | python-docx / openpyxl / pypdfium2 / Pillow | `.venv/bin/python scripts/make_samples.py` |
 | `download_model.sh` | 从 ModelScope 下载 GGUF 到 `var/models/` | curl | `./scripts/download_model.sh [Q4_K_M]` |
@@ -15,6 +16,7 @@
 | `fetch_file_viewer.sh` | 拉 file-viewer 预构建包到 `var/vendor/file-viewer` | npm | `./scripts/fetch_file_viewer.sh` |
 | `fetch_libreoffice.sh` | 取 LibreOffice 到 `var/libreoffice`（旧版 .doc/.xls/.wps 自动转换用） | curl / hdiutil(macOS) | `./scripts/fetch_libreoffice.sh [版本]` |
 | `download_onnx_models.sh` | 取两个 ONNX NER 模型到 `var/models/onnx/`（约 830MB；默认走 hf-mirror 镜像） | curl | `./scripts/download_onnx_models.sh [--check] [--only gyr66]` |
+| `make_app_icon.sh` | 由 `apps/desktop/icon.svg` 生成 `icon.iconset/`（打包输入，**提交进仓库**） | rsvg-convert | `./scripts/make_app_icon.sh [--check]` |
 | `bench_models.py` | 逐个 GGUF 跑召回/耗时/内存基准 | 先起 `serve_llm.sh` | `.venv/bin/python scripts/bench_models.py` |
 | `bench_detectors.py` | 各检测器（ONNX / LLM）在样例上的表现 | `var/models/onnx/*` | `.venv/bin/python scripts/bench_detectors.py` |
 

@@ -28,6 +28,7 @@ usage() {
   engines [配置文件]   看这份配置实际加载了哪些引擎(默认 configs/onnx.yaml)
   models [额外参数]    取 ONNX NER 模型到 var/models/onnx(约 830MB; 默认走 hf-mirror 镜像)
   website              起官网+文档站(website/: Astro + Starlight + @doc-anonymizer/ui, 首次自动 npm install)
+  dist                 打可分发版 .app/.dmg(把 Python 后端整包带进去, 脱离仓库也能跑; 慢, 几分钟)
   doctor               环境自检: 缺什么、为什么起不来
 
 例:
@@ -161,6 +162,55 @@ cmd_models() {
   exec ./scripts/download_onnx_models.sh "$@"
 }
 
+# 可分发版: 把 Python 后端(PyInstaller 侧车)与资源根一起塞进 .app, 让 .app 脱离仓库也能跑。
+#
+# 顺序不能换: 侧车与资源都先摆到 apps/desktop/stage/docanon(Hutch 的 `copy` 只认本项目内的路径),
+# 由 apps/desktop/electrobun.config.ts 整体收进包里的 Contents/Resources/app/docanon。
+# 模型**不进包**(5.9G): 首次使用由界面上的"初始化"按方案下载到 ~/Library/Application Support/doc-anonymizer。
+cmd_dist() {
+  need_venv
+  has npm || die "打可分发版要 node/npm: 装 node 后重试"
+  has hutch || die "打可分发版要 Hutch(Electrobun 的 CLI)。装:
+  curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh"
+  [ "$(uname -s)" = "Darwin" ] || die "目前只做了 macOS 的 .app/.dmg(图标走 iconutil, 侧车是 arm64 原生)"
+
+  # 少了预览资源, 发出去的包预览区全空白 —— 那是"少一层", 宁可现在就不打
+  [ -d var/vendor/file-viewer ] || die "缺预览资源 var/vendor/file-viewer(232MB) —— 先跑 ./scripts/fetch_file_viewer.sh"
+  [ -f apps/desktop/icon.iconset/icon_512x512.png ] || ./scripts/make_app_icon.sh
+
+  say "== 1/4 前端产物 =="
+  npm run build:web
+
+  say "== 2/4 Python 侧车(PyInstaller, 首次会装 pyinstaller 并分析依赖, 约 1 分钟) =="
+  .venv/bin/python -c "import PyInstaller" 2>/dev/null || .venv/bin/pip install -q pyinstaller
+  .venv/bin/pyinstaller --noconfirm --clean \
+    --distpath apps/desktop/build/sidecar --workpath apps/desktop/build/pyi-work \
+    apps/desktop/sidecar/docanon-server.spec >/dev/null
+
+  say "== 3/4 摆资源根(镜像仓库布局, 供 resources.LAYOUT 解析) =="
+  local stage=apps/desktop/stage/docanon
+  rm -rf apps/desktop/stage
+  mkdir -p "$stage/configs" "$stage/apps/web" "$stage/var/vendor" "$stage/samples" "$stage/sidecar"
+  # `cp -c`(APFS 写时复制)是**秒级**的: 500MB 的资源摆一次不会拖慢每次构建
+  cp -Rc configs/. "$stage/configs/"
+  cp -Rc apps/web/dist "$stage/apps/web/dist"
+  cp -Rc samples/. "$stage/samples/"
+  cp -Rc var/vendor/file-viewer "$stage/var/vendor/file-viewer"
+  cp -Rc apps/desktop/build/sidecar/docanon-server/. "$stage/sidecar/"
+
+  say "== 4/4 打 .app / .dmg(把上面这棵树压进包里, 慢的就是这一步) =="
+  (cd apps/desktop && npm run build)
+
+  local out=apps/desktop/build/stable-*
+  say ""
+  say "完成:"
+  say "  .app  $(du -sh $out/doc-anonymizer.app | cut -f1)   $(ls -d $out/doc-anonymizer.app)"
+  say "  .dmg  $(du -sh apps/desktop/build/artifacts/*.dmg | cut -f1)   $(ls apps/desktop/build/artifacts/*.dmg)"
+  say ""
+  say "自测(脱离仓库也能跑): 把 .app 拷到 /tmp 或「应用程序」里双击。"
+  say "发给别人: 首次打开会被 Gatekeeper 拦(未签名), 右键 →「打开」放行一次即可。"
+}
+
 cmd_website() {
   has npm || die "官网/文档站要 node/npm: 装 node 后重试(或只用 .venv/bin/docanon web 那个产品界面)"
   [ -d node_modules ] || { say "首次: 根目录 npm install(npm workspaces: ui + website)…"; npm install --no-audit --no-fund; }
@@ -261,6 +311,7 @@ case "$cmd" in
   engines) cmd_engines "$@" ;;
   models) cmd_models "$@" ;;
   website) cmd_website ;;
+  dist) cmd_dist ;;
   doctor) cmd_doctor ;;
   help | -h | --help) usage ;;
   *) usage; exit 1 ;;

@@ -14,6 +14,7 @@
     "dev:backend": "./scripts/dev.sh web",
     "dev:website": "./scripts/dev.sh website",
     "dev:desktop": "./scripts/dev.sh desktop",
+    "dist:desktop": "./scripts/dev.sh dist",
     "test": "npm run test:py && npm run test:web",
     "test:strict": "npm run build:web && DOCANON_REQUIRE_ENGINES=1 ./scripts/dev.sh test",
     "test:py": "npm run build:web && ./scripts/dev.sh test",

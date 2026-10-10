@@ -22,9 +22,10 @@ def _build_dictionary(config) -> list[Detector]:
 def _build_onnx(config) -> list[Detector]:
     from docanon_engine_ner_onnx import OnnxNERDetector
 
-    # 模型目录写在配置里, 是相对资源根的路径(不是调用者的 cwd), 打包后同样成立
+    # 模型目录写在配置里, 是相对**数据根**的路径(不是调用者的 cwd): 打包后模型落在用户目录,
+    # 资源根只读, 用 resolve 会指到 .app 里面去
     return [
-        OnnxNERDetector(resources.resolve(model_dir), config.onnx.entity_map)
+        OnnxNERDetector(resources.resolve_model_dir(model_dir), config.onnx.entity_map)
         for model_dir in config.onnx.model_dirs
     ]
 

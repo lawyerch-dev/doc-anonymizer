@@ -17,7 +17,7 @@ from urllib.parse import unquote
 from .. import __version__, convert, resources
 from ..pipeline import Cancelled, prepare_detectors, process_file
 from ..redaction.mapping import MappingStore
-from . import downloads, llm_server, profiles, progress
+from . import downloads, llm_server, prepare, profiles, progress
 from docanon_engine_ner_llm import LLMConfig
 
 _MAX_BYTES = 50 * 1024 * 1024
@@ -154,6 +154,8 @@ class Handler(BaseHTTPRequestHandler):
             })
         elif p == "/api/models/download":
             self._json(200, downloads.status())
+        elif p == "/api/prepare":
+            self._json(200, prepare.status())
         elif p.startswith("/api/progress/"):
             self._json(200, progress.state(p[len("/api/progress/"):]))
         elif p.startswith("/api/configs/"):
@@ -245,6 +247,28 @@ class Handler(BaseHTTPRequestHandler):
             return None, None
         return cfg, name
 
+    def _resolve_config_raw(self, payload: dict):
+        """只解析配置, **不做引擎预检、不起大模型** —— 首次"初始化"要在引擎就绪之前先跑。
+
+        返回 (config, name); 配置不可用时已发 400 并返回 (None, None)。
+        """
+        selected = payload.get("config")
+        if selected is None:
+            return self.config, self.config_name
+        try:
+            if isinstance(selected, dict):
+                profiles.validate(selected)
+                return profiles.build_config(selected), "inline"
+            if isinstance(selected, str):
+                return profiles.build_config(profiles.load_profile(selected)), selected
+            raise profiles.ProfileError("config 只能是配置名或配置对象")
+        except profiles.ProfileError as exc:
+            self._json(400, {"error": f"配置不合法: {exc}"})
+            return None, None
+        except Exception as exc:  # noqa: BLE001
+            self._json(400, {"error": f"配置不可用: {exc}"})
+            return None, None
+
     def _read_json(self) -> dict:
         length = int(self.headers.get("Content-Length", 0))
         return json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
@@ -265,6 +289,10 @@ class Handler(BaseHTTPRequestHandler):
             self._import_config(payload)
         elif p == "/api/models/download":
             self._start_download(payload)
+        elif p == "/api/prepare":
+            self._start_prepare(payload)
+        elif p == "/api/prepare/cancel":
+            self._json(200, prepare.cancel())
         elif p == "/api/models/download/cancel":
             self._json(200, downloads.cancel())
         elif p == "/api/anonymize/cancel":
@@ -272,6 +300,20 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"cancelled": progress.cancel(job)})
         else:
             self._send(404, b"not found", "text/plain")
+
+    def _start_prepare(self, payload: dict) -> None:
+        """首次"初始化": 按方案把缺的识别模型补上。
+
+        不做引擎预检 —— 预检会因"模型还没下"而报错, 那正是这次要解决的事。补完再预检,
+        由跑脱敏那一步负责(少一层照样报错)。
+        """
+        cfg, _name = self._resolve_config_raw(payload)
+        if cfg is None:
+            return
+        try:
+            self._json(200, prepare.start(cfg))
+        except prepare.PrepareError as exc:
+            self._json(exc.code, {"error": str(exc)})
 
     def _start_download(self, payload: dict) -> None:
         """只收目录里的 id —— 地址由目录拼, 不收 URL(否则就是个任意下载口)。"""

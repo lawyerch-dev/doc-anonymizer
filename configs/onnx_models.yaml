@@ -1,0 +1,32 @@
+# 本机识别模型的目录(数据而非代码; 与 configs/llm_models.yaml 同一性质)
+#
+# 用途: 界面首次"初始化"时按方案自动下载。以前只有 scripts/download_onnx_models.sh 能在命令行取,
+# 界面上没有入口 —— 于是"装了软件、选默认方案"的用户会直接撞上"少一层检测器"。
+# 地址一律由这里的 repo + file 拼出(镜像端点见 server/prepare.py), 不接受请求里传来的 URL。
+#
+# 字段:
+#   id        界面/配置引用的名字(与 onnx.model_dirs 的目录名一致)
+#   repo      上游仓库(owner/name)
+#   files     必须齐备的文件; 少一个都算没装好(不报"就绪")
+#   size_mb   大致体积, 只用于给用户看个数量级
+models:
+  - id: gyr66
+    repo: protectai/gyr66-bert-base-chinese-finetuned-ner-onnx
+    size_mb: 390
+    files:
+      - config.json
+      - model.onnx
+      - special_tokens_map.json
+      - tokenizer.json
+      - tokenizer_config.json
+      - vocab.txt
+
+  - id: pii-engineer
+    repo: pii-engineer/PII-Engineer-Chinese-NER-v1.0
+    size_mb: 390
+    files:
+      - config.json
+      - model.onnx
+      - model.onnx.data
+      - tokenizer.json
+      - tokenizer_config.json

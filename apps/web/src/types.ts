@@ -102,3 +102,14 @@ export type Selection = {
 
 /** `/health`: 桌面壳拿 pid 认自己的后端; 界面拿 version 显示版本号(唯一真相在后端) */
 export type Health = { ok: boolean; pid: number; version: string };
+
+/**
+ * 首次"初始化"的进度(按方案在后台补齐所需资源)。
+ * 只有状态与字节数 —— 模型名/镜像/文件数这些是实现细节, 界面不显示。
+ */
+export type PrepareState = {
+  state: "idle" | "running" | "done" | "error" | "cancelled";
+  done_bytes: number;
+  total_bytes: number | null;
+  error: string | null;
+};

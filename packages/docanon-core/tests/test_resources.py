@@ -46,6 +46,33 @@ def test_env_override_wins(tmp_path, monkeypatch):
     assert resources.samples_dir() == fake.resolve() / "samples"
 
 
+def test_writable_keys_follow_the_data_root(tmp_path, monkeypatch):
+    """可写状态(下载的模型、用户方案)跟着 DOCANON_DATA 走; 随包的只读资源不跟着走。
+
+    打包后资源根在 .app 里(可能只读), 混在一起就会表现为"模型下好了却写不进/读不到"。
+    """
+    res, data = _fake_root(tmp_path / "res"), tmp_path / "data"
+    monkeypatch.setenv(resources.ENV_ROOT, str(res))
+    monkeypatch.setenv(resources.ENV_DATA, str(data))
+
+    assert resources.path("models") == data.resolve() / "var" / "models"
+    assert resources.path("user_configs") == data.resolve() / "var" / "configs"
+    assert resources.resolve_model_dir("var/models/onnx/gyr66") == data.resolve() / "var" / "models" / "onnx" / "gyr66"
+    # 配置/前端/样例是随包发布的, 必须还指在资源根里, 否则打包后等于没有这些资源
+    for key in ("configs", "web", "samples", "vendor"):
+        assert resources.path(key) == res.resolve() / resources.LAYOUT[key]
+
+
+def test_data_root_defaults_to_the_resource_root(tmp_path, monkeypatch):
+    """源码树形态不设 DOCANON_DATA —— 两个根必须重合, 行为跟以前一模一样。"""
+    fake = _fake_root(tmp_path)
+    monkeypatch.delenv(resources.ENV_DATA, raising=False)
+    monkeypatch.setenv(resources.ENV_ROOT, str(fake))
+
+    assert resources.data_root() == resources.root()
+    assert resources.path("models") == fake.resolve() / "var" / "models"
+
+
 def test_default_config_missing_is_an_error(tmp_path, monkeypatch):
     """不带 -c 时默认配置读不到 = 直接报错, 不许退化成空配置。"""
     monkeypatch.setenv(resources.ENV_ROOT, str(tmp_path))

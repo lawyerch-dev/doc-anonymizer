@@ -265,6 +265,7 @@ export default function App() {
           configs={configs}
           currentConfig={configRef}
           onPickConfig={(name) => { void loadConfigData(name); }}
+          onModelsChanged={refreshModels}
           onDone={() => setShowIntro(false)}
         />
       ) : null}

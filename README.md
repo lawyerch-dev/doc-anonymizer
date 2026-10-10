@@ -182,10 +182,13 @@ Astro 5 + Starlight（搜索/TOC/上下页内置），内容直接来自本仓�
 ### 桌面壳（可选）
 
 ```bash
-cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
+npm run dev:desktop       # 开发态：系统 WebView，:8770
+npm run dist:desktop      # 打可分发版 .app/.dmg（约 210MB，自带 Python 后端与资源，脱离仓库也能跑）
 ```
 
-见 [apps/desktop/README.md](apps/desktop/README.md)。
+开发和日常用不到壳（`.venv/bin/docanon web` 就是同一个界面）；**要发给别人装的只有它**。
+首次使用会引导选一套方案并在后台把该准备的准备好（模型不进安装包）。
+详见 [apps/desktop/README.md](apps/desktop/README.md)。
 
 ## 支持与产物
 
@@ -214,6 +217,9 @@ cd apps/desktop && hutch install && npm start   # 系统 WebView, :8770
 另有 `llm_models.yaml`（**可下载的大模型目录**，不是脱敏方案）：每条给名字、一句话、仓库与文件名，
 界面里「本地大模型」那层就拿它列选项（选中即下载、即用）；自己加模型改这个文件即可（见
 [设计](docs/specs/2026-10-09-llm-model-download-design.md)）。
+还有 `onnx_models.yaml`（**识别模型目录**，同样不是脱敏方案）：首次使用的「准备」按当前方案用它
+补齐缺的模型（下载前先测速挑最快的源；文件全齐才算装好）。**模型不进安装包**（5.9G）——
+装了软件第一次打开点一下，后台自己准备好，界面只说"正在准备"。
 
 **交付场景用 `legal.yaml`**：`onnx.yaml` 会把法院名当机构、把"审判员/委托诉讼代理人"当角色、
 把判决日期当生日一起抹掉，材料就交不出去了（实测过）。要抹哪个就列哪个，没列出的类型一律

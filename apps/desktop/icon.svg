@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  App 图标源文件: 品牌标(盾牌 + 被抹掉的横条) + macOS 圆角底。
+  之所以要底而不是让盾牌悬空: 系统 Dock/访达不做遮罩, 纯透明盾牌放上去会比别的 App 瘦一圈。
+
+  几何按 macOS Big Sur 起的图标网格: 画布 1024, 圆角方块占 824 并居中(四周留 100 透明边),
+  圆角 185。盾牌与三条横线的比例直接沿用 apps/web 的内联 Logo(32 格), 颜色沿用
+  packages/ui/src/theme.css 里的 brand-from/via/to(浅色态三档), 保证界面与图标同源。
+
+  三根横线用的是与底完全相同的渐变(同一个 userSpaceOnUse 渐变), 所以压在白色盾牌上时
+  看起来就是"被抹掉的镂空", 与界面里的观感一致 —— 不用 mask, 少一层依赖。
+
+  改完必须重新生成 icon.iconset(scripts/make_app_icon.sh), 否则打包出来的还是旧图标。
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="brand" gradientUnits="userSpaceOnUse" x1="100" y1="100" x2="924" y2="924">
+      <stop offset="0%" stop-color="#175dfc" />
+      <stop offset="50%" stop-color="#2c7fff" />
+      <stop offset="100%" stop-color="#00a6f4" />
+    </linearGradient>
+  </defs>
+
+  <!-- 圆角底 -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#brand)" />
+
+  <!-- 盾牌 + 横条(同一坐标系缩放, 与内联 Logo 完全同形) -->
+  <g transform="translate(512 495) scale(16.786) translate(-16 -16.5)">
+    <path
+      d="M16 2.5 27.5 6.6v9.1c0 7.3-4.8 12.3-11.5 14.8C9.3 28 4.5 23 4.5 15.7V6.6L16 2.5Z"
+      fill="#ffffff"
+    />
+    <g fill="none" stroke="url(#brand)" stroke-linecap="round">
+      <path d="M10.5 11h7" stroke-width="1.8" opacity=".75" />
+      <path d="M10.5 16h11" stroke-width="3.2" />
+      <path d="M10.5 21h7" stroke-width="1.8" opacity=".75" />
+    </g>
+  </g>
+</svg>
