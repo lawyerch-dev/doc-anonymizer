@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "docanon-contract"
-version = "0.3.0"
+version = "0.4.0"
 description = "docanon 引擎契约: Block/Span/Detection + 引擎 ABC(只依赖标准库)"
 authors = [{ name = "lawyerch" }]
 requires-python = ">=3.10,<3.14"

@@ -5,6 +5,30 @@
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-10-10
+
+### Changed
+
+- **桌面壳从 Electrobun 换成 Tauri v2（Rust）**。换的理由是三个具体的东西，不是"换个新的"：
+  - **不再自解包**：Electrobun 每次首次启动会往 `~/Library/Application Support/dev.docanon.app/`
+    解出约 700MB 的未压缩副本（那是它更新/卸载机制的底座）。Tauri 是原生二进制，没有这一步。
+  - **Windows 的安装体验**：以前用户拿到的是 `win-x64-…-Setup.zip`，**要解压再跑里面的 `Setup.exe`**；
+    现在是可直接双击的 `doc-anonymizer_<版本>_x64-setup.exe`（NSIS 安装器）。
+  - **工具链**：`@tauri-apps/cli` 由 npm 提供（不用 `cargo install` 现编译），CI 换成 Rust 工具链 + 缓存。
+- 壳的职责一条没丢，另加一条：**窗口先开、再等后端**（先加载本地启动页，`/health` 就绪后切到界面；
+  起不来就把原因显示在窗口里）。以前是"等就绪才开窗"，首次使用（要先加载本地引擎）就是双击后黑屏等着 ——
+  从不看终端的人根本看不到那句报错。原有约束（资源根靠标记文件向上找、`DOCANON_EXIT_WITH_PARENT`
+  父进程监视、`/health` 校验 pid 只认自己拉起的后端、侧车 onedir、OCR 权重打包前下好、
+  资源根必须有进包）全部照搬。
+- **打包配置拆成两份**：`tauri.conf.json`（日常 dev 用）+ `tauri.dist.conf.json`（dist 时叠加资源映射）。
+  合在一起会让 `tauri dev` 直接因为"资源路径不存在"起不来。
+- **`apps/desktop/icon.png` 不再需要**：那个"必须 256×256"的上限是 Hutch 的 ICO 限制；Tauri 自己从 1024
+  的源切各档图标。`scripts/make_app_icon.sh` 现在产出 `icon.iconset/` 与 `src-tauri/icons/` 两份
+  （都是提交的打包输入 —— 生成它们要 `rsvg-convert`，不是每台机器都有）。
+- **新增守卫 `tests/test_desktop.py`**：版本号四处一致（pyproject / `__version__` / Cargo.toml /
+  tauri.conf.json）、资源根的包内目录名三方同名、侧车产物名三方一致、图标在仓库里 ——
+  这些漂移不会让任何 Python 测试提前变红，只会让**发出去的包**装起来有问题。
+
 ## [0.3.0] — 2026-10-10
 
 ### Added
