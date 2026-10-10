@@ -246,3 +246,15 @@
     @apply font-sans;
   }
 }
+
+/* Button 的 outline 变体一直没有描边 —— 根因是同一个属性被两个 utilities 抢, 而顺序不由我们定:
+   基类写了 `border border-transparent`, 变体写 `border-border`, 两者都在 utilities 层, Tailwind 把
+   transparent 排在了后面(实测产物: .border-border 在 37833 字节, .border-transparent 在 39060),
+   于是基类的透明把变体要的边框色吃掉了。上面 base 层那句 `* { border-color }` 层更低, 也救不回来。
+   这条规则**故意不放进任何 @layer**: 无层样式的优先级高于所有分层样式, 只针对 .border-border,
+   不动基类的透明边框逻辑, 也不影响 `dark:border-input` 这类更高特异性的修饰符。
+   `:not(:focus-visible)` 是为了别盖住按钮聚焦时该变的 `focus-visible:border-ring` —— 无层胜过分层,
+   不排除的话键盘 Tab 到按钮上边框色不会切成 ring 色。 */
+.border-border:not(:focus-visible) {
+  border-color: var(--border);
+}

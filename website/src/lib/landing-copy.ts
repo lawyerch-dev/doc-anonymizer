@@ -16,6 +16,8 @@ export type LandingCopy = {
   hero: HeroSegment[];
   sub: string;
   cta: string;
+  download: string;
+  downloadHint: string;
   featuresTitle: string;
   features: { icon: "languages" | "offline" | "format" | "loud" | "recall" | "resume"; title: string; body: string }[];
   stats: { value: number; suffix: string; label: string }[];
@@ -41,6 +43,8 @@ export const COPY: Record<"zh" | "en", LandingCopy> = {
     ],
     sub: "人名、手机号、身份证、银行卡、邮箱、IP、统一社会信用代码、密钥、自定义词 —— 识别并替换，输出与原文格式相同的文件，外加一份可还原的对照表。",
     cta: "5 分钟快速上手",
+    download: "下载桌面版",
+    downloadHint: "macOS（Apple Silicon）与 Windows 免安装；未签名，首次打开需手动放行一次。",
     featuresTitle: "特性",
     features: [
       { icon: "languages", title: "中文优先", body: "规则 + 中文词典 + 两个中文 NER 模型并集，专治中文文档里的姓名与机构。" },
@@ -82,6 +86,8 @@ export const COPY: Record<"zh" | "en", LandingCopy> = {
     ],
     sub: "Names, phone numbers, ID cards, bank cards, emails, IPs, unified social credit codes, secrets, custom terms — detected and replaced. Output keeps the original file format, plus a mapping table you can restore from.",
     cta: "5-minute quickstart",
+    download: "Download",
+    downloadHint: "Installers for macOS (Apple Silicon) and Windows. Unsigned — first launch needs one manual allow.",
     featuresTitle: "What it does",
     features: [
       { icon: "languages", title: "Chinese-first", body: "Rules + a Chinese dictionary + two Chinese NER models, unioned. Built for names and organisations in Chinese documents." },

@@ -55,13 +55,20 @@ export default function Landing({ repo, locale }: { repo: string; locale: "zh" |
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{hero(c.hero)}</h1>
         <p className="mt-5 max-w-2xl text-lg text-muted-foreground">{c.sub}</p>
         <div className="mt-8 flex flex-wrap gap-3">
-          <a href={url(c.docs[0]!.href)} className={buttonVariants({ size: "lg" })}>
-            {c.cta} <ArrowRightIcon className="size-4" />
+          {/* 下载排第一: 访客来看这个工具, 最想做的事就是拿到它 —— Releases 以前是空的, 所以这里
+              只能放文档; 现在有了安装包, 就该让人一眼看见。次按钮一律 outline, 层级不变。 */}
+          <a href={`${repo}/releases/latest`} className={buttonVariants({ size: "lg" })}>
+            {c.download} <ArrowRightIcon className="size-4" />
+          </a>
+          <a href={url(c.docs[0]!.href)} className={buttonVariants({ size: "lg", variant: "outline" })}>
+            {c.cta}
           </a>
           <a href={repo} className={buttonVariants({ size: "lg", variant: "outline" })}>
             GitHub
           </a>
         </div>
+        {/* 一行说清"装完为什么会拦一下": 不写的话, 用户下载后被系统拦下, 第一反应是这软件坏了 */}
+        <p className="mt-3 text-xs text-muted-foreground">{c.downloadHint}</p>
       </BlurFade>
 
       <BlurFade delay={0.1}>

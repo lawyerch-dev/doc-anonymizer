@@ -286,7 +286,9 @@ PY
 cmd_website() {
   has npm || die "官网/文档站要 node/npm: 装 node 后重试(或只用 .venv/bin/docanon web 那个产品界面)"
   [ -d node_modules ] || { say "首次: 根目录 npm install(npm workspaces: ui + website)…"; npm install --no-audit --no-fund; }
-  say "→ http://127.0.0.1:3000    (Ctrl+C 停止; 静态站: npm run build -w @doc-anonymizer/website → apps/website/out)"
+  # 端口写 4321 而不是老提示里的 3000: website/astro.config.mjs 没设 server.port, Astro 默认就是 4321
+  # (实测 Astro 只绑 localhost, 用 127.0.0.1 反而连不上); 静态站产物是 website/dist, 不是 apps/website/out
+  say "→ http://localhost:4321    (Ctrl+C 停止; 静态站: npm run build -w @doc-anonymizer/website → website/dist)"
   exec npm run dev -w @doc-anonymizer/website
 }
 
