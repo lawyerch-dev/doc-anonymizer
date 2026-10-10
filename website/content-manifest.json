@@ -19,7 +19,7 @@
       "file": "README.md",
       "en": "README.en.md",
       "en_title": "Manual",
-      "en_hash": "b357cfa0c713a2fc"
+      "en_hash": "073e7128b4ff0a85"
     },
     {
       "group": "dev",
@@ -29,7 +29,7 @@
       "file": "CONTRIBUTING.md",
       "en": "CONTRIBUTING.en.md",
       "en_title": "Contributing",
-      "en_hash": "9d222f9632b24f90"
+      "en_hash": "013abbfd953d2e9a"
     },
     {
       "group": "dev",
@@ -46,7 +46,7 @@
       "file": "docs/architecture.md",
       "en": "docs/architecture.en.md",
       "en_title": "Architecture",
-      "en_hash": "9977cda0fd2b585f"
+      "en_hash": "8d215ebabc05bb4f"
     },
     {
       "group": "dev",
@@ -66,7 +66,7 @@
       "group": "dev",
       "slug": "desktop",
       "title": "桌面壳",
-      "description": "Electrobun 壳的运行方式与三条约束",
+      "description": "Tauri 壳的运行方式、打包链与实测约束",
       "file": "apps/desktop/README.md"
     },
     {

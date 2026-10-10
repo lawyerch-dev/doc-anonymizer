@@ -49,5 +49,5 @@ body:
         - 账本与续跑（manifest / mapping / --resume）
         - CLI
         - Web 界面 / 接口
-        - 桌面壳（Electrobun）
+        - 桌面壳（Tauri）
         - 文档

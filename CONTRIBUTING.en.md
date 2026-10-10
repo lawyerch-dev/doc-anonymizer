@@ -8,7 +8,7 @@ English | [中文](CONTRIBUTING.md)
 npm run setup              # one-shot setup: Python venv + five packages (editable) + preview assets + npm install
 ```
 
-Prerequisites: Apple Silicon macOS + Python 3.11/3.12. The LLM route needs `llama.cpp`, the desktop shell needs Hutch,
+Prerequisites: Apple Silicon macOS + Python 3.11/3.12. The LLM route needs `llama.cpp`, building the desktop shell needs a Rust toolchain,
 and browser-side e2e needs `npm`. Run `npm run doctor` to see what is missing.
 
 ## Common commands

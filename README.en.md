@@ -200,7 +200,7 @@ For details, the measured framework comparison, and pitfalls, see [website/READM
 
 ```bash
 npm run dev:desktop       # dev: system WebView, :8770
-npm run dist:desktop      # build the distributable locally: macOS .app/.dmg, Windows -Setup.exe (~210MB, Python backend and resources included)
+npm run dist:desktop      # build the distributable locally: macOS .dmg, Windows -setup.exe (Python backend and resources included)
 ```
 
 Development never needs the shell (`.venv/bin/docanon web` serves the same UI); **it is the only artefact
@@ -209,9 +209,9 @@ whatever it needs in the background (models are not shipped inside the app).
 
 **Official builds come from Actions**: `.github/workflows/build-desktop.yml` (push a `v*` tag, or dispatch
 it by hand) builds on macOS and Windows runners and uploads to a GitHub Release. Each platform must be built
-on **its own OS** — Hutch ships per-platform native binaries and PyInstaller cannot cross-compile.
-Only **Apple Silicon** is published (Hutch has no Intel Mac build), and the packages are **unsigned and
-un-notarized** (first launch needs one manual allow).
+on **its own OS** — PyInstaller cannot cross-compile, and Tauri only emits the host platform's bundles.
+Only **Apple Silicon** is published, and the packages are **unsigned and un-notarized** (first launch needs
+one manual allow).
 See [apps/desktop/README.md](apps/desktop/README.md).
 
 ## Supported formats & outputs
@@ -329,4 +329,4 @@ treated as an amount. `rule` / `dictionary` match exactly and are exempt from bo
 thanks to [RapidOCR](https://github.com/RapidAI/RapidOCR), [pypdfium2](https://github.com/pypdfium2-team/pypdfium2),
 [python-docx](https://github.com/python-openxml/python-docx), [openpyxl](https://foss.heptapod.net/openpyxl/openpyxl),
 [llama.cpp](https://github.com/ggml-org/llama.cpp), [file-viewer](https://github.com/flyfish-dev/file-viewer),
-[Electrobun](https://github.com/blackboardsh/electrobun), [velora-ui](https://github.com/ColorlibHQ/velora-ui)
+[Electrobun](https://github.com/blackboardsh/electrobun) (the shell's predecessor), [Tauri](https://tauri.app), [velora-ui](https://github.com/ColorlibHQ/velora-ui)

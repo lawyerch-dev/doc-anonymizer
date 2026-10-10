@@ -12,7 +12,7 @@
 npm run setup          # 一键装齐: Python venv + 五个包 + 预览资源 + npm install
 npm run dev            # 产品界面 → :5173（Vite 热更；后端 :8000 只是它的代理目标）
 npm run dev:website    # 官网/文档站 → :4321
-npm test               # 一键全测: Python（288 项，约 13 秒）+ 组件库检查 + 文档站构建
+npm test               # 一键全测: Python（292 项，约 13 秒）+ 组件库检查 + 文档站构建
 npm run doctor         # 环境自检: 缺什么、为什么起不来
 ```
 

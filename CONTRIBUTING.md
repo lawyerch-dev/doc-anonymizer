@@ -8,7 +8,7 @@
 npm run setup              # 一键装齐: Python venv + 五个包(editable) + 预览资源 + npm install
 ```
 
-前置：Apple Silicon macOS + Python 3.11/3.12。跑 LLM 路线要 `llama.cpp`，起桌面壳要 Hutch，
+前置：Apple Silicon macOS + Python 3.11/3.12。跑 LLM 路线要 `llama.cpp`，打桌面壳要 Rust 工具链，
 跑浏览器端 e2e 要 `npm`。缺什么用 `npm run doctor` 看。
 
 ## 常用命令

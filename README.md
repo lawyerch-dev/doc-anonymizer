@@ -183,7 +183,7 @@ Astro 5 + Starlight（搜索/TOC/上下页内置），内容直接来自本仓�
 
 ```bash
 npm run dev:desktop       # 开发态：系统 WebView，:8770
-npm run dist:desktop      # 本机打可分发包：macOS .app/.dmg、Windows -Setup.exe（约 210MB，自带 Python 后端与资源）
+npm run dist:desktop      # 本机打可分发包：macOS .dmg、Windows -setup.exe（自带 Python 后端与资源）
 ```
 
 开发和日常用不到壳（`.venv/bin/docanon web` 就是同一个界面）；**要发给别人装的只有它**。
@@ -191,8 +191,8 @@ npm run dist:desktop      # 本机打可分发包：macOS .app/.dmg、Windows -S
 
 **官方包在 Actions 里出**：`.github/workflows/build-desktop.yml`（打 `v*` tag 或手动触发）在
 macOS 与 Windows 的 runner 上各打一份，传到 GitHub Release。两个平台必须各在**自己的系统**上打
-—— Hutch 是分平台的原生二进制，PyInstaller 也不做交叉编译。
-目前只发 **Apple Silicon**（Hutch 没有 Intel Mac 的产物），**未签名未公证**（首次打开要放行一次）。
+—— PyInstaller 不做交叉编译，Tauri 也只出宿主平台的包。
+目前只发 **Apple Silicon**，**未签名未公证**（首次打开要放行一次）。
 详见 [apps/desktop/README.md](apps/desktop/README.md)。
 
 ## 支持与产物
@@ -291,4 +291,4 @@ macOS 与 Windows 的 runner 上各打一份，传到 GitHub Release。两个平
 致谢 [RapidOCR](https://github.com/RapidAI/RapidOCR)、[pypdfium2](https://github.com/pypdfium2-team/pypdfium2)、
 [python-docx](https://github.com/python-openxml/python-docx)、[openpyxl](https://foss.heptapod.net/openpyxl/openpyxl)、
 [llama.cpp](https://github.com/ggml-org/llama.cpp)、[file-viewer](https://github.com/flyfish-dev/file-viewer)、
-[Electrobun](https://github.com/blackboardsh/electrobun)、[velora-ui](https://github.com/ColorlibHQ/velora-ui)
+[Electrobun](https://github.com/blackboardsh/electrobun)（壳的前身）、[Tauri](https://tauri.app)、[velora-ui](https://github.com/ColorlibHQ/velora-ui)
