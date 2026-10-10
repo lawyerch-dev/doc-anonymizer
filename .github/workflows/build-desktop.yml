@@ -91,6 +91,22 @@ jobs:
           path: apps/desktop/build/artifacts/*
           if-no-files-found: error
 
+      # 冒烟: 用**打进安装包的那份侧车**把全部样例真跑一遍(含 png/扫描 pdf, 会走 OCR)。
+      # CI 是干净环境, 这一步拦的是"打得出、装上也打不开"那类问题 —— Windows 上尤其要紧
+      # (依赖没打全、OCR 权重没进包, 都是构建能过、用户双击才炸, 而我们在那边没有机器)。
+      # 用 configs/default.yaml: 只用规则+词典, 不需要模型(CI 上没有模型)。
+      - name: "冒烟测试(包内侧车跑一遍全部样例, 含 OCR)"
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe=apps/desktop/build/sidecar/docanon-server/docanon-server
+          [ -f "$exe" ] || exe="$exe.exe"
+          [ -f "$exe" ] || { echo "没找到包内 sidecar: $exe"; exit 1; }
+          DOCANON_ROOT="$PWD/apps/desktop/stage/docanon" \
+          DOCANON_DATA="$RUNNER_TEMP/docanon-smoke" \
+            "$exe" run samples -o "$RUNNER_TEMP/smoke-out" -c configs/default.yaml
+          echo "样例全部处理完 —— 包内侧车与 OCR 链路在 ${{ matrix.target }} 上可用"
+
       # Release 只传用户真正要的。各平台产物名不一样, 而且**不是猜出来的**:
       #   macOS   → macos-arm64-doc-anonymizer.dmg                        (拖进「应用程序」)
       #   Windows → win-x64-doc-anonymizer-Setup.zip                      (解压后跑里面的 Setup.exe)
