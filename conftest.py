@@ -29,6 +29,11 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent  # 本文件就在仓库根
 REQUIRE_FULL_ENV = "DOCANON_REQUIRE_ENGINES"
 _SKIPS: list[tuple[str, str]] = []
 
+# **平台不适用**不算假绿: 那条测试在本平台根本没有可断言的对象(如 Windows 没有 reparent 语义),
+# 而它会在对应平台的 CI 上真跑(macOS 与 Windows 各跑各的)。所以跳过理由带这个词的放行,
+# 其余跳过照旧一律判失败 —— 这样"跨平台互斥的两条"不会把两边都变成红。
+PLATFORM_SKIP = "平台不适用"
+
 
 def _skip_reason(report) -> str:
     """把 pytest 的 longrepr 压成一句人话(它有时是 ('路径', 行号, 'Skipped: 原因') 这种元组)。"""
@@ -85,13 +90,17 @@ def ephemeral_server(tmp_path, monkeypatch) -> Iterator[str]:
 @pytest.hookimpl(trylast=True)
 def pytest_sessionfinish(session, exitstatus) -> None:
     """DOCANON_REQUIRE_ENGINES=1 时, 任何 skip 都让整轮失败(并说清是哪几条、为什么跳)。"""
-    if os.environ.get(REQUIRE_FULL_ENV) != "1" or not _SKIPS:
+    if os.environ.get(REQUIRE_FULL_ENV) != "1":
+        return
+    # "平台不适用"的跳过放行(见 PLATFORM_SKIP), 它不计入假绿
+    skips = [(nodeid, reason) for nodeid, reason in _SKIPS if PLATFORM_SKIP not in reason]
+    if not skips:
         return
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
-    lines = [f"{REQUIRE_FULL_ENV}=1 声明了环境齐备, 但有 {len(_SKIPS)} 条测试被跳过 —— 这是假绿:"]
-    lines += [f"  - {nodeid}\n      {reason}" for nodeid, reason in _SKIPS[:20]]
-    if len(_SKIPS) > 20:
-        lines.append(f"  …还有 {len(_SKIPS) - 20} 条")
+    lines = [f"{REQUIRE_FULL_ENV}=1 声明了环境齐备, 但有 {len(skips)} 条测试被跳过 —— 这是假绿:"]
+    lines += [f"  - {nodeid}\n      {reason}" for nodeid, reason in skips[:20]]
+    if len(skips) > 20:
+        lines.append(f"  …还有 {len(skips) - 20} 条")
     lines.append("  装齐模型与可选依赖(`npm run models` / `npm run setup`)后重跑; 或去掉这个环境变量。")
     text = "\n".join(lines)
     if reporter is not None:

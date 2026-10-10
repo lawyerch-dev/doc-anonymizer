@@ -1,0 +1,111 @@
+# 桌面版可分发包: macOS(.app/.dmg) 与 Windows(-Setup.exe)。
+#
+# **为什么必须在各自系统上原生构建**: hutch 是分平台的原生二进制(它的 Windows 版就是两个 .exe,
+# Mac 上根本执行不了), 而 PyInstaller 也不做交叉编译。所以这里是个矩阵, 两个平台各自跑同一条
+# `scripts/dev.sh dist` —— 打包步骤只有一份实现, CI 不复制它。
+#
+# 产物去向: 打 tag(v*) 时传到 GitHub Release; 手动触发时只留 Actions artifact(用来试跑)。
+# **未签名未公证**: macOS 首次要右键→「打开」, Windows 首次要「更多信息」→「仍要运行」。
+#
+# 这里不跑测试套件: 门禁在 deploy-website.yml(文档/架构)与本地 `npm test`(引擎全量)。
+# 这个 workflow 只管"能不能打出包" —— 打不出来就红, 打出来就是能跑过的树。
+name: 打包桌面版
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # 建 Release、传资产
+
+jobs:
+  dist:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      # 一个平台挂了不该把另一个平台的产物也吞掉: 两边的问题往往互不相关
+      fail-fast: false
+      matrix:
+        include:
+          # macos-15 = arm64(macos-15-intel 才是 Intel); 产品**只发 Apple Silicon** ——
+          # hutch 没有 macos-x64 产物, Intel Mac 装不了
+          - os: macos-15
+            target: macos-arm64
+          - os: windows-latest
+            target: windows-x64
+    env:
+      # 用 runner 自己的 python(setup-python 装的那个), 不建 venv —— dev.sh 的 py_cmd 认这个变量。
+      # 少一步建 venv, 也就不用把 Windows 的 Scripts/ 差异抄进 workflow。
+      DOCANON_PYTHON: python
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      # 两个平台的安装器不同: POSIX 是 install.sh, Windows 是 install.ps1(拿的是 install.sh 不认的
+      # MINGW 平台)。都带 no-modify-path: 别去改 runner 的 profile, 我们自己往 GITHUB_PATH 里加。
+      - name: 装 Hutch(Electrobun 的 CLI)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh -s -- --no-modify-path
+          echo "$HOME/.hutch/bin" >> "$GITHUB_PATH"
+
+      - name: 装 Hutch(Electrobun 的 CLI)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -UseBasicParsing -Uri https://hutch.blackboard.sh/hutch/install.ps1 -OutFile install-hutch.ps1
+          powershell -ExecutionPolicy Bypass -File ./install-hutch.ps1 -NoModifyPath
+          "$env:USERPROFILE\.hutch\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
+      - name: 装五个包(editable)
+        shell: bash
+        run: python -m pip install -q --upgrade pip && python -m pip install -q -r requirements-dev.txt
+
+      - name: "装前端依赖(npm workspaces: packages/ui + apps/web)"
+        run: npm ci
+
+      # 前端产物 / 预览资源(232MB) / OCR 权重 / PyInstaller 侧车 / 摆资源根 / 打安装包
+      # 全在这一条里 —— 与本地 `npm run dist:desktop` 是同一条路径。
+      # Windows 上也用 bash: scripts/*.sh 与 dev.sh 都是 bash, git-bash 在 runner 上是现成的。
+      - name: 打可分发包
+        shell: bash
+        run: ./scripts/dev.sh dist
+
+      # 全量留一份(含 -update.json 与 .tar.zst, 排查用), 手动触发时这就是唯一产物
+      - uses: actions/upload-artifact@v4
+        with:
+          name: doc-anonymizer-${{ matrix.target }}
+          path: apps/desktop/build/artifacts/*
+          if-no-files-found: error
+
+      # Release 只传用户真正要的: macOS 的 .dmg 与 Windows 的 -Setup.exe。
+      # .tar.zst 是 Electrobun 自带更新器的底座, 我们不用它(delta patch 也没配) —— 传上去只会让人多下一份 220MB。
+      - name: 传到 Release(仅 tag 触发)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          # 两个平台并行跑; 谁先到谁建 release, 后到的用已有那份(不 --generate-notes 覆盖)
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" --generate-notes
+          shopt -s nullglob
+          # 平台产物名不一样(.dmg vs -Setup.exe), 目录也可能不同, 所以两处都 glob 一遍
+          assets=(apps/desktop/build/artifacts/*.dmg apps/desktop/build/artifacts/*.exe
+                  apps/desktop/build/*/*.dmg apps/desktop/build/*/*.exe)
+          [ ${#assets[@]} -gt 0 ] || { echo "没找到可分发的产物(dmg/exe)"; exit 1; }
+          gh release upload "$tag" "${assets[@]}" --clobber

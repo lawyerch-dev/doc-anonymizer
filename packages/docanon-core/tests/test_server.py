@@ -107,6 +107,10 @@ def test_get_unquotes_percent_encoded_paths(tmp_path, ephemeral_server):
         assert resp.read().decode("utf-8") == "hi"
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason=f"平台不适用: 这条测 POSIX 的 reparent 语义, Windows 走 OpenProcess 那条(见下一条); {sys.platform}",
+)
 def test_sidecar_dies_when_its_parent_is_killed(tmp_path, repo_root):
     """真起一个"父进程"(sh)再杀掉它: 被 reparent 的 sidecar 必须自己了断。"""
     pid_file = tmp_path / "sidecar.pid"
@@ -132,6 +136,58 @@ def test_sidecar_dies_when_its_parent_is_killed(tmp_path, repo_root):
     if _alive(pid):
         os.kill(pid, 9)
         pytest.fail("父进程退出后 sidecar 仍在运行 —— 会孤儿化占住端口")
+
+
+@pytest.mark.skipif(
+    os.name != "nt",
+    reason=f"平台不适用: 只有 Windows 需要这条(没有 reparent, 靠 OpenProcess 探活); {sys.platform}",
+)
+def test_sidecar_dies_when_its_parent_is_killed_on_windows(tmp_path, repo_root):
+    """Windows 上父进程死了 getppid() **不会变**, 只能直接问系统"那个 pid 还在吗"。
+
+    用真进程链锁一遍: 测试 → parent.py → watcher.py。杀掉中间那层(不加 /T, 否则子树一起被杀,
+    就测不到"父死子亡"了), watcher 必须自己了断。
+    """
+    from docanon_core.server import lifecycle
+
+    # Windows 上"还活着吗"得问 OpenProcess —— os.kill(pid, 0) 在那边语义不同(见 POSIX 那条)
+    child_pid_file = tmp_path / "sidecar.pid"
+    parent_pid_file = tmp_path / "parent.pid"
+    watcher = tmp_path / "watcher.py"
+    watcher.write_text(
+        "import os\n"
+        "from docanon_core.server import _watch_parent\n"
+        f"open({str(child_pid_file)!r}, 'w').write(str(os.getpid()))\n"
+        "_watch_parent(os.getppid(), interval=0.2)\n",
+        encoding="utf-8",
+    )
+    parent = tmp_path / "parent.py"
+    parent.write_text(
+        "import os, subprocess, sys, time\n"
+        f"open({str(parent_pid_file)!r}, 'w').write(str(os.getpid()))\n"
+        f"subprocess.Popen([sys.executable, {str(watcher)!r}])\n"
+        "time.sleep(120)\n",
+        encoding="utf-8",
+    )
+
+    env = {**os.environ, "PYTHONPATH": str(repo_root / "packages" / "docanon-core" / "src")}
+    proc = subprocess.Popen([sys.executable, str(parent)], env=env)
+    try:
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline and not (child_pid_file.exists() and parent_pid_file.exists()):
+            time.sleep(0.1)
+        pid = int(child_pid_file.read_text(encoding="utf-8"))
+        assert lifecycle._win_pid_alive(pid), "watcher 没起来, 测试本身有问题"
+
+        # 只杀中间那层: 带上 /T 会把 watcher 一起杀掉, 那就等于没测
+        subprocess.run(["taskkill", "/F", "/PID", str(proc.pid)], check=True, capture_output=True)
+
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline and lifecycle._win_pid_alive(pid):
+            time.sleep(0.1)
+        assert not lifecycle._win_pid_alive(pid), "父进程被杀后 sidecar 仍在运行 —— 会孤儿化占住端口"
+    finally:
+        proc.kill()
 
 
 def test_anonymize_labels_legacy_conversion(tmp_path, monkeypatch, ephemeral_server):

@@ -15,8 +15,13 @@
   所有 `/file-viewer/*` 请求 404。
 - Web 后端关掉了 HTTP 访问日志（`docanon_core/server/routes.py` 的 `log_message` 是空实现）；
   命中溯源看 `/api/anonymize` 返回的 `trace`（`extractor`/`detectors`/`timing`/`detections`）。
-- 桌面壳（`apps/desktop/`，Electrobun）只在 `hutch electrobun dev` 里跑，日常不碰。四条实测约束：
-  项目根靠标记文件向上找（不许数 `..`，dev 产物在 `.app` 里）、sidecar 由 `DOCANON_EXIT_WITH_PARENT`
-  父进程监视自尽（壳被强杀时 JS 收不了尸）、`/health` 带 pid 以免认错端口上的旧孤儿、
-  侧车用 **onedir 不用 onefile**（onefile 的引导器会 fork，pid 对不上就被当成"端口被占"）。
-  细节见 `apps/desktop/README.md`，行为由 `packages/docanon-core/tests/test_server.py` 锁定。
+- 桌面壳（`apps/desktop/`，Electrobun）日常不碰，**只有要发安装包时才碰**。六条实测约束：
+  项目根靠标记文件向上找（不许数 `..`，dev 产物在包内）、sidecar 由 `DOCANON_EXIT_WITH_PARENT`
+  父进程监视自尽（壳被强杀时 JS 收不了尸；Windows 没有 reparent，那边用 `OpenProcess` 探活）、
+  `/health` 带 pid 以免认错端口上的旧孤儿、侧车用 **onedir 不用 onefile**（onefile 的引导器会 fork，
+  pid 对不上就被当成"端口被占"）、**必须在各自系统上打**（hutch 是分平台原生二进制，PyInstaller
+  不做交叉编译；只发 Apple Silicon——没有 `macos-x64` 产物）、OCR 权重得在打包前下好
+  （rapidocr 默认是运行时下到 `site-packages` 的）。细节见 `apps/desktop/README.md`。
+  打包入口 `npm run dist:desktop`（= `scripts/dev.sh dist`，两个平台同一条），
+  CI 矩阵见 `.github/workflows/build-desktop.yml`。壳的行为由
+  `packages/docanon-core/tests/test_server.py` 锁定（含 Windows 那条，在 mac 上按"平台不适用"跳过）。

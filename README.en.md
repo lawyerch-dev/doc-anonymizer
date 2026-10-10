@@ -184,8 +184,8 @@ npm run build              # static output into website/dist/, servable by any s
 
 Deploying to GitHub Pages: Settings → Pages → Source, pick **GitHub Actions**; from then on a push to `main`
 runs [`.github/workflows/deploy-website.yml`](.github/workflows/deploy-website.yml), which passes the gates
-before publishing (this is the repo's only CI, running the deployment-related gates: doc drift + package
-boundaries + component library checks + site build; the full engine test suite stays local via `npm test`).
+before publishing (the deployment-related gates: doc drift + package boundaries + component library checks
++ site build; the full engine test suite stays local via `npm test`).
 Sub-path deployments need `SITE_BASE=/<repo-name> SITE_URL=https://<username>.github.io`; the full steps and
 how to verify them are in [`docs/cookbook/shipping-the-website.md`](docs/cookbook/shipping-the-website.md).
 
@@ -196,16 +196,22 @@ Astro 5 + Starlight (search/TOC/prev-next built in), with content coming straigh
 never fork. The catalog is on the site under "Development → Component library overview".
 For details, the measured framework comparison, and pitfalls, see [website/README.md](website/README.md).
 
-### Desktop shell (optional)
+### Desktop build (the thing you hand to someone else)
 
 ```bash
 npm run dev:desktop       # dev: system WebView, :8770
-npm run dist:desktop      # distributable .app/.dmg (~210MB, ships the Python backend and resources; runs outside the repo)
+npm run dist:desktop      # build the distributable locally: macOS .app/.dmg, Windows -Setup.exe (~210MB, Python backend and resources included)
 ```
 
 Development never needs the shell (`.venv/bin/docanon web` serves the same UI); **it is the only artefact
 meant to be handed to someone else**. First launch walks the user through picking a scheme and prepares
 whatever it needs in the background (models are not shipped inside the app).
+
+**Official builds come from Actions**: `.github/workflows/build-desktop.yml` (push a `v*` tag, or dispatch
+it by hand) builds on macOS and Windows runners and uploads to a GitHub Release. Each platform must be built
+on **its own OS** — Hutch ships per-platform native binaries and PyInstaller cannot cross-compile.
+Only **Apple Silicon** is published (Hutch has no Intel Mac build), and the packages are **unsigned and
+un-notarized** (first launch needs one manual allow).
 See [apps/desktop/README.md](apps/desktop/README.md).
 
 ## Supported formats & outputs

@@ -16,7 +16,7 @@
 | `fetch_file_viewer.sh` | 拉 file-viewer 预构建包到 `var/vendor/file-viewer` | npm | `./scripts/fetch_file_viewer.sh` |
 | `fetch_libreoffice.sh` | 取 LibreOffice 到 `var/libreoffice`（旧版 .doc/.xls/.wps 自动转换用） | curl / hdiutil(macOS) | `./scripts/fetch_libreoffice.sh [版本]` |
 | `download_onnx_models.sh` | 取两个 ONNX NER 模型到 `var/models/onnx/`（约 830MB；默认走 hf-mirror 镜像） | curl | `./scripts/download_onnx_models.sh [--check] [--only gyr66]` |
-| `make_app_icon.sh` | 由 `apps/desktop/icon.svg` 生成 `icon.iconset/`（打包输入，**提交进仓库**） | rsvg-convert | `./scripts/make_app_icon.sh [--check]` |
+| `make_app_icon.sh` | 由 `apps/desktop/icon.svg` 生成 `icon.iconset/`（macOS）与 `icon.png`（Windows），**打包输入，提交进仓库** | rsvg-convert | `./scripts/make_app_icon.sh [--check]` |
 | `bench_models.py` | 逐个 GGUF 跑召回/耗时/内存基准 | 先起 `serve_llm.sh` | `.venv/bin/python scripts/bench_models.py` |
 | `bench_detectors.py` | 各检测器（ONNX / LLM）在样例上的表现 | `var/models/onnx/*` | `.venv/bin/python scripts/bench_detectors.py` |
 

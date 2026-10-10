@@ -44,10 +44,21 @@
     `/opt/homebrew/bin`（Finder 双击启动时 PATH 很窄，"终端里明明装了 brew 的 llama-server，双击却说没有"）。
   - 顺带：`/health` 之后壳会在日志里打出资源根与数据目录，排查"双击打不开"时先看这一行；
     找不到资源根、后端起不来一律**报错退出**，不留一个空窗口。
+  - **官方包改由 Actions 出**（`.github/workflows/build-desktop.yml`）：macOS 与 Windows 两个 runner
+    并行、同一条 `scripts/dev.sh dist`（打包步骤只有一份实现，CI 不复制它），打 `v*` tag 时传到
+    Release，手动触发时留成 artifact 试跑。**必须在各自系统上打** —— Hutch 是分平台的原生二进制
+    （Windows 版就是两个 `.exe`），PyInstaller 也不做交叉编译。**只发 Apple Silicon**（Hutch 没有
+    `macos-x64` 产物），**不签名不公证**（macOS 首次右键→「打开」，Windows 首次「仍要运行」）。
+- **Windows 版**：Electrobun 的 Windows 产物是 `*-Setup.exe`（per-user 安装，不要管理员）。
+  为它改掉了五处 mac-only 的地方：数据目录按平台落（`%LOCALAPPDATA%\docanon`）、侧车路径补 `.exe`、
+  PATH 补丁只对 macOS 生效且用 `path.delimiter`、`win.icon` 另出一份 `icon.png`（Hutch 自己转 ICO）、
+  以及 **`DOCANON_EXIT_WITH_PARENT` 换机制** —— macOS 靠 `getppid()` 变号（父死被 reparent）判断
+  壳没了，Windows 没有 reparent，改成用 `OpenProcess` 探父进程存活；两条路各有一条测试锁着
+  （跨平台互斥的那两条按"平台不适用"跳过，反假绿门禁认得这个词，不算假绿）。
 - **App 图标**：`apps/desktop/icon.svg`（品牌标 + macOS 圆角底，几何按系统图标网格、配色取主题 brand
-  三档）→ `scripts/make_app_icon.sh` → `icon.iconset/` → Hutch 用 `iconutil` 转成包内 `AppIcon.icns`。
-  此前 Dock 里是默认白图标（构建日志一直在报 `icon source not found`）。标签页 favicon 也一并从
-  写死的 indigo 换成同一组 brand 色，免得界面里的标、Dock 图标、标签页图标是三个蓝。
+  三档）→ `scripts/make_app_icon.sh` → `icon.iconset/` + `icon.png` → Hutch 转成包内 `AppIcon.icns`
+  与 Windows 的 ICO。此前 Dock 里是默认白图标（构建日志一直在报 `icon source not found`）。标签页
+  favicon 也一并从写死的 indigo 换成同一组 brand 色，免得界面里的标、Dock 图标、标签页图标是三个蓝。
 
 ### Changed
 

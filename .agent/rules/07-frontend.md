@@ -29,7 +29,8 @@
 - 部署：`SITE_BASE=/doc-anonymizer SITE_URL=https://… npm run build`（`SITE_BASE` → Astro `base`，
   `SITE_URL` → `site`/sitemap）。**子路径部署时手写 `href="/…"` 会 404** —— 站内链接一律走
   `website/src/lib/site.ts` 的 `url()`（守卫会拦）；Starlight 自生成的链接跟着 `base` 走。
-- 唯一的 CI 就是[部署文档站](../../.github/workflows/deploy-website.yml)：先跑门禁再发布 Pages。
+- CI 有两个：[部署文档站](../../.github/workflows/deploy-website.yml)（先跑门禁再发 Pages）与
+  [打包桌面版](../../.github/workflows/build-desktop.yml)（macOS/Windows 矩阵，打 tag 时发 Release）。
   详细步骤（含子路径预览的验证方法）见 [`docs/cookbook/shipping-the-website.md`](../../docs/cookbook/shipping-the-website.md)。
 - **DOM 契约**：`tests/e2e/webkit/` 按 `.preset` `#run` `#paneSrc` `#paneOut` `#stats` 选择元素 ——
   改界面时这几个钩子（`#paneSrc`/`#paneOut` 的 `firstElementChild` 是预览挂载点）不许改名或挪位置。

@@ -42,47 +42,64 @@ hutch electrobun dev        # 或 npm start / npm run build
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `DOCANON_ROOT` | 源码树向上查找 / 包内 `docanon/` | 资源根（只读：configs、web、samples、vendor） |
-| `DOCANON_DATA` | = 资源根；打包态 = `~/Library/Application Support/docanon` | 可写状态根（下载的模型、用户自建方案） |
-| `DOCANON_PYTHON` | 包内 sidecar → `<root>/.venv/bin/python` → `python3` | 后端解释器（覆盖它就等于强制走源码态） |
+| `DOCANON_DATA` | = 资源根；打包态见下 | 可写状态根（下载的模型、用户自建方案） |
+| `DOCANON_PYTHON` | 包内 sidecar → `<root>/.venv` 的 python → `python3` | 后端解释器（覆盖它就等于强制走源码态） |
 | `DOCANON_CONFIG` | `configs/onnx.yaml` | 配置文件（相对资源根） |
 | `DOCANON_PORT` | `8770` | 服务端口 |
 
-**为什么资源与可写状态要分家**：打包后资源根在 `.app` 里面，首次运行还可能被 macOS 的
+`DOCANON_DATA` 在各平台按系统习惯落：macOS `~/Library/Application Support/docanon`、
+Windows `%LOCALAPPDATA%\docanon`、Linux `$XDG_DATA_HOME/docanon`。
+
+**为什么资源与可写状态要分家**：打包后资源根在安装目录内部，首次运行还可能被 macOS 的
 App Translocation 挂到只读随机路径 —— 模型写到那儿不是失败就是被清掉。分家由
 `resources.WRITABLE` 定义（`models` / `user_configs`），壳只负责把 `DOCANON_DATA` 指对地方。
 
 ## 图标
 
-`icon.svg`（源，手改）→ `scripts/make_app_icon.sh` → `icon.iconset/`。
-Hutch 的 `mac.icons` 默认就吃 `icon.iconset`（它自己用 `iconutil` 转 `.icns`），**iconset 要提交**：
-它是打包输入，而 `rsvg-convert` 只在装了 librsvg 的机器上才有。
+`icon.svg`（源，手改）→ `scripts/make_app_icon.sh` → `icon.iconset/`（macOS）+ `icon.png`（Windows）。
+Hutch 的 `mac.icons` 默认就吃 `icon.iconset`（它自己用 `iconutil` 转 `.icns`），`win.icon` 只吃
+`.ico`/`.png`（给 PNG 时 Hutch 自己切成 ICO）—— 所以两个都要，**都要提交**：它们是打包输入，
+而 `rsvg-convert` 只在装了 librsvg 的机器上才有。
 
 几何按 macOS 图标网格（1024 画布、圆角方块占 824 居中、圆角 185），配色取自
 `packages/ui/src/theme.css` 的 brand 三档 —— 与界面里的内联 Logo 同源，别单独调色。
 
-## 打可分发版
+## 打包
 
 ```bash
-npm run dist:desktop      # = ./scripts/dev.sh dist, 几分钟
+npm run dist:desktop      # = ./scripts/dev.sh dist, 几分钟(两个平台都是这一条)
 ```
 
-产物：`build/stable-macos-arm64/doc-anonymizer.app` 与 `build/artifacts/*.dmg`（实测各约 211MB / 214MB）。
-它现在是**自包含**的：`.app` 里带 PyInstaller 打出的 Python 侧车与资源根（configs / web / samples /
-vendor 232MB），换台没装 Python 的机器、放到 `/tmp` 或「应用程序」里都能跑。
+**必须在本平台上打**：Hutch 是分平台的原生二进制（Windows 版就是两个 `.exe`，Mac 上跑不了），
+PyInstaller 也不做交叉编译 —— 所以 Mac 上只能出 macOS 包、Windows 上只能出 Windows 包。
+官方包由 [`.github/workflows/build-desktop.yml`](../../.github/workflows/build-desktop.yml)
+在 `macos-15` 与 `windows-latest` 两个 runner 上并行打出，传到 GitHub Release。
 
-体积账要分清：**下载 211MB，但首次启动会在 `~/Library/Application Support/dev.docanon.app/` 解出
-约 700MB**（Electrobun 的自解包要留一份未压缩的 tar，那是它更新/卸载机制的底座）。模型另算，见下。
+| 平台 | 产物 | 用户拿到后 |
+|---|---|---|
+| macOS（**仅 Apple Silicon**） | `doc-anonymizer.app` + `*.dmg`（实测 211MB / 214MB） | 拖进「应用程序」→ 首次**右键 →「打开」** |
+| Windows（x64） | `*-Setup.exe` | 双击安装（per-user，不要管理员）→ SmartScreen 点**「更多信息」→「仍要运行」** |
 
-三条实测出来的约束：
+**只发 Apple Silicon**：Hutch 的发布清单里没有 `macos-x64`，Intel Mac 装不了（不是没编译，是这条工具链没有）。
+
+体积账要分清：**下载 211MB，但首次启动会在 macOS 的 `~/Library/Application Support/dev.docanon.app/`
+解出约 700MB**（Electrobun 的自解包要留一份未压缩的 tar，那是它更新/卸载机制的底座）。模型另算。
+
+五条实测出来的约束：
 
 1. **资源根必须走 Hutch 的 `copy` 进包**。Hutch 的 `copy` 只认本项目（`apps/desktop`）内的路径，
    所以 `dev.sh dist` 先把资源摆到 `stage/docanon`（镜像仓库布局，已被 .gitignore），由
-   `electrobun.config.ts` 整体收成包内的 `Contents/Resources/app/docanon`。
+   `electrobun.config.ts` 整体收成包内的 `docanon/`（macOS 落在 `Contents/Resources/app/`，Windows 在 `resources/app/`）。
 2. **侧车用 onedir 不用 onefile**。onefile 的引导器会 fork 出真正的进程，`child.pid` 与 `/health`
    报的 pid 对不上，壳会判成"端口被别的实例占了"直接退出（`docanon-server.spec` 里有说明）。
 3. **模型不进包**（5.9G）：首次使用由界面上的「初始化」按方案下载到 `DOCANON_DATA`。
+4. **OCR 权重必须在打包前下好**。它是 rapidocr "第一次用的时候"下到 `site-packages` 的；CI 是干净
+   环境，不显式下就会打出一个没有权重的空壳，而运行时会试图往只读的安装目录里写。`dev.sh dist` 里有这一步。
+5. **`DOCANON_EXIT_WITH_PARENT` 在 Windows 上得换机制**。macOS 靠 `getppid()` 变号（父死被 reparent）
+   判断壳没了；Windows 没有 reparent、`getppid()` 不变，所以那边改成用 `OpenProcess` 直接探父进程存活
+   （`server/lifecycle.py`，两条路各有一条测试）。
 
-还没做、也知道的缺口：**没签名没公证**（发给别人首次打开要被 Gatekeeper 拦一次，右键 →「打开」）；
+还没做、也知道的缺口：**没签名没公证**（两个平台首次打开都要手工放行一次）；
 **「最准」那一档要大模型**，得用户自己下 GGUF，且必须本机装了 `llama.cpp`（侧车的 PATH 里补了
 `/opt/homebrew/bin`，双击启动也能找到 brew 装的 `llama-server`）。
 

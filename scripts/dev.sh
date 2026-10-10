@@ -28,7 +28,7 @@ usage() {
   engines [配置文件]   看这份配置实际加载了哪些引擎(默认 configs/onnx.yaml)
   models [额外参数]    取 ONNX NER 模型到 var/models/onnx(约 830MB; 默认走 hf-mirror 镜像)
   website              起官网+文档站(website/: Astro + Starlight + @doc-anonymizer/ui, 首次自动 npm install)
-  dist                 打可分发版 .app/.dmg(把 Python 后端整包带进去, 脱离仓库也能跑; 慢, 几分钟)
+  dist                 打可分发版(macOS: .app/.dmg; Windows: -Setup.exe; 自带 Python 侧车与资源; 慢, 几分钟)
   doctor               环境自检: 缺什么、为什么起不来
 
 例:
@@ -49,6 +49,31 @@ need_venv() {
 }
 
 has() { command -v "$1" >/dev/null 2>&1; }
+
+# 仓库的 python: DOCANON_PYTHON 优先(CI 用它指向 runner 自己的 python, 省掉建 venv 这一步),
+# 否则用 venv —— Windows 的 venv 把可执行文件放在 Scripts/ 下, 名字也不同。
+# 打可分发版要用它: 五个包得装在同一个解释器里, 用错一个就会在 PyInstaller 那步报缺模块。
+py_cmd() {
+  if [ -n "${DOCANON_PYTHON:-}" ]; then
+    printf '%s' "$DOCANON_PYTHON"
+  elif [ -x .venv/bin/python ]; then
+    printf '%s' .venv/bin/python
+  elif [ -x .venv/Scripts/python.exe ]; then
+    printf '%s' .venv/Scripts/python.exe
+  elif has python3; then
+    printf '%s' python3
+  elif has python; then
+    printf '%s' python
+  else
+    return 1
+  fi
+}
+
+# 拷贝目录树。macOS 的 `cp -c`(APFS 写时复制)是秒级 —— 500MB 的资源摆一次不拖慢每次构建;
+# git-bash 的 GNU cp 没有 -c, 会立刻报错, 于是退回真拷(多花十几秒)。
+copy_tree() {
+  cp -Rc "$1" "$2" 2>/dev/null || cp -R "$1" "$2"
+}
 
 warn_if_no_onnx_models() {
   if [ -z "$(ls -A var/models/onnx 2>/dev/null || true)" ]; then
@@ -162,53 +187,76 @@ cmd_models() {
   exec ./scripts/download_onnx_models.sh "$@"
 }
 
-# 可分发版: 把 Python 后端(PyInstaller 侧车)与资源根一起塞进 .app, 让 .app 脱离仓库也能跑。
+# 可分发版: 把 Python 后端(PyInstaller 侧车)与资源根一起塞进安装包, 让产物脱离仓库也能跑。
 #
+# macOS 与 Windows **都走这里**(CI 也是), 所以这个函数里不许出现平台专属命令:
+# 解释器走 `py_cmd`、拷贝走 `copy_tree`、产物报告只 glob 不写死名字。
 # 顺序不能换: 侧车与资源都先摆到 apps/desktop/stage/docanon(Hutch 的 `copy` 只认本项目内的路径),
-# 由 apps/desktop/electrobun.config.ts 整体收进包里的 Contents/Resources/app/docanon。
-# 模型**不进包**(5.9G): 首次使用由界面上的"初始化"按方案下载到 ~/Library/Application Support/doc-anonymizer。
+# 由 apps/desktop/electrobun.config.ts 整体收进包里的 `docanon/`(macOS 在 Contents/Resources/app 下)。
+# 模型**不进包**(5.9G): 首次使用由界面上的"初始化"按方案下载到用户数据目录(见壳里的 DOCANON_DATA)。
 cmd_dist() {
-  need_venv
   has npm || die "打可分发版要 node/npm: 装 node 后重试"
   has hutch || die "打可分发版要 Hutch(Electrobun 的 CLI)。装:
-  curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh"
-  [ "$(uname -s)" = "Darwin" ] || die "目前只做了 macOS 的 .app/.dmg(图标走 iconutil, 侧车是 arm64 原生)"
+  macOS/Linux: curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh
+  Windows:     irm https://hutch.blackboard.sh/hutch/install.ps1 | iex"
 
-  # 少了预览资源, 发出去的包预览区全空白 —— 那是"少一层", 宁可现在就不打
-  [ -d var/vendor/file-viewer ] || die "缺预览资源 var/vendor/file-viewer(232MB) —— 先跑 ./scripts/fetch_file_viewer.sh"
-  [ -f apps/desktop/icon.iconset/icon_512x512.png ] || ./scripts/make_app_icon.sh
+  local py; py="$(py_cmd)" || die "找不到 python —— 先跑 ./scripts/setup_dev.sh(或设置 DOCANON_PYTHON)"
+  "$py" -c "import docanon_core" 2>/dev/null || die "$py 里没有 docanon —— 先跑一次 ./scripts/setup_dev.sh"
 
-  say "== 1/4 前端产物 =="
+  # 少了预览资源, 发出去的包预览区全空白 —— 那是"少一层"。缺了就现在拉(CI 是干净环境, 一定缺),
+  # 拉完还没有就停手: 宁可现在不打, 也不发一个预览全空白的包出去。
+  if [ ! -d var/vendor/file-viewer ]; then
+    say "预览资源缺失(232MB), 先拉一次…"
+    ./scripts/fetch_file_viewer.sh
+  fi
+  [ -d var/vendor/file-viewer ] || die "预览资源还是没到位 —— 发出去的包预览区会全空白, 先跑 ./scripts/fetch_file_viewer.sh"
+  # 图标是提交进仓库的打包输入; 缺了就现生成(要 rsvg-convert, 只在装了 librsvg 的机器上有)
+  [ -f apps/desktop/icon.png ] || ./scripts/make_app_icon.sh
+
+  say "== 1/5 前端产物 =="
   npm run build:web
 
-  say "== 2/4 Python 侧车(PyInstaller, 首次会装 pyinstaller 并分析依赖, 约 1 分钟) =="
-  .venv/bin/python -c "import PyInstaller" 2>/dev/null || .venv/bin/pip install -q pyinstaller
-  .venv/bin/pyinstaller --noconfirm --clean \
+  say "== 2/5 Python 侧车(PyInstaller; 首次会装它并分析依赖, 约 1 分钟) =="
+  "$py" -c "import PyInstaller" 2>/dev/null || "$py" -m pip install -q pyinstaller
+  # OCR 权重默认是"第一次用的时候"从网上下到 site-packages 里的。这里必须先下好, 否则打进
+  # 侧车的是个**没有权重的空壳**, 而运行时会试图往只读的安装目录里写 —— 那等于 OCR 直接坏。
+  "$py" - <<'PY' || die "OCR 权重没下成(要联网) —— 没有它, 打出来的包识别不了图片/扫描件"
+import pathlib
+import rapidocr
+from rapidocr.utils.download_models import download_models
+
+models = pathlib.Path(rapidocr.__file__).parent / "models"
+if not any(models.glob("*.onnx")):
+    download_models()
+PY
+  "$py" -m PyInstaller --noconfirm --clean \
     --distpath apps/desktop/build/sidecar --workpath apps/desktop/build/pyi-work \
     apps/desktop/sidecar/docanon-server.spec >/dev/null
 
-  say "== 3/4 摆资源根(镜像仓库布局, 供 resources.LAYOUT 解析) =="
+  say "== 3/5 摆资源根(镜像仓库布局, 供 resources.LAYOUT 解析) =="
   local stage=apps/desktop/stage/docanon
   rm -rf apps/desktop/stage
   mkdir -p "$stage/configs" "$stage/apps/web" "$stage/var/vendor" "$stage/samples" "$stage/sidecar"
-  # `cp -c`(APFS 写时复制)是**秒级**的: 500MB 的资源摆一次不会拖慢每次构建
-  cp -Rc configs/. "$stage/configs/"
-  cp -Rc apps/web/dist "$stage/apps/web/dist"
-  cp -Rc samples/. "$stage/samples/"
-  cp -Rc var/vendor/file-viewer "$stage/var/vendor/file-viewer"
-  cp -Rc apps/desktop/build/sidecar/docanon-server/. "$stage/sidecar/"
+  copy_tree configs/.                        "$stage/configs/"
+  copy_tree apps/web/dist                    "$stage/apps/web/dist"
+  copy_tree samples/.                        "$stage/samples/"
+  copy_tree var/vendor/file-viewer           "$stage/var/vendor/file-viewer"
+  copy_tree apps/desktop/build/sidecar/docanon-server/. "$stage/sidecar/"
 
-  say "== 4/4 打 .app / .dmg(把上面这棵树压进包里, 慢的就是这一步) =="
+  say "== 4/5 装壳的 JS 依赖(仅首次) =="
+  [ -d apps/desktop/node_modules ] || (cd apps/desktop && hutch install)
+
+  say "== 5/5 打安装包(把上面这棵树压进包里, 慢的就是这一步) =="
   (cd apps/desktop && npm run build)
 
-  local out=apps/desktop/build/stable-*
   say ""
-  say "完成:"
-  say "  .app  $(du -sh $out/doc-anonymizer.app | cut -f1)   $(ls -d $out/doc-anonymizer.app)"
-  say "  .dmg  $(du -sh apps/desktop/build/artifacts/*.dmg | cut -f1)   $(ls apps/desktop/build/artifacts/*.dmg)"
+  say "完成, 产物:"
+  # 产物名随平台变(.app/.dmg vs -Setup.exe), 只 glob 不写死 —— 写死的名字在另一个平台上会静默不报
+  du -sh apps/desktop/build/artifacts/* 2>/dev/null | sed 's/^/  /' || true
+  ls -d apps/desktop/build/*/doc-anonymizer.app 2>/dev/null | sed 's/^/  /' || true
   say ""
-  say "自测(脱离仓库也能跑): 把 .app 拷到 /tmp 或「应用程序」里双击。"
-  say "发给别人: 首次打开会被 Gatekeeper 拦(未签名), 右键 →「打开」放行一次即可。"
+  say "自测(脱离仓库也能跑): 把产物拷到 /tmp(「下载」)里双击。"
+  say "发给别人: 未签名 —— macOS 首次要右键→「打开」, Windows 要「更多信息」→「仍要运行」。"
 }
 
 cmd_website() {

@@ -10,7 +10,7 @@
 | `npm run dev:backend` | 只起后端（`docanon web`，发已构建的 `apps/web/dist`）；生产形态 = `npm run build:web` 后用它 |
 | `npm run dev:website` | 起官网/文档站 → :4321 |
 | `npm run dev:desktop` | 起桌面壳（首次自动 `hutch install`） |
-| `npm run dist:desktop` | 打**可分发版** `.app`/`.dmg`（约 210MB，带 Python 侧车与资源根，脱离仓库可跑；几分钟） |
+| `npm run dist:desktop` | 打可分发**安装包**（macOS `.app`/`.dmg`、Windows `-Setup.exe`，约 210MB，带 Python 侧车与资源根；几分钟）。**必须在本平台上打**，官方包由 `build-desktop.yml` 在两个 runner 上出 |
 | `npm test` | 一键全测：Python 全量 + 组件库导入检查 + 文档站构建 |
 | `npm run test:strict` | 反假绿：声明环境齐备后**任何 skip 都算失败**（装了模型的机器/发版本前跑） |
 | `npm run check:scope` | 按改动范围算出**最小**该跑的检查（不是无脑全量；详见 06-testing） |

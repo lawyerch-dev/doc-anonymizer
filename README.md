@@ -169,8 +169,8 @@ npm run build              # 静态输出到 website/dist/，任意静态服务�
 
 部署到 GitHub Pages：Settings → Pages → Source 选 **GitHub Actions**，之后 push `main` 会由
 [`.github/workflows/deploy-website.yml`](.github/workflows/deploy-website.yml) 先过门禁再发布
-（这是仓库唯一的 CI，跑的是部署相关的门禁：文档漂移 + 包边界 + 组件库检查 + 站点构建；
-引擎全量测试仍是本地 `npm test`）。子路径部署要 `SITE_BASE=/<仓库名> SITE_URL=https://<用户名>.github.io`，
+（跑的是部署相关的门禁：文档漂移 + 包边界 + 组件库检查 + 站点构建；引擎全量测试仍是本地 `npm test`）。
+子路径部署要 `SITE_BASE=/<仓库名> SITE_URL=https://<用户名>.github.io`，
 完整步骤与验证方式见 [`docs/cookbook/shipping-the-website.md`](docs/cookbook/shipping-the-website.md)。
 
 Astro 5 + Starlight（搜索/TOC/上下页内置），内容直接来自本仓库的 markdown
@@ -179,15 +179,20 @@ Astro 5 + Starlight（搜索/TOC/上下页内置），内容直接来自本仓�
 **产品前端以后换栈时引同一个包**，外观与组件不会分叉。名录见站点「开发 → 组件库总览」。
 细节、框架选型的实测对比与坑见 [website/README.md](website/README.md)。
 
-### 桌面壳（可选）
+### 桌面版（可分发给别人）
 
 ```bash
 npm run dev:desktop       # 开发态：系统 WebView，:8770
-npm run dist:desktop      # 打可分发版 .app/.dmg（约 210MB，自带 Python 后端与资源，脱离仓库也能跑）
+npm run dist:desktop      # 本机打可分发包：macOS .app/.dmg、Windows -Setup.exe（约 210MB，自带 Python 后端与资源）
 ```
 
 开发和日常用不到壳（`.venv/bin/docanon web` 就是同一个界面）；**要发给别人装的只有它**。
 首次使用会引导选一套方案并在后台把该准备的准备好（模型不进安装包）。
+
+**官方包在 Actions 里出**：`.github/workflows/build-desktop.yml`（打 `v*` tag 或手动触发）在
+macOS 与 Windows 的 runner 上各打一份，传到 GitHub Release。两个平台必须各在**自己的系统**上打
+—— Hutch 是分平台的原生二进制，PyInstaller 也不做交叉编译。
+目前只发 **Apple Silicon**（Hutch 没有 Intel Mac 的产物），**未签名未公证**（首次打开要放行一次）。
 详见 [apps/desktop/README.md](apps/desktop/README.md)。
 
 ## 支持与产物

@@ -83,8 +83,9 @@ COMMUNITY_FILES = [
 ]
 
 TOP_LEVEL = {"packages", "apps", "configs", "samples", "scripts", "tests", "docs", "var"}
-# 运行时才存在的东西: var/(权重、预览包、默认产物)、用户自选产物目录、壳的构建产物
-RUNTIME_PREFIXES = ("var/", "out/", "website/dist", "apps/web/dist", "apps/desktop/build")
+# 运行时才存在的东西: var/(权重、预览包、默认产物)、用户自选产物目录、壳的构建产物与打包暂存区
+RUNTIME_PREFIXES = ("var/", "out/", "website/dist", "apps/web/dist", "apps/desktop/build",
+                    "apps/desktop/stage")
 
 # 名字一旦删掉/改名, 现状文档里就不该再有它
 REMOVED_NAMES = {
@@ -402,7 +403,7 @@ def test_website_internal_links_go_through_base():
 
 
 def test_deploy_workflow_matches_the_published_site():
-    """唯一的 CI 是"部署文档站": 必须真跑门禁、用 SITE_BASE/SITE_URL 构建、发布 website/dist。"""
+    """部署文档站那个 CI: 必须真跑门禁、用 SITE_BASE/SITE_URL 构建、发布 website/dist。"""
     workflow = REPO / ".github" / "workflows" / "deploy-website.yml"
     assert workflow.is_file(), "少了部署 workflow"
     text = workflow.read_text(encoding="utf-8")

@@ -3,14 +3,14 @@ import { ApplicationMenu, BrowserWindow } from "electrobun/main";
 import { spawn } from "bun";
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 
 // 项目根: DOCANON_ROOT 优先, 否则从本文件逐级向上找带 `configs/default.yaml` 的目录。
 // 不能用固定层数的 "..": dev 构建产物在 `<root>/apps/desktop/build/**.app` 里面, 层数随打包布局变,
 // 猜错的后果是拿系统 python3(可能连 docanon 都没装)去起后端, 报一堆 ModuleNotFoundError。
 //
 // 打包态多认一种标记: `<dir>/docanon/configs/default.yaml` —— 那是随包发出去的资源根
-// (见 scripts/build_desktop.sh), 它自带 sidecar, 不需要 .venv 也不需要仓库。
+// (见 scripts/dev.sh dist), 它自带 sidecar, 不需要 .venv 也不需要仓库。
 const DEV_MARKER = join("configs", "default.yaml");
 const PACKAGED_MARKER = join("docanon", "configs", "default.yaml");
 const PACKAGED_DIR = "docanon";
@@ -34,11 +34,18 @@ function findRoot(start: string): Root | null {
 	}
 }
 
-/** 打包态的兜底: 壳自己就住在 `<bundle>/Contents/MacOS/launcher`, 资源根在它隔壁的 Resources 下。 */
+/** 打包态的兜底: 壳自己就住在包的可执行文件目录里, 资源根在它附近的资源目录下。
+ *  两个平台连大小写都不同(macOS 是 `Contents/Resources`, Windows 是 `resources`), 也都可能是
+ *  资源目录下的 `app/`, 所以逐个试一遍 —— 试错的代价只是几次 stat。 */
 function fromBundle(): Root | null {
-	const resources = join(dirname(process.execPath), "..", "Resources");
-	// Electrobun 把 `copy` 里的东西放在 Resources/app 下, 先按这个来, 再退一步看 Resources 本身
-	return rootAt(join(resources, "app")) ?? rootAt(resources);
+	const exe = dirname(process.execPath);
+	for (const near of [exe, dirname(exe)]) {
+		for (const rel of ["Resources/app", "Resources", "resources/app", "resources"]) {
+			const hit = rootAt(join(near, rel));
+			if (hit) return hit;
+		}
+	}
+	return null;
 }
 
 const found = process.env.DOCANON_ROOT
@@ -53,9 +60,22 @@ if (!found) {
 }
 const ROOT = found.root;
 
-// 可写状态(下载得到的模型、用户配置)不能落在资源根里: 打包后它在 .app 内部,
-// 首次运行还可能被 App Translocation 挂到只读的随机路径上。统一落到用户数据目录。
-const DATA = process.env.DOCANON_DATA || (found.packaged ? join(homedir(), "Library", "Application Support", PACKAGED_DIR) : "");
+/** 用户数据目录(各平台习惯不同)。壳把模型与用户自建方案放这里。 */
+function dataDir(): string {
+	if (process.env.DOCANON_DATA) return process.env.DOCANON_DATA;
+	if (process.platform === "win32") {
+		return join(process.env.LOCALAPPDATA || join(homedir(), "AppData", "Local"), PACKAGED_DIR);
+	}
+	if (process.platform === "darwin") {
+		return join(homedir(), "Library", "Application Support", PACKAGED_DIR);
+	}
+	return join(process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"), PACKAGED_DIR);
+}
+
+// 可写状态(下载得到的模型、用户配置)不能落在资源根里: 打包后它在安装目录内部 ——
+// 那里可能只读(macOS 的 App Translocation 会把包挂到只读的随机路径上), 卸载/升级还会连它一起清掉。
+// 所以打包态一律落到用户数据目录, 并把路径通过 DOCANON_DATA 交给 Python 侧(见 resources.WRITABLE)。
+const DATA = found.packaged || process.env.DOCANON_DATA ? dataDir() : "";
 if (DATA) mkdirSync(DATA, { recursive: true });
 
 const PORT = Number(process.env.DOCANON_PORT || 8770);
@@ -64,21 +84,31 @@ const URL = `http://127.0.0.1:${PORT}`;
 
 // 打包态跑 sidecar 可执行文件(PyInstaller 产物, 自带解释器与依赖);
 // 源码态跑 .venv 里的 python。两条路的参数完全一样 —— sidecar 的入口就是 docanon_core.cli:main。
-const SIDECAR = join(ROOT, "sidecar", "docanon-server");
+// Windows 的产物带 `.exe`, 所以两个名字都试: 只认一个的话会静默退到系统 python3 上, 报一堆
+// ModuleNotFoundError —— 那是"看着起来了、其实什么都没起来"的假故障。
+function sidecar(): string | null {
+	for (const name of ["docanon-server", "docanon-server.exe"]) {
+		const p = join(ROOT, "sidecar", name);
+		if (existsSync(p)) return p;
+	}
+	return null;
+}
 
 function backend(): string[] {
 	if (process.env.DOCANON_PYTHON) {
 		return [process.env.DOCANON_PYTHON, "-m", "docanon_core.cli", ...args()];
 	}
-	if (existsSync(SIDECAR)) {
-		return [SIDECAR, ...args()];
+	const exe = sidecar();
+	if (exe) {
+		return [exe, ...args()];
 	}
-	const venv = join(ROOT, ".venv", "bin", "python");
+	// Windows 的 venv 把可执行文件放在 Scripts/ 下, 名字也不一样
+	const venv = join(ROOT, ".venv", process.platform === "win32" ? "Scripts/python.exe" : "bin/python");
 	if (existsSync(venv)) {
 		return [venv, "-m", "docanon_core.cli", ...args()];
 	}
 	console.error(
-		`[docanon] 既没有打包 sidecar(${SIDECAR})也没有 ${venv}, 退回 python3 —— ` +
+		`[docanon] 既没有打包 sidecar(${ROOT}/sidecar)也没有 ${venv}, 退回 python3 —— ` +
 			"它必须能 import docanon(没装就会启动失败)。建议设置 DOCANON_PYTHON。",
 	);
 	return ["python3", "-m", "docanon_core.cli", ...args()];
@@ -89,22 +119,24 @@ function args(): string[] {
 }
 
 console.log(
-	`[docanon] 资源根=${ROOT}${DATA ? ` 数据目录=${DATA}` : ""} 运行方式=${existsSync(SIDECAR) ? "侧车" : "源码"}`,
+	`[docanon] 资源根=${ROOT}${DATA ? ` 数据目录=${DATA}` : ""} 运行方式=${sidecar() ? "侧车" : "源码"}`,
 );
 
-// 拉起 Python 后端(sidecar)。DOCANON_EXIT_WITH_PARENT: 壳被强杀时 JS 没机会收尸,
-// 让后端自己盯着父进程(见 docanon/server.py 的 _watch_parent)。
-// 从 Finder 双击启动时 PATH 只有 /usr/bin:/bin:/usr/sbin:/sbin —— `llama-server`(brew 装的)与
-// `soffice` 都在 /opt/homebrew/bin, 不补上这两条就会出现"终端里明明装了, 双击却说没有"。
-// 只加在**后端**的环境里, 不动壳自己的 PATH。
+// 从 Finder 双击启动时 macOS 给的 PATH 只有 /usr/bin:/bin:/usr/sbin:/sbin —— 而 `llama-server`
+// 与 `soffice` 都是用户自己装的(brew 装在 /opt/homebrew/bin), 不补上就会出现"终端里明明装了,
+// 双击却说没有"。Windows 拿的是注册表里的用户+系统 PATH, 没这个问题, 也不用补。
+// 分隔符必须用 path.delimiter: Windows 是 `;`, 硬写 ":" 会把整条 PATH 弄坏。
 function backendPath(): string {
-	return [process.env.PATH, "/opt/homebrew/bin", "/usr/local/bin"].filter(Boolean).join(":");
+	const extra = process.platform === "darwin" ? ["/opt/homebrew/bin", "/usr/local/bin"] : [];
+	return [process.env.PATH, ...extra].filter(Boolean).join(delimiter);
 }
 
 const cmd = backend();
 const child = spawn({
 	cmd,
 	cwd: ROOT,
+	// windowsHide: 侧车是控制台子系统的程序, 不压住的话 Windows 上会多弹一个黑框
+	windowsHide: true,
 	// 源码态下五个包由 requirements-dev.txt 装进 .venv(editable), 不需要再拼 PYTHONPATH
 	env: {
 		...process.env,
@@ -149,7 +181,9 @@ async function waitForServer(timeoutMs = 60000): Promise<void> {
 try {
 	await waitForServer();
 } catch (err) {
-	console.error(`[docanon] ${err} —— 直接跑 .venv/bin/docanon web -c ${CONFIG} 能看到具体原因`);
+	console.error(
+		`[docanon] ${err} —— 直接跑 "${cmd.join(" ")}" 能看到具体原因`,
+	);
 	child.kill();
 	process.exit(1);
 }
