@@ -63,6 +63,14 @@
     偶发、与代码无关）。`dev.sh dist` 给这一步留了最多 3 次重试。
   - Release 的资产筛选改成排除法：Windows 的可分发产物是 **zip 不是 exe**，写 `*.exe` 白名单
     会一个都匹配不到（真漏过一次）；排除 Electrobun 更新器用的 `*.tar.zst` 与 `*-update.json` 即可。
+  - **一个只在 Windows 上才犯的致命 bug**：那边的 stdio 编码跟着控制台代码页走（cp1252/GBK），
+    而 docanon 的输出全是中文 —— 第一句 `print("待处理 11 个文件 …")` 就 `UnicodeEncodeError`
+    把进程带走，**Windows 版其实根本跑不起来**。现在 `cli.main()` 一进来就把 stdout/stderr
+    掰成 utf-8（`errors="replace"` 兜底），`llama-server` 的日志读取也显式指定了编码
+    （`text=True` 会按 locale 解码）。macOS/Linux 默认 utf-8，本地永远看不见这个坑 ——
+    它是被下面那步冒烟测试抓出来的。
+  - 新增 CI 冒烟：打包后用**真正进包的那份侧车**把 11 个样例跑一遍（含 png 与扫描 pdf，会拉动
+    OCR 整条链）。构建绿只说明"打得出来"，不说明"用户装上能跑"。
 - **App 图标**：`apps/desktop/icon.svg`（品牌标 + macOS 圆角底，几何按系统图标网格、配色取主题 brand
   三档）→ `scripts/make_app_icon.sh` → `icon.iconset/` + `icon.png` → Hutch 转成包内 `AppIcon.icns`
   与 Windows 的 ICO。此前 Dock 里是默认白图标（构建日志一直在报 `icon source not found`）。标签页

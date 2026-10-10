@@ -248,7 +248,28 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _ensure_utf8_output() -> None:
+    """把 stdout/stderr 掰成 UTF-8。
+
+    Windows 上 stdio 的默认编码跟着控制台代码页走(cp1252 / GBK), 而 docanon 的输出 —— 进度、
+    命中统计、清单路径 —— 全是中文: 实测 CI 上 `docanon run samples` 直接崩在第一句
+    `print("待处理 11 个文件 ...")`, UnicodeEncodeError 把整个进程带走。macOS/Linux 默认就是
+    utf-8, 所以本地永远看不见这个坑(它是被 CI 上那步"用包内侧车跑一遍样例"抓出来的)。
+
+    errors="replace" 是兜底: 控制台代码页改不动时, 宁可显示成问号, 也不要整个程序崩掉。
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:  # 被换成 StringIO 之类(测试 / 日志重定向): 没得配, 也不该炸
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):  # pragma: no cover - 流已关闭
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _ensure_utf8_output()
     parser = build_parser()
     args = parser.parse_args(argv)
     return args.func(args)

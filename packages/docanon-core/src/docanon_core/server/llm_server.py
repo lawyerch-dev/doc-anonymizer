@@ -177,7 +177,13 @@ def _spawn_locked(binary: str, model_path, model_id: str, port: int) -> None:
         "-c", _CTX, "-ngl", _NGL, "--host", "127.0.0.1", "--port", str(port),
     ]
     _log.clear()
-    _child = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    # encoding 必须显式给: text=True 会按 locale 解码, Windows 上那是 cp1252 —— llama-server 的
+    # 日志里一旦有非 ASCII(路径、中文提示), 读取就抛 UnicodeDecodeError(同一个根因, 见 cli 的
+    # _ensure_utf8_output)。errors="replace": 读日志是为了给用户一个原因, 不该因编码再崩一次。
+    _child = subprocess.Popen(
+        cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+        text=True, encoding="utf-8", errors="replace",
+    )
     _child_model = model_id
     _child_port = port
     _child_error = ""
