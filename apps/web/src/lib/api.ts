@@ -1,5 +1,5 @@
 import type {
-  AnonymizeResp, ConfigData, ConfigDetail, ConfigRow, Detection, DownloadState, LlmModelRow,
+  AnonymizeResp, ConfigData, ConfigDetail, ConfigRow, Detection, DownloadState, Health, LlmModelRow,
   ModelsResp, Preset, ProgressState, UploadResp,
 } from "../types";
 
@@ -32,6 +32,9 @@ const postJson = <T>(url: string, payload: unknown) =>
 
 export const loadPresets = () =>
   json<{ presets: Preset[] }>("/api/presets").then((r) => r.presets);
+
+/** 版本号从后端读(单一真相在 pyproject/__version__), 前端不留第二份 */
+export const loadHealth = () => json<Health>("/health");
 
 export const loadConfigs = () =>
   json<{ configs: ConfigRow[] }>("/api/configs").then((r) => r.configs);

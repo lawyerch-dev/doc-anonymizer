@@ -84,6 +84,15 @@ def test_health_reports_its_own_pid(ephemeral_server):
     assert body["pid"] == os.getpid()
 
 
+def test_health_reports_version_from_the_single_source(ephemeral_server):
+    """界面底部显示的版本号取自 /health —— 与包自己的版本必须同源, 否则迟早"界面 v0.2.0、包 v0.3.0"。"""
+    from docanon_core import __version__
+
+    with urllib.request.urlopen(f"{ephemeral_server}/health", timeout=5) as resp:
+        body = json.loads(resp.read())
+    assert body["version"] == __version__
+
+
 def test_get_unquotes_percent_encoded_paths(tmp_path, ephemeral_server):
     """浏览器把中文文件名按 %XX 发来; 不 unquote 就 404 —— 中文上传件在预览/下载处打不开。
 

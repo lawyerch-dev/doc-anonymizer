@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import unquote
 
-from .. import convert, resources
+from .. import __version__, convert, resources
 from ..pipeline import Cancelled, prepare_detectors, process_file
 from ..redaction.mapping import MappingStore
 from . import downloads, llm_server, profiles, progress
@@ -133,7 +133,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, _index().read_bytes(), "text/html; charset=utf-8")
         elif p == "/health":
             # 带上 pid: 桌面壳用它确认"答话的是我自己拉起的那个后端", 而不是占着端口的旧孤儿
-            self._json(200, {"ok": True, "pid": os.getpid()})
+            # 带上 version: 界面底部显示的版本号取自这里 —— 只有一处真相(pyproject/__version__),
+            # 前端不另存一份, 免得出现"界面写 v0.2.0、包是 v0.3.0"这种漂移
+            self._json(200, {"ok": True, "pid": os.getpid(), "version": __version__})
         elif p == "/api/presets":
             self._json(200, {"presets": self._presets()})
         elif p == "/api/configs":

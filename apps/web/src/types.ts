@@ -99,3 +99,6 @@ export type Selection = {
   filename: string;
   url: string;
 };
+
+/** `/health`: 桌面壳拿 pid 认自己的后端; 界面拿 version 显示版本号(唯一真相在后端) */
+export type Health = { ok: boolean; pid: number; version: string };

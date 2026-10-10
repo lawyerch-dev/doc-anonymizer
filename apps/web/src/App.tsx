@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import { ConfigPanel } from "./components/ConfigPanel";
 import { LogModal } from "./components/LogModal";
+import { Logo } from "./components/Logo";
 import { PresetList } from "./components/PresetList";
 import { Preview } from "./components/Preview";
 import { SettingsSheet } from "./components/SettingsSheet";
@@ -42,6 +43,8 @@ export default function App() {
   const [logOpen, setLogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // 版本号从后端 /health 读(单一真相在 pyproject/__version__): 前端写死一份迟早跟包版本漂移
+  const [version, setVersion] = useState<string | null>(null);
   // 正在跑的 job id: 取消按钮要知道叫停谁
   const runningJob = useRef<string | null>(null);
   // 日志弹窗关掉后焦点要回到这个按钮, 否则键盘用户被扔到页面开头(组件库的默认回收依赖"点击时按钮已聚焦")
@@ -120,6 +123,9 @@ export default function App() {
   useEffect(() => { void refreshPresets(); }, [refreshPresets]);
   useEffect(() => { void loadConfigList(); }, [loadConfigList]);
   useEffect(() => { refreshModels(); }, [refreshModels]);
+  useEffect(() => {
+    api.loadHealth().then((h) => setVersion(h.version)).catch(() => {});
+  }, []);
 
   const pickPreset = (p: Preset) => {
     setSelection({ preset: p.name, token: null, filename: p.name, url: p.url });
@@ -218,6 +224,7 @@ export default function App() {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <header className="flex flex-none items-baseline gap-3 border-b bg-card px-6 py-3">
+        <Logo className="size-6 flex-none self-center" />
         <h1 className="text-lg font-semibold">文档脱敏工具</h1>
         <span className="text-[13px] text-muted-foreground">选文档 → 预览 → 一键脱敏 → 原格式前后对比</span>
         <div className="ml-auto flex items-center gap-1.5">
@@ -355,6 +362,18 @@ export default function App() {
           />
         </main>
       </div>
+
+      <footer className="flex flex-none items-center justify-center gap-2 border-t bg-card px-6 py-1.5 text-[11px] text-muted-foreground">
+        <span>陈恒律师 自用</span>
+        {version ? (
+          <>
+            <span aria-hidden>·</span>
+            <span className="tabular-nums" title="版本号取自后端 /health, 运行时唯一真相">
+              v{version}
+            </span>
+          </>
+        ) : null}
+      </footer>
 
       <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen}>
         <ConfigPanel
