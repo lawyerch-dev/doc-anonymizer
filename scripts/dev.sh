@@ -212,6 +212,18 @@ cmd_dist() {
   [ -d var/vendor/file-viewer ] || die "预览资源还是没到位 —— 发出去的包预览区会全空白, 先跑 ./scripts/fetch_file_viewer.sh"
   # 图标是提交进仓库的打包输入; 缺了就现生成(要 rsvg-convert, 只在装了 librsvg 的机器上有)
   [ -f apps/desktop/icon.png ] || ./scripts/make_app_icon.sh
+  # Hutch 要求 win.icon 的 PNG ≤256px(ICO 的上限), 给大了 Windows 构建会直接失败
+  # (`invalid Windows PNG icon: PngTooLarge`)。用 python 读 PNG 头校验 —— 跨平台,
+  # 而且**两个平台的打包都拦得住**, 不会等到 Windows 那一趟才发现。
+  "$py" - <<'PY' || die "apps/desktop/icon.png 必须是 256×256 的 PNG(Windows 图标的硬限制, 见 make_app_icon.sh)"
+import pathlib
+import struct
+
+raw = pathlib.Path("apps/desktop/icon.png").read_bytes()
+assert raw[:8] == b"\x89PNG\r\n\x1a\n", "不是 PNG"
+w, h = struct.unpack(">II", raw[16:24])
+assert (w, h) == (256, 256), f"现在是 {w}x{h}"
+PY
 
   say "== 1/5 前端产物 =="
   npm run build:web

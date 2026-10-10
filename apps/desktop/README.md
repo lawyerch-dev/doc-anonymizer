@@ -61,6 +61,10 @@ Hutch 的 `mac.icons` 默认就吃 `icon.iconset`（它自己用 `iconutil` 转 
 `.ico`/`.png`（给 PNG 时 Hutch 自己切成 ICO）—— 所以两个都要，**都要提交**：它们是打包输入，
 而 `rsvg-convert` 只在装了 librsvg 的机器上才有。
 
+**`icon.png` 必须是 256×256**：ICO 的最大边长就是 256，给大了 Hutch 会拒绝并让整个 Windows 构建
+失败（实测 1024 → `invalid Windows PNG icon: PngTooLarge` + exit 1，第一次 CI 就是这么红的）。
+`make_app_icon.sh --check` 会盯住这条。
+
 几何按 macOS 图标网格（1024 画布、圆角方块占 824 居中、圆角 185），配色取自
 `packages/ui/src/theme.css` 的 brand 三档 —— 与界面里的内联 Logo 同源，别单独调色。
 

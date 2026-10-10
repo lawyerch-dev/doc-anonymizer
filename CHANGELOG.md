@@ -55,6 +55,9 @@
   以及 **`DOCANON_EXIT_WITH_PARENT` 换机制** —— macOS 靠 `getppid()` 变号（父死被 reparent）判断
   壳没了，Windows 没有 reparent，改成用 `OpenProcess` 探父进程存活；两条路各有一条测试锁着
   （跨平台互斥的那两条按"平台不适用"跳过，反假绿门禁认得这个词，不算假绿）。
+  - 第一次 CI 就红在图标上：**`icon.png` 必须是 256×256**（ICO 的最大边长），给 1024 时 Hutch
+    直接 `invalid Windows PNG icon: PngTooLarge` 并让整个 Windows 构建失败。现在脚本只出 256，
+    `--check` 与 `dev.sh dist` 都会校验（读 PNG 头，跨平台）—— 免得又出现"本地好好的、CI 上红在另一个平台"。
 - **App 图标**：`apps/desktop/icon.svg`（品牌标 + macOS 圆角底，几何按系统图标网格、配色取主题 brand
   三档）→ `scripts/make_app_icon.sh` → `icon.iconset/` + `icon.png` → Hutch 转成包内 `AppIcon.icns`
   与 Windows 的 ICO。此前 Dock 里是默认白图标（构建日志一直在报 `icon source not found`）。标签页

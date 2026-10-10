@@ -44,7 +44,8 @@ export default {
 		mac: { bundleCEF: false },
 		linux: { bundleCEF: false },
 		// win.icon 只吃 .ico 或 .png, 给 PNG 时 Hutch 自己按 16/32/48/256 切成 ICO
-		// (macOS 那套 icon.iconset 在 Windows 上用不上, 所以脚本另外产了一份 1024 的 icon.png)
+		// (macOS 那套 icon.iconset 在 Windows 上用不上, 所以脚本另外产了一份 icon.png)
+		// **必须 ≤256px**: ICO 的最大边长就是 256, 给 1024 会让 Windows 构建直接失败(PngTooLarge)
 		win: { bundleCEF: false, icon: "icon.png" },
 	},
 } satisfies ElectrobunConfig;
