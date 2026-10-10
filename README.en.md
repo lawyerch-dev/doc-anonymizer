@@ -133,12 +133,15 @@ on `127.0.0.1` only, with no auth (for local, single-user use).
 
 **The redaction scheme is layered in three levels** (progressive disclosure — casual users only ever touch L1):
 
-- **L1 scheme**: choose one of the four built-ins (`configs/*.yaml`, read-only) or **my configs**
-  (`var/configs/<name>.yaml`). The dropdown lists only a **short name** (e.g. "Legal delivery");
+- **L1 scheme**: choose one of the **three built-ins** (`configs/*.yaml`, read-only) or **my configs**
+  (`var/configs/<name>.yaml`) — General / Most accurate / Fastest. The dropdown lists only a **short name**;
   "when to use which" is shown on its own line underneath — both come from the **first two comment lines** of
   each yaml (edit the wording in the file and the UI follows), while anything below them is detail for whoever
-  edits the config and never reaches users. The default is "Legal delivery" (**too little is visible, too much
-  is not**). Create / save-as / export / import.
+  edits the config and never reaches users. The default is "General" (recognises numbers, names, organizations
+  and addresses, using the local small model, in milliseconds). Create / save-as / export / import.
+  `configs/legal.yaml` ("redact identifiers and contacts only, leave names/orgs/amounts alone") still ships and
+  is still the CLI's default `-c`, but it is **not exposed in the UI dropdown** (see `HIDDEN_SCHEMES` in
+  `apps/web/src/lib/formats.ts`).
 - **L2 custom redaction**: per-type strategy (shown in plain language, e.g. "blank out with `**`"; maps to
   `redact` / `mask` / `placeholder` / `pseudonym` / `remove` / `keep`, each row with a worked example) + custom
   sensitive words; the "use pseudonyms for people/orgs" switch merely flips the matrix between `redact` and

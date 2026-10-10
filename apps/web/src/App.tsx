@@ -3,12 +3,13 @@ import { Button } from "@doc-anonymizer/ui/primitives/button";
 import { ConfigPanel } from "./components/ConfigPanel";
 import { LogModal } from "./components/LogModal";
 import { Logo } from "./components/Logo";
+import { OnboardingWizard, clearOnboarding, hasDoneOnboarding } from "./components/OnboardingWizard";
 import { PresetList } from "./components/PresetList";
 import { Preview } from "./components/Preview";
 import { SettingsSheet } from "./components/SettingsSheet";
 import { StatsCard } from "./components/StatsCard";
 import * as api from "./lib/api";
-import { DEFAULT_SCHEME, progressInfo } from "./lib/formats";
+import { DEFAULT_SCHEME, progressInfo, visibleSchemes } from "./lib/formats";
 import type { AnonymizeResp, ConfigData, ConfigRow, LlmModelRow, Preset, ProgressState, Selection } from "./types";
 
 type Theme = "light" | "dark";
@@ -43,6 +44,8 @@ export default function App() {
   const [logOpen, setLogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // 首次使用向导: 本地记"看过了", 看过一次就不再弹; 设置里可手动叫回来
+  const [showIntro, setShowIntro] = useState(() => !hasDoneOnboarding());
   // 版本号从后端 /health 读(单一真相在 pyproject/__version__): 前端写死一份迟早跟包版本漂移
   const [version, setVersion] = useState<string | null>(null);
   // 正在跑的 job id: 取消按钮要知道叫停谁
@@ -98,7 +101,9 @@ export default function App() {
 
   const loadConfigList = useCallback(async () => {
     try {
-      const rows = await api.loadConfigs();
+      // 展示层裁掉不暴露的方案(legal.yaml): 后端列表不变, 但界面只在三套里选,
+      // 否则默认值/下拉会出现"列表里没有这个值"的坏状态
+      const rows = visibleSchemes(await api.loadConfigs());
       setConfigs(rows);
       setError(null);
       const saved = localStorage.getItem("docanon.config");
@@ -253,6 +258,17 @@ export default function App() {
         </div>
       </header>
 
+      {showIntro ? (
+        /* 首次使用向导: 选个方案就能用(本地记"看过了"不再弹); 选中即切到当前配置 */
+        <OnboardingWizard
+          key="intro"
+          configs={configs}
+          currentConfig={configRef}
+          onPickConfig={(name) => { void loadConfigData(name); }}
+          onDone={() => setShowIntro(false)}
+        />
+      ) : null}
+
       {error ? (
         // role=alert: 出错时屏幕阅读器要念出来, 不然"点了没反应"对看不见的人是零信息
         <div
@@ -375,7 +391,15 @@ export default function App() {
         ) : null}
       </footer>
 
-      <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen}>
+      <SettingsSheet
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onReplayIntro={() => {
+          clearOnboarding();
+          setSettingsOpen(false);
+          setShowIntro(true);
+        }}
+      >
         <ConfigPanel
           configs={configs}
           configRef={configRef}

@@ -56,3 +56,4 @@ L1 方案（内置四套只读 / 我的配置）→ L2 逐类型策略 + 词典 
   （`server/progress.py`）；取消走 `/api/anonymize/cancel`，只在**写产物之前**查信号 —— 取消不留半成品。
 - **两条轴别混**：L2 管"脱什么"（实体 × 策略），L3 管"靠什么认"（只给一道选择题：不用模型 / 小模型 / 大模型）；`rule`+`dictionary` 常开不给开关（关它 = 静默漏检，"不要某类"用策略 `keep` 表达）；服务地址、`--alias`、启动命令由 app 自己管（`server/llm_server.py`）。不暴露 OCR、产物命名等"静默少一层"或属契约（非偏好）的选项。
 - 为什么用户配置放 `var/`、为什么 L1 是模板：[决策记录](../notes/implemented/feature/2026-10-08-web-redaction-config.md)。
+- **首次使用向导**（`OnboardingWizard.tsx`）：只选个方案就能用（欢迎 → 选方案两步，点选即完成）。每方案只讲"抹哪些数据"，不出现模型/下载/ONNX/LLM 词（方案名"（本机小模型）"这类后缀展示时裁剪掉）；与 L1 同源、复用一个 `Dialog` 骨架、本地记 `docanon.onboarded`。模型装没装一律留给设置，向导不掺和。设置抽屉 Footer 有「重新查看欢迎引导」。

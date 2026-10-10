@@ -105,23 +105,34 @@ export function onnxModelInfo(dir: string): { name: string; hint: string; recomm
 }
 
 /**
- * 打开界面时 L1 下拉默认停在哪一套(用户自己选过就以 localStorage 记的为准)。
- *
- * 默认「法律文书交付」而不是「最准」: **少抹能看出来, 多抹看不出来**。实测一份真实合同, 默认停在
- * 「最准」时, 模型把《民法典》当机构抹掉、把合同金额与期限一起抹成 `**` —— 用户点一下就拿走一份废件。
- * 要连人名机构一起换的(讲课、写案例), 下拉里下一项就是, 提示行也写了。
- *
- * 后端启动时用的 `-c` 是另一回事: 那是"引擎预检按哪套来"。界面默认值在这里定。
+ * 界面上**不给用户选**的方案。`configs/legal.yaml` 仍留在仓库、仍是后端 CLI 的默认 `-c`
+ * （以及它的测试与文档都在），只是产品界面里不再暴露 —— 三选一已经够用，多一个"法律文书交付"
+ * 只会让人在四个名字里犹豫。要恢复：把名字从这里删掉即可。
  */
-export const DEFAULT_SCHEME = "legal.yaml";
+export const HIDDEN_SCHEMES: readonly string[] = ["legal.yaml"];
+
+/** 过滤掉不暴露的方案（列表来自后端，这里只做展示层裁剪，不动后端契约）。 */
+export function visibleSchemes<T extends { name: string }>(rows: T[]): T[] {
+  return rows.filter((r) => !HIDDEN_SCHEMES.includes(r.name));
+}
 
 /**
- * L1 下拉的展示顺序 —— 默认那一套放最前, 用户第一眼看到的就是该用的那套。
+ * 打开界面时 L1 下拉默认停在哪一套（用户自己选过就以 localStorage 记的为准）。
  *
- * 只排序不筛选: 没列进这里的(以后新增的内置、以及"我的配置")按后端给的原顺序排在后面,
- * 一个都不会被藏掉。
+ * 默认「通用」：认得全（号码、人名、机构、地址），又是本机小模型、毫秒级、不用等大模型起服务 ——
+ * 对"打开就能用"最合适。要更快选「最快」，要认得更全选「最准」。
+ *
+ * 后端启动时用的 `-c` 是另一回事：那是"引擎预检按哪套来"。界面默认值在这里定。
  */
-export const SCHEME_ORDER = ["legal.yaml", "onnx.yaml", "llm.yaml", "default.yaml"];
+export const DEFAULT_SCHEME = "onnx.yaml";
+
+/**
+ * L1 下拉的展示顺序 —— 默认那一套放最前，用户第一眼看到的就是该用的那套。
+ *
+ * 只排序不筛选（筛选是上面 `visibleSchemes` 的事）：没列进这里的（以后新增的内置、以及"我的配置"）
+ * 按后端给的原顺序排在后面，一个都不会被藏掉。
+ */
+export const SCHEME_ORDER = ["onnx.yaml", "llm.yaml", "default.yaml"];
 
 export function orderSchemes<T extends { name: string }>(rows: T[]): T[] {
   const rank = (name: string) => {
