@@ -37,8 +37,10 @@ DEFAULT_ONNX_ENTITY_MAP: dict[str, str] = {
 
 @dataclass
 class OnnxConfig:
+    # 兜底默认(配置没写 model_dirs 时用): 只列 gyr66 一个 —— 与产品默认方案(configs/onnx.yaml)
+    # 一致, 实测它单独就满召回, 且首次只需下载 390MB。pii-engineer 是可选(自己加进来即可)。
     model_dirs: list[str] = field(
-        default_factory=lambda: ["var/models/onnx/gyr66", "var/models/onnx/pii-engineer"]
+        default_factory=lambda: ["var/models/onnx/gyr66"]
     )
     entity_map: dict[str, str] = field(
         default_factory=lambda: dict(DEFAULT_ONNX_ENTITY_MAP)

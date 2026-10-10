@@ -13,7 +13,7 @@ npm run doctor     # 确认: 工具链/预览资源/ONNX 模型 + 这份配置�
 ```
 
 `doctor` 里任何"不可用"都先解决它再往下走 —— 本项目宁可报错，也不产出少一层检测的文件。
-报 `onnx_ner` 缺模型就取一次：`npm run models`（约 830MB，走 hf-mirror 镜像）。
+报 `onnx_ner` 缺模型就取一次：`npm run models`（约 390MB，走 hf-mirror 镜像）。
 
 ## 2. 跑一份文档
 

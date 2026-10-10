@@ -5,6 +5,27 @@
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-10-11
+
+### Added
+
+- `scripts/prune_file_viewer.sh`：裁掉 file-viewer 里本产品不预览的格式资源（只对 `dev.sh dist` 收进包的那份调用）。
+
+### Changed
+
+- **安装包瘦身 + 首次要下的模型减半**（两处都有实测依据）：
+  - **file-viewer 预览资源 232MB → 约 62MB**：进包前裁掉**运行时永远不会被请求**的格式资源
+    （draw.io 65M / CAD 39M / Typst 36M / Adobe 设计件 21M / STEP 7M，共 169MB）——格式路由在
+    `apps/web/src/lib/viewer.ts`，本产品只处理 doc/docx/xls/xlsx/ppt/pdf 与 txt/csv/md/图片。
+    本地 `var/vendor/` 保持全量，开发时预览什么都看得到，只有进包的那份瘦身。
+  - **默认方案「通用」的模型 780MB → 390MB**：`configs/onnx.yaml` 只要 `gyr66` 一个。实测
+    （`scripts/bench_detectors.py --no-llm`）它单独就是满召回(12/12, 7ms)，加 `pii-engineer` 取并集
+    没有增量却要多下 390MB；后者改成可选（`npm run models --all` 才取）。
+- **首次向导去掉重复的一步**：原先是"欢迎 → 选方案"两屏，现在打开就是选方案，选中即开始准备；
+  准备阶段补上**预计剩余时间**（按两次轮询间的实际下载速率算，拿不到速率就不显示）。
+- **界面文案去术语**：启动页不再说"加载本地识别引擎"（那是秒级的绑端口，慢的是随后要下载的东西，
+  原文把因果说反了）；设置面板里"命令行跑 `npm run models`"这类甩给用户的提示，换成"选中即自动装好"。
+
 ## [0.4.0] — 2026-10-10
 
 ### Changed

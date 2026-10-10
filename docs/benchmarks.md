@@ -17,16 +17,21 @@
 用**编码器式中文 NER 模型**替代生成式 LLM 做"理解"：
 
 ```bash
-# 模型在 var/models/onnx/ (gyr66 通用中文 NER + pii-engineer 中文 PII)
+# 模型在 var/models/onnx/ (默认方案用 gyr66 通用中文 NER; pii-engineer 可选)
 docanon run ./samples -o var/out -c configs/onnx.yaml
 ```
 
 | 后端 | 召回 | 均耗时 | 依赖 |
 |---|---|---|---|
 | **ONNX 联合**(gyr66 + pii-engineer) + 规则 | **100%** | **34ms** | onnxruntime, 无 server |
+| ONNX gyr66(CLUENER) + 规则 | **100%** | **7ms** | 同上 |
+| ONNX pii-engineer + 规则 | 83.3% | 9ms | 同上（漏机构名与地址） |
 | LLM Qwen3.8-4B | 100% | 1190ms | llama.cpp + 3G 模型 |
 
-- 两个模型取并集：`gyr66` 出机构/人名，`pii-engineer` 出人名/手机/地址/身份证
+- **默认方案(`configs/onnx.yaml`)只要 `gyr66` 一个**：实测它单独就是满召回(12/12, 7ms)，
+  比两个模型取并集还快；`pii-engineer` 单独跑会漏机构与地址(10/12)，取并集对它没有增量。
+  所以首次"准备"从 780MB 降到 390MB，`pii-engineer` 改成可选（`npm run models --all` 才取）。
+- 两个模型取并集时的分工：`gyr66` 出机构/人名/地址，`pii-engineer` 出人名/手机/身份证
 - 金额由规则补（两个 NER 都无 AMOUNT 标签）
 - 代价：标签集固定，不如 LLM 灵活（不能听指令、不能生成自然假名）
 

@@ -14,7 +14,7 @@ npm run doctor     # verify: toolchain/preview assets/ONNX models + which engine
 
 Resolve anything `doctor` reports as "unavailable" before moving on — this project would rather
 fail loudly than produce a file with one detection layer missing.
-If it reports that `onnx_ner` has no model, fetch it once: `npm run models` (about 830MB, via the
+If it reports that `onnx_ner` has no model, fetch it once: `npm run models` (about 390MB, via the
 hf-mirror mirror).
 
 ## 2. Run a document

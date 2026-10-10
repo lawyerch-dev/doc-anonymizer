@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# 取两个 ONNX NER 模型到 var/models/onnx/ (gyr66 通用中文 NER + pii-engineer 中文 PII, 约 830MB)
+# 取 ONNX NER 模型到 var/models/onnx/。
+# 默认只取 gyr66(通用中文 NER, 约 390MB) —— 这是 configs/onnx.yaml(默认方案)唯一要的那个:
+# 实测(`scripts/bench_detectors.py --no-llm`)它单独就满召回, 加 pii-engineer 没有增量, 所以后者改成可选。
 #
-# 为什么要镜像: configs/onnx.yaml(日常推荐路线)要这两个模型, 而官方 huggingface.co 在部分网络下
-# 不可达(本机实测 20s 超时); hf-mirror.com 可达且实测 6.3MB/s。用 HF_ENDPOINT 可换任意兼容端点。
+# 为什么要镜像: 官方 huggingface.co 在部分网络下不可达(本机实测 20s 超时); hf-mirror.com 可达且
+# 实测 6.3MB/s。用 HF_ENDPOINT 可换任意兼容端点。
 #
-# 用法: ./scripts/download_onnx_models.sh [--check] [--only gyr66|pii-engineer] [--dest 目录]
+# 用法: ./scripts/download_onnx_models.sh [--check] [--only gyr66|pii-engineer] [--all] [--dest 目录]
 #   --check   只探测每个文件是否存在(不下载), 用来判断当前端点通不通
+#   --all     取目录里的全部模型(默认只取 gyr66)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -13,13 +16,15 @@ ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
 DEST="$ROOT/var/models/onnx"
 CHECK=0
 ONLY=""
+ALL=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --check) CHECK=1 ;;
+    --all) ALL=1 ;;
     --only) ONLY="${2:?--only 需要模型名}"; shift ;;
     --dest) DEST="${2:?--dest 需要目录}"; shift ;;
-    *) echo "未知参数: $1（用 --check / --only / --dest）" >&2; exit 2 ;;
+    *) echo "未知参数: $1（用 --check / --only / --all / --dest）" >&2; exit 2 ;;
   esac
   shift
 done
@@ -61,7 +66,11 @@ probe() {
 fail=0
 while IFS='|' read -r repo name files; do
   [ -n "$repo" ] || continue
-  [ -z "$ONLY" ] || [ "$ONLY" = "$name" ] || continue
+  if [ -n "$ONLY" ]; then
+    [ "$ONLY" = "$name" ] || continue
+  elif [ "$ALL" = "0" ]; then
+    [ "$name" = "gyr66" ] || continue   # 默认只取默认方案要的那个; 要全套用 --all
+  fi
 
   echo "== $name  ($repo)"
   for f in $files; do

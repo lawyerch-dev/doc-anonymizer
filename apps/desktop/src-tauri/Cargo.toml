@@ -3,7 +3,7 @@ name = "doc-anonymizer"
 # 版本号不在这里"自己说了算": 它与 packages/docanon-core/pyproject.toml、
 # src-tauri/tauri.conf.json 三处必须一致, 由 tests/test_desktop.py 锁住。
 # (界面的版本号从 /health 读, 是同一个数字 —— 只准有一处真相。)
-version = "0.4.0"
+version = "0.5.0"
 description = "本地文档脱敏 (Tauri 桌面壳: 系统 WebView + Python 侧车)"
 edition = "2021"
 rust-version = "1.77"

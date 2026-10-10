@@ -26,7 +26,7 @@ usage() {
   test [pytest 参数]   跑测试(默认 -q)
   cli  <docanon 参数>  直接调 docanon, 例: ./scripts/dev.sh cli run ./samples -o var/out
   engines [配置文件]   看这份配置实际加载了哪些引擎(默认 configs/onnx.yaml)
-  models [额外参数]    取 ONNX NER 模型到 var/models/onnx(约 830MB; 默认走 hf-mirror 镜像)
+  models [额外参数]    取 ONNX NER 模型到 var/models/onnx(默认只要 gyr66, 约 390MB; 默认走 hf-mirror 镜像)
   website              起官网+文档站(website/: Astro + Starlight + @doc-anonymizer/ui, 首次自动 npm install)
   dist                 打可分发版(macOS: .app/.dmg; Windows: -setup.exe; 自带 Python 侧车与资源; 慢, 几分钟)
   doctor               环境自检: 缺什么、为什么起不来
@@ -78,7 +78,7 @@ copy_tree() {
 warn_if_no_onnx_models() {
   if [ -z "$(ls -A var/models/onnx 2>/dev/null || true)" ]; then
     say "提示: var/models/onnx 是空的 —— configs/onnx.yaml 的 onnx_ner 会起不来。"
-    say "      取模型(约 830MB, 走 hf-mirror 镜像): ./scripts/dev.sh models"
+    say "      取模型(默认只要 gyr66, 约 390MB, 走 hf-mirror 镜像): ./scripts/dev.sh models"
     say "      只用规则+词典也行: ./scripts/dev.sh web -c configs/default.yaml"
   fi
 }
@@ -100,7 +100,7 @@ cmd_setup() {
 
   if [ -z "$(ls -A var/models/onnx 2>/dev/null || true)" ]; then
     say ""
-    say "还没有 ONNX 模型(约 830MB)。要中文人名/机构识别就跑一次: ./scripts/dev.sh models"
+    say "还没有 ONNX 模型(默认只要 gyr66, 约 390MB)。要中文人名/机构识别就跑一次: ./scripts/dev.sh models"
   fi
 
   say ""
@@ -233,6 +233,9 @@ PY
   copy_tree apps/web/dist                    "$stage/apps/web/dist"
   copy_tree samples/.                        "$stage/samples/"
   copy_tree var/vendor/file-viewer           "$stage/var/vendor/file-viewer"
+  # 只裁**收进包的这一份**(232MB → 约 63MB): 本地 var/vendor 保持全量, 开发时预览什么都看得到。
+  # 删的是 drawio/CAD/Typst/Adobe/STEP 这些本产品不会请求的资源, 见脚本头注。
+  ./scripts/prune_file_viewer.sh "$stage/var/vendor/file-viewer"
   copy_tree apps/desktop/build/sidecar/docanon-server/. "$stage/sidecar/"
 
   say "== 4/5 装壳的依赖(Tauri CLI; 仅首次) =="
@@ -318,9 +321,11 @@ PY
   else
     say "  $no apps/web/dist     缺 —— docanon web 起不来; 跑: npm run build:web"
   fi
-  for d in var/vendor/file-viewer var/models/onnx/gyr66 var/models/onnx/pii-engineer; do
+  for d in var/vendor/file-viewer var/models/onnx/gyr66; do
     if [ -d "$d" ]; then say "  $ok $d"; else say "  $no $d   缺"; fi
   done
+  # pii-engineer 自默认方案改用 gyr66 单独跑之后就是**可选**的, 缺了不算问题(别误标成 $no)
+  if [ -d var/models/onnx/pii-engineer ]; then say "  $ok var/models/onnx/pii-engineer(可选)"; fi
   local gguf
   gguf="$(ls var/models/*.gguf 2>/dev/null | wc -l | tr -d ' ')"
   say "  · var/models/*.gguf  $gguf 个(LLM 路线需要; 用 ./scripts/download_model.sh 拉)"

@@ -43,29 +43,39 @@ export function clearOnboarding() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
+/** 剩余时间 → 给人看的一句("40 秒" / "3 分钟"), 超过一分钟就不报秒了(假精度) */
+function etaText(sec: number): string {
+  return sec >= 60 ? `${Math.round(sec / 60)} 分钟` : `${sec} 秒`;
+}
+
 /**
- * 首次使用的欢迎向导 —— 只有两件事: 选个方案 + 后台把该准备的准备好。
+ * 首次使用的欢迎向导 —— 只有一件事: 选个方案, 选中就把该准备的准备好。
  *
- * 对用户**不出现任何技术词**: 不提模型、下载、识别器、镜像、文件数; 准备过程就一句"正在准备"。
+ * 对用户**不出现任何技术词**: 不提模型、下载、识别器、镜像、文件数; 准备过程只说"正在准备",
+ * 但一定给出进度与**预计剩余时间** —— 第一次可能要等几百 MB, 只报"稍等"会让人以为卡死了。
  * 方案列表与设置里 L1 下拉同源(后端 yaml 注释 → label + hint)。骨架复用共享 Dialog。
  */
 export function OnboardingWizard({ configs, currentConfig, onPickConfig, onModelsChanged, onDone }: Props) {
   const shown = [...configs].filter((c) => SHOWN.includes(c.name));
   const ordered = [...SHOWN].map((name) => shown.find((c) => c.name === name)).filter(Boolean) as ConfigRow[];
 
-  const [phase, setPhase] = useState<"welcome" | "pick" | "prepare">("welcome");
+  const [phase, setPhase] = useState<"pick" | "prepare">("pick");
   // 默认选中: 当前正在用(若是三个之一) → 否则「通用」
   const [picked, setPicked] = useState<string>(
     () => (SHOWN.includes(currentConfig ?? "") ? currentConfig! : DEFAULT_PICK),
   );
   const [prep, setPrep] = useState<PrepareState | null>(null);
   const [busy, setBusy] = useState(false);
+  const [etaSec, setEtaSec] = useState<number | null>(null);
 
   // 回调放 ref: 上层传内联函数时每渲染都是新身份, 会让下面的轮询 effect 反复重建
   const doneRef = useRef(onDone);
   doneRef.current = onDone;
   const modelsRef = useRef(onModelsChanged);
   modelsRef.current = onModelsChanged;
+  // 上一次采样的(时刻, 已下字节): 后端只报累计字节, 速率得自己在两次轮询间算。
+  // 放 ref 才不会因为轮询 effect 重建而被清掉。
+  const lastSample = useRef<{ at: number; bytes: number } | null>(null);
 
   useEffect(() => {
     if (SHOWN.includes(currentConfig ?? "")) setPicked(currentConfig!);
@@ -81,7 +91,17 @@ export function OnboardingWizard({ configs, currentConfig, onPickConfig, onModel
       api.prepareStatus().then((s) => {
         if (!alive) return;
         setPrep(s);
-        if (s.state === "done") { modelsRef.current(); finish(); }
+        if (s.state === "done") { modelsRef.current(); finish(); return; }
+        // 剩余时间: 总量已知、且这一步确实在推进时才给(否则就是编数字)
+        const now = Date.now();
+        const prev = lastSample.current;
+        if (s.total_bytes && s.done_bytes > 0) {
+          if (prev && now > prev.at && s.done_bytes > prev.bytes) {
+            const rate = (s.done_bytes - prev.bytes) / ((now - prev.at) / 1000);
+            setEtaSec(Math.max(1, Math.round((s.total_bytes - s.done_bytes) / rate)));
+          }
+          lastSample.current = { at: now, bytes: s.done_bytes };
+        }
       }).catch(() => { /* 拉不到就保持上一次显示, 下一次轮询会纠正 */ });
     }, 600);
     return () => { alive = false; window.clearInterval(timer); };
@@ -90,8 +110,11 @@ export function OnboardingWizard({ configs, currentConfig, onPickConfig, onModel
   const start = async () => {
     onPickConfig(picked);        // 先把方案切过去, 再按它准备
     setBusy(true);
+    setEtaSec(null);
+    lastSample.current = null;
     try {
       const s = await api.startPrepare(picked);
+      // 这套方案不需要准备东西(如「最快」只跑规则) —— 直接结束, 不要让人看一个空进度条
       if (s.state === "done") { modelsRef.current(); finish(); return; }
       setPrep(s);
       setPhase("prepare");
@@ -113,25 +136,16 @@ export function OnboardingWizard({ configs, currentConfig, onPickConfig, onModel
     <Dialog open onOpenChange={onDone}>
       <DialogContent className="w-[min(560px,92vw)] max-w-none! gap-0">
         <DialogHeader className="border-b pr-12">
-          <DialogTitle>
-            {phase === "welcome" ? "欢迎使用文档脱敏工具" : phase === "pick" ? "先选个方案" : "正在准备"}
-          </DialogTitle>
+          <DialogTitle>{phase === "pick" ? "先选个方案" : "正在准备"}</DialogTitle>
           <DialogDescription>
-            {phase === "welcome"
-              ? "选一个方案，点「开始」就能用。"
-              : phase === "pick"
-                ? "看看每种会抹掉什么，选一个。"
-                : "第一次使用要先把识别能力准备好，稍等一下。"}
+            {phase === "pick"
+              ? "看看每种会抹掉什么，选一个就能用。"
+              : "第一次使用要先准备一次识别能力（这步要联网，之后一直离线用），稍等一下。"}
           </DialogDescription>
         </DialogHeader>
 
         <div className="min-h-0 overflow-auto p-4">
-          {phase === "welcome" ? (
-            <div className="space-y-1.5 text-sm leading-relaxed">
-              <p>文档在这台电脑上就已脱敏，不会离开它。</p>
-              <p className="text-muted-foreground">给你留了些内置样例，可以先试一份，再换成自己的文件。</p>
-            </div>
-          ) : phase === "pick" ? (
+          {phase === "pick" ? (
             <div className="space-y-2">
               {ordered.map((c) => {
                 const info = SCHEME_INFO[c.name];
@@ -194,6 +208,7 @@ export function OnboardingWizard({ configs, currentConfig, onPickConfig, onModel
                     {prep?.total_bytes
                       ? `${humanSize(prep.done_bytes)} / ${humanSize(prep.total_bytes)}（${pct}%）`
                       : "正在连接…"}
+                    {etaSec !== null ? ` · 预计还需约 ${etaText(etaSec)}` : ""}
                   </p>
                 </>
               )}
@@ -202,17 +217,15 @@ export function OnboardingWizard({ configs, currentConfig, onPickConfig, onModel
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t p-3.5">
-          {phase === "welcome" ? <span /> : phase === "pick" ? (
-            <Button variant="ghost" size="sm" onClick={() => setPhase("welcome")}>返回</Button>
+          {phase === "pick" ? (
+            <span />
           ) : prep?.state === "error" ? (
             <Button variant="ghost" size="sm" onClick={finish}>先跳过</Button>
           ) : (
             <Button variant="ghost" size="sm" onClick={() => void cancelPrep()}>取消</Button>
           )}
 
-          {phase === "welcome" ? (
-            <Button size="sm" onClick={() => setPhase("pick")}>开始</Button>
-          ) : phase === "pick" ? (
+          {phase === "pick" ? (
             <Button size="sm" disabled={busy} onClick={() => void start()}>
               {busy ? "准备中…" : "就用这个"}
             </Button>

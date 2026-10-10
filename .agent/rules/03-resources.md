@@ -34,7 +34,7 @@
 **部署契约**（写在根 `pyproject.toml`）：只支持 editable 安装与打包根两种形态，
 **不做 wheel 自包含**——前端 vendor 232MB、模型 GB 级，本来就不该进包。
 
-**模型**：`configs/onnx.yaml` 需要 `var/models/onnx/{gyr66,pii-engineer}`（约 830MB）：
+**模型**：`configs/onnx.yaml` 默认只要 `var/models/onnx/gyr66`（约 390MB；`pii-engineer` 可选）：
 
 ```bash
 npm run models                   # 默认走 hf-mirror(官方 HF 本机实测超时), HF_ENDPOINT 可换

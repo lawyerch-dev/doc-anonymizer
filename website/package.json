@@ -1,6 +1,6 @@
 {
   "name": "@doc-anonymizer/website",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "doc-anonymizer 官网与文档站: Astro + Starlight + @doc-anonymizer/ui(velora 组件)",
   "type": "module",

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "docanon-engine-ner-llm"
-version = "0.4.0"
+version = "0.5.0"
 description = "docanon LLM NER 引擎: llama-server(OpenAI 兼容)传输层 + 检测器"
 authors = [{ name = "lawyerch" }]
 requires-python = ">=3.10,<3.14"

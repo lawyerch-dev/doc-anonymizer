@@ -1,6 +1,6 @@
 {
   "name": "@doc-anonymizer/ui",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "共享 React/Tailwind 组件库: velora 全量组件(100)+ 区块(31)+ shadcn 基础件 + 设计 token",
   "exports": {

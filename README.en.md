@@ -67,7 +67,7 @@ npm test               # one-shot full test run (all Python + component library 
 | `npm run cli -- <args>` | call docanon directly (mind npm's `--`) |
 | `npm run engines` / `models` / `doctor` | engine self-check / fetch models / environment self-check |
 
-`npm run models` fetches the Chinese NER model that `configs/onnx.yaml` asks for (about 830MB; the official
+`npm run models` fetches the Chinese NER model that `configs/onnx.yaml` asks for (about 390MB; the official
 huggingface.co is unreachable on some networks, so the script defaults to `hf-mirror.com`, and `HF_ENDPOINT`
 can point elsewhere).
 Step-by-step walkthrough: [docs/quickstart.en.md](docs/quickstart.en.md).

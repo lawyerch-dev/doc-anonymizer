@@ -65,7 +65,7 @@ npm test               # 一键全测（Python 全量 + 组件库检查 + 文档
 | `npm run cli -- <参数>` | 直接调 docanon（注意 npm 的 `--`） |
 | `npm run engines` / `models` / `doctor` | 引擎自检 / 取模型 / 环境自检 |
 
-`npm run models` 取 `configs/onnx.yaml` 要的中文 NER 模型（约 830MB；官方 huggingface.co 在部分网络
+`npm run models` 取 `configs/onnx.yaml` 要的中文 NER 模型（约 390MB；官方 huggingface.co 在部分网络
 不可达，脚本默认走 `hf-mirror.com`，`HF_ENDPOINT` 可换）。
 逐步走一遍：[docs/quickstart.md](docs/quickstart.md)。
 

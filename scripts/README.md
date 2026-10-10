@@ -14,8 +14,9 @@
 | `download_model.sh` | 从 ModelScope 下载 GGUF 到 `var/models/` | curl | `./scripts/download_model.sh [Q4_K_M]` |
 | `serve_llm.sh` | 起 llama-server（OpenAI 兼容 :8080） | brew 的 `llama.cpp` | `./scripts/serve_llm.sh [端口] [模型路径]` |
 | `fetch_file_viewer.sh` | 拉 file-viewer 预构建包到 `var/vendor/file-viewer` | npm | `./scripts/fetch_file_viewer.sh` |
+| `prune_file_viewer.sh` | 裁掉 file-viewer 里本产品不预览的格式资源（drawio/CAD/Typst/Adobe/STEP）—— 只对 `dev.sh dist` 收进包的那份调用 | 无 | `./scripts/prune_file_viewer.sh <file-viewer 目录>` |
 | `fetch_libreoffice.sh` | 取 LibreOffice 到 `var/libreoffice`（旧版 .doc/.xls/.wps 自动转换用） | curl / hdiutil(macOS) | `./scripts/fetch_libreoffice.sh [版本]` |
-| `download_onnx_models.sh` | 取两个 ONNX NER 模型到 `var/models/onnx/`（约 830MB；默认走 hf-mirror 镜像） | curl | `./scripts/download_onnx_models.sh [--check] [--only gyr66]` |
+| `download_onnx_models.sh` | 取 ONNX NER 模型到 `var/models/onnx/`（默认只要 `gyr66`，约 390MB；`--all` 取齐全套；默认走 hf-mirror 镜像） | curl | `./scripts/download_onnx_models.sh [--check] [--only gyr66] [--all]` |
 | `make_app_icon.sh` | 由 `apps/desktop/icon.svg` 生成 `icon.iconset/`（macOS）与 `icon.png`（Windows，**必须 256px**），**打包输入，提交进仓库** | rsvg-convert | `./scripts/make_app_icon.sh [--check]` |
 | `bench_models.py` | 逐个 GGUF 跑召回/耗时/内存基准 | 先起 `serve_llm.sh` | `.venv/bin/python scripts/bench_models.py` |
 | `bench_detectors.py` | 各检测器（ONNX / LLM）在样例上的表现 | `var/models/onnx/*` | `.venv/bin/python scripts/bench_detectors.py` |

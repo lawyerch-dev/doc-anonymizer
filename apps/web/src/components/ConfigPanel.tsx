@@ -298,8 +298,8 @@ export function ConfigPanel(props: Props) {
                       </details>
                     </div>
                   ) : (
-                    <Note title="命令行执行 npm run models 即可下载；下载后回到这里就能选。">
-                      本机还没有可用模型 —— 先跑 <code className="rounded bg-muted px-1.5 py-0.5">npm run models</code> 下载
+                    <Note title="选「本机小模型」后，识别能力会随首次准备自动装好。">
+                      本机识别能力还没装好 —— 保持选中「本机小模型」，首次准备时会自动装好
                     </Note>
                   )
                 ) : null}
@@ -317,8 +317,8 @@ export function ConfigPanel(props: Props) {
                       />
                     </div>
                   ) : (
-                    <Note title="命令行执行 npm run models 即可下载；下载后回到这里就能选。">
-                      本机还没有可用模型 —— 先跑 <code className="rounded bg-muted px-1.5 py-0.5">npm run models</code> 下载
+                    <Note title="选一个模型后会自动装好，稍等片刻即可用。">
+                      本机识别能力还没装好 —— 保持选中「本地大模型」，自动装好后就能用
                     </Note>
                   )
                 ) : null}
