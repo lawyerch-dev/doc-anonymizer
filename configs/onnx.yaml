@@ -31,12 +31,12 @@ detectors:
   llm_ner: false
 
 onnx:
-  # 默认只要 gyr66 一个: 实测(scripts/bench_detectors.py --no-llm)它单独就是 12/12 全召回,
-  # 加 pii-engineer 取并集没有增量, 却要多下 390MB —— 首次"准备"因此从 780MB 降到 390MB。
-  # 想要的自己加上: `./scripts/dev.sh models --only pii-engineer`, 再把这行按注释加回 model_dirs。
+  # 默认两个都开: gyr66 出机构/人名/地址/角色, pii-engineer 出人名/手机/身份证/地址。
+  # 基准集上 gyr66 单独就满召回(12/12, 7ms), 但真实材料里两边抓到的并不完全重合 —— 按"宁多勿漏"
+  # 默认都开(代价: 首次"准备"约 780MB)。只想要一个: 删掉下面一行, 并删掉 var/models/onnx 里对应目录。
   model_dirs:
     - var/models/onnx/gyr66
-    # - var/models/onnx/pii-engineer   # 可选: 中文 PII(人名/手机/地址/身份证)
+    - var/models/onnx/pii-engineer
 
 llm:
   base_url: http://127.0.0.1:8080/v1

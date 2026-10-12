@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # 取 ONNX NER 模型到 var/models/onnx/。
-# 默认只取 gyr66(通用中文 NER, 约 390MB) —— 这是 configs/onnx.yaml(默认方案)唯一要的那个:
-# 实测(`scripts/bench_detectors.py --no-llm`)它单独就满召回, 加 pii-engineer 没有增量, 所以后者改成可选。
+# 默认取默认方案(configs/onnx.yaml)要的那两个: gyr66 + pii-engineer(约 780MB)。
+# 基准集上 gyr66 单独就满召回, 但真实材料里两边抓到的并不完全重合, 所以默认都取; 只要一个用 --only。
 #
 # 为什么要镜像: 官方 huggingface.co 在部分网络下不可达(本机实测 20s 超时); hf-mirror.com 可达且
 # 实测 6.3MB/s。用 HF_ENDPOINT 可换任意兼容端点。
 #
 # 用法: ./scripts/download_onnx_models.sh [--check] [--only gyr66|pii-engineer] [--all] [--dest 目录]
 #   --check   只探测每个文件是否存在(不下载), 用来判断当前端点通不通
-#   --all     取目录里的全部模型(默认只取 gyr66)
+#   --all     取目录里的全部模型(默认取默认方案要的两个: gyr66 + pii-engineer)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -69,7 +69,8 @@ while IFS='|' read -r repo name files; do
   if [ -n "$ONLY" ]; then
     [ "$ONLY" = "$name" ] || continue
   elif [ "$ALL" = "0" ]; then
-    [ "$name" = "gyr66" ] || continue   # 默认只取默认方案要的那个; 要全套用 --all
+    # 默认取默认方案(configs/onnx.yaml)要的那两个; 只要一个用 --only gyr66, 要全套用 --all
+    { [ "$name" = "gyr66" ] || [ "$name" = "pii-engineer" ]; } || continue
   fi
 
   echo "== $name  ($repo)"

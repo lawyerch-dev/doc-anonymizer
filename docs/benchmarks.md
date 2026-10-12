@@ -28,9 +28,10 @@ docanon run ./samples -o var/out -c configs/onnx.yaml
 | ONNX pii-engineer + 规则 | 83.3% | 9ms | 同上（漏机构名与地址） |
 | LLM Qwen3.8-4B | 100% | 1190ms | llama.cpp + 3G 模型 |
 
-- **默认方案(`configs/onnx.yaml`)只要 `gyr66` 一个**：实测它单独就是满召回(12/12, 7ms)，
-  比两个模型取并集还快；`pii-engineer` 单独跑会漏机构与地址(10/12)，取并集对它没有增量。
-  所以首次"准备"从 780MB 降到 390MB，`pii-engineer` 改成可选（`npm run models --all` 才取）。
+- **默认方案(`configs/onnx.yaml`)两个模型都开**：基准集上 `gyr66` 单独就是满召回(12/12, 7ms)，
+  比取并集还快；`pii-engineer` 单独跑会漏机构与地址(10/12)。但真实材料里两边抓到的并不完全重合，
+  所以按"宁多勿漏"默认都开 —— 代价是首次"准备"约 780MB。只想要一个：`npm run models --only gyr66`，
+  再把 `configs/onnx.yaml` 里对应的 `model_dirs` 那行删掉。
 - 两个模型取并集时的分工：`gyr66` 出机构/人名/地址，`pii-engineer` 出人名/手机/身份证
 - 金额由规则补（两个 NER 都无 AMOUNT 标签）
 - 代价：标签集固定，不如 LLM 灵活（不能听指令、不能生成自然假名）

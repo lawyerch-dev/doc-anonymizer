@@ -6,6 +6,7 @@ import { Button } from "@doc-anonymizer/ui/primitives/button";
 import { Input } from "@doc-anonymizer/ui/primitives/input";
 import { EFFECT, ENTITY_TYPES, RECOGNITION_MODES, STRATEGIES, STRATEGY_LABELS, detectorsFor, entityLabel, onnxModelInfo, orderSchemes, recognitionMode, visibleSchemes } from "../lib/formats";
 import { LlmModels } from "./LlmModels";
+import { Select } from "./Select";
 import type { ConfigData, ConfigRow, LlmModelRow } from "../types";
 
 type Props = {
@@ -106,10 +107,11 @@ export function ConfigPanel(props: Props) {
           <AccordionContent className="space-y-5 pb-5">
             {/* ---- 方案: 这一项里的主控件, 给足体量; 长解释进 title ---- */}
             <div className="space-y-2.5">
-            <select
+            <Select
               id="schemeSel"
               aria-label="脱敏方案"
-              className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm font-medium transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              wrapperClassName="w-full"
+              className="h-10 font-medium"
               value={configRef ?? ""}
               onChange={(e) => onSelectConfig(e.target.value)}
               title={"不确定选哪个：默认「通用」够用（号码、人名、机构、地址都能认）；\n只要号码、跑得最快选「最快」；要说认得更全（讲课、写案例）选「最准」。"}
@@ -120,7 +122,7 @@ export function ConfigPanel(props: Props) {
                   {c.kind === "user" ? "（我的）" : ""}
                 </option>
               ))}
-            </select>
+            </Select>
             <Note title={currentRow?.hint}>
               {currentRow?.hint || (configKind === "user" ? "你自己保存的方案" : "")}
               {configKind === "user" ? <span className="ml-1 opacity-70">· 我的配置</span> : null}
@@ -262,21 +264,7 @@ export function ConfigPanel(props: Props) {
         </h4>
             {d ? (
               <div className="space-y-5">
-                <label className="flex cursor-pointer items-center gap-2.5 text-sm">
-                  <input
-                    type="checkbox"
-                    className="size-4"
-                    checked={("PERSON" in d.strategies ? d.strategies.PERSON : def) === "pseudonym"
-                      && ("ORG" in d.strategies ? d.strategies.ORG : def) === "pseudonym"}
-                    onChange={(e) => {
-                      const v = e.target.checked ? "pseudonym" : "redact";
-                      onChange({ ...d, strategies: { ...d.strategies, PERSON: v, ORG: v } });
-                    }}
-                  />
-                  用假名替代人名/机构
-                </label>
-
-                {/* 自定义敏感词紧跟在"怎么替代人名/机构"后面: 它也是"我关心的词"这一类的补充 */}
+                {/* 自定义敏感词: "我关心的词"这一类(项目代号、客户名…)的补充; 命中后怎么处理由下面那张表定 */}
                 <div>
                   <Field title="你自己关心的词（项目代号、客户名…），命中后按「自定义」那类的策略处理。">
                     自定义敏感词（逗号分隔）
@@ -307,8 +295,8 @@ export function ConfigPanel(props: Props) {
                           <tr key={t}>
                             <td className="border-b px-2 py-1.5" title={t}>{entityLabel(t)}</td>
                             <td className="border-b px-2 py-1.5">
-                              <select
-                                className="h-7 rounded-md border border-input bg-background px-2 text-[13px]"
+                              <Select
+                                className="h-7 text-[13px]"
                                 value={cur}
                                 onChange={(e) => setStrategy(t, e.target.value)}
                                 aria-label={`${entityLabel(t)} 的脱敏方式`}
@@ -316,7 +304,7 @@ export function ConfigPanel(props: Props) {
                                 {STRATEGIES.map((s) => (
                                   <option key={s} value={s}>{STRATEGY_LABELS[s] ?? s}</option>
                                 ))}
-                              </select>
+                              </Select>
                             </td>
                             <td className="border-b px-2 py-1.5 text-muted-foreground">{EFFECT[cur]}</td>
                           </tr>
