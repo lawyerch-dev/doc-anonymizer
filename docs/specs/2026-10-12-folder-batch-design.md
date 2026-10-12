@@ -151,11 +151,23 @@ Web 界面现在**只能一份一份地选**：`/api/upload` 一次收一个文�
   `webkitRelativePath`），断言列表出现 `.doc-row`、跑完 `#batchSummary` 的计数正确、零控制台报错。
 - 单份流程的既有测试全部保持绿（不变量 3）。
 
-## 风险与先验证的一条
+## 风险与结论：`webkitdirectory` 在 WKWebView 里可用
 
-**`<input webkitdirectory>` 在 Tauri 的 WKWebView 里是否可用。** Safari 支持这个 webkit 前缀属性，
-但 WKWebView 未必放行。**开工第一步就验**：`./scripts/dev.sh desktop` 起壳 → 点「选择文件夹」→
-能弹出系统目录选择即为通过（顺带验一次浏览器形态）。
+**结论（按钉住的版本查证，2026-10-12）**：可用。壳走 wry **0.57.0**，它的 macOS `WKUIDelegate`
+实现了 `webView:runOpenPanelWithParameters:` 并把面板开成"可选目录"：
+
+```rust
+// ~/.cargo/registry/src/*/wry-0.57.0/src/wkwebview/class/wry_web_view_ui_delegate.rs:114
+open_panel.setCanChooseFiles(true);
+open_panel.setAllowsMultipleSelection(open_panel_params.allowsMultipleSelection());
+let allow_dir = open_panel_params.allowsDirectories();   // ← 内核对 input 的 webkitdirectory 的反射
+open_panel.setCanChooseDirectories(allow_dir);
+```
+
+界面仍按"探测不到就不显示入口"写（`"webkitdirectory" in HTMLInputElement.prototype`）：
+环境不给就把入口收起来，而不是点了一下什么都不发生。
+
+**唯一未自动化的一步**：在壳里真点一次目录选择（系统原生对话框没法脚本点），见实施计划 Task 11。
 
 兜底（只影响入口这一层，其余设计不变）：壳里加 `tauri-plugin-dialog` 做原生目录选择，
 选完仍走同一条上传链路。（`apps/desktop/src-tauri/Cargo.toml` 现在没有任何 tauri 插件。）
