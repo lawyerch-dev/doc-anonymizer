@@ -71,6 +71,10 @@ export type ProgressState = {
   done: number;
   total: number;
   cancelled: boolean;
+  /** 批次专用: 正在跑哪一份 / 第几份 / 共几份(单份流程一直是空/0) */
+  file?: string;
+  index?: number;
+  total_files?: number;
 };
 
 export type LlmModelRow = {
@@ -98,6 +102,50 @@ export type Selection = {
   token: string | null;
   filename: string;
   url: string;
+};
+
+/** 列表里每一行的状态: "已处理好的看对比, 没处理好的显示状态"就靠它 */
+export type DocStatus = "idle" | "running" | "ok" | "unsupported" | "error";
+
+/**
+ * 「选择文档」列表里的一行: 示例 / 单份上传 / 文件夹批次里的一份 —— 同一套渲染, 差在来源与状态。
+ * `ref` 就是"选中它要用的东西"(与 `Selection` 同形), 点行后直接拿它去预览/跑。
+ */
+export type DocRow = {
+  key: string;
+  /** 显示名(批次里是相对路径, 保留层级才看得出文件夹结构) */
+  name: string;
+  /** 来源标签: 示例看扩展名, 单份上传写"已上传", 文件夹来的写"文件夹" */
+  tag: string;
+  kind: "preset" | "upload" | "batch";
+  status: DocStatus;
+  counts?: Record<string, number>;
+  outputName?: string;
+  outputUrl?: string;
+  /** 未处理/失败的原因(状态徽标的悬停提示也用它) */
+  reason?: string;
+  ref: Selection;
+};
+
+/** 批次里一份的结果 */
+export type BatchFileResult = {
+  source: string;
+  status: "ok" | "unsupported" | "error";
+  output_name?: string;
+  output_url?: string;
+  counts?: Record<string, number>;
+  reason?: string;
+};
+
+export type BatchSummary = { total: number; ok: number; unsupported: number; error: number };
+
+/** `/api/anonymize{batch}` 的响应 */
+export type AnonymizeBatchResp = {
+  batch: { cancelled: boolean; total: number };
+  summary: BatchSummary;
+  results: BatchFileResult[];
+  mapping_url: string;
+  zip_url: string;
 };
 
 /** `/health`: 桌面壳拿 pid 认自己的后端; 界面拿 version 显示版本号(唯一真相在后端) */

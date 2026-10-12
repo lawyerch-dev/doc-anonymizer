@@ -213,17 +213,19 @@ const STAGE_LABELS: Record<string, string> = {
 };
 
 export function progressInfo(
-  state: { stage: string; done: number; total: number } | null,
+  state: {
+    stage: string; done: number; total: number; file?: string; index?: number; total_files?: number;
+  } | null,
 ): { label: string; pct: number | null } {
   if (!state) return { label: "正在开始…", pct: null };
   const base = STAGE_LABELS[state.stage] ?? "处理中";
-  if (state.stage === "detect" && state.total) {
-    return {
-      label: `${base} ${state.done}/${state.total} 段`,
-      pct: Math.round((state.done / state.total) * 100),
-    };
-  }
-  return { label: `${base}…`, pct: null };
+  const detail = state.stage === "detect" && state.total ? `${base} ${state.done}/${state.total} 段` : `${base}…`;
+  // 批次: 前面补"第 i/N 份" —— 一排文件跑起来, 不说清现在到哪儿了就等于没有进度
+  const prefix = state.total_files ? `第 ${state.index}/${state.total_files} 份 · ` : "";
+  return {
+    label: prefix + detail,
+    pct: state.stage === "detect" && state.total ? Math.round((state.done / state.total) * 100) : null,
+  };
 }
 
 /** 命中位置 → 人话(与旧 app.js 的 locText 一致) */

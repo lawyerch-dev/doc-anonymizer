@@ -10,7 +10,10 @@ import { SettingsSheet } from "./components/SettingsSheet";
 import { StatsCard } from "./components/StatsCard";
 import * as api from "./lib/api";
 import { DEFAULT_SCHEME, progressInfo, visibleSchemes } from "./lib/formats";
-import type { AnonymizeResp, ConfigData, ConfigRow, LlmModelRow, Preset, ProgressState, Selection, UploadResp } from "./types";
+import type {
+  AnonymizeResp, BatchSummary, ConfigData, ConfigRow, DocRow, LlmModelRow, Preset, ProgressState,
+  Selection, UploadResp,
+} from "./types";
 
 /**
  * 署名与版本进**窗口标题栏**（桌面上由壳设原生标题，浏览器里就是这个 document.title）。
@@ -20,6 +23,43 @@ const APP_TITLE = "文档脱敏工具 — 陈恒律师 自用";
 
 type Theme = "light" | "dark";
 
+/** 一批的上限, 与后端 `routes.BATCH_MAX_FILES`/`BATCH_MAX_BYTES` 对齐（前端先拦一道给出人话） */
+const FOLDER_MAX_FILES = 300;
+const FOLDER_MAX_BYTES = 500 * 1024 * 1024;
+/** 单文件上限, 与后端 `routes._MAX_BYTES` 对齐 */
+const MAX_FILE_BYTES = 50 * 1024 * 1024;
+
+/**
+ * 选文件夹靠 `<input webkitdirectory>`。它在 Safari/Chromium 上都有, 但**WKWebView(桌面壳)未必放行** --
+ * 探测一次: 没有这个属性就不显示入口, 而不是点了一下什么都不发生。
+ */
+const HAS_FOLDER_PICKER =
+  typeof HTMLInputElement !== "undefined" && "webkitdirectory" in HTMLInputElement.prototype;
+
+const extOf = (name: string) => (name.includes(".") ? `.${name.split(".").pop()!.toLowerCase()}` : "");
+
+function presetRows(presets: Preset[]): DocRow[] {
+  return presets.map((p) => ({
+    key: `preset:${p.name}`,
+    name: p.name,
+    tag: p.name.split(".").pop() ?? "",
+    kind: "preset",
+    status: "idle",
+    ref: { preset: p.name, token: null, filename: p.name, url: p.url },
+  }));
+}
+
+function uploadRows(uploads: UploadResp[]): DocRow[] {
+  return uploads.map((u) => ({
+    key: `upload:${u.token}`,
+    name: u.filename,
+    tag: "已上传",
+    kind: "upload",
+    status: "idle",
+    ref: { preset: null, token: u.token, filename: u.filename, url: u.url },
+  }));
+}
+
 function initialTheme(): Theme {
   const saved = localStorage.getItem("docanon.theme");
   if (saved === "light" || saved === "dark") return saved;
@@ -28,13 +68,22 @@ function initialTheme(): Theme {
 
 export default function App() {
   const [theme, setTheme] = useState<Theme>(initialTheme);
-  const [presets, setPresets] = useState<Preset[]>([]);
   // 示例**不自动加载**(启动时不读 samples/, 只在上方「加载示例」被点过之后才有内容)
   const [presetsLoading, setPresetsLoading] = useState(false);
   const [presetsLoaded, setPresetsLoaded] = useState(false);
   const [uploading, setUploading] = useState(false);
-  // 本次会话上传过的文件: 与示例同列显示(上传完不在列表里露面, 用户就不知道自己选了什么)
-  const [uploads, setUploads] = useState<UploadResp[]>([]);
+  /** 上传进度(选文件夹时逐份传, 得让人看见"传到第几份") */
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
+  /** 界面上能认出哪些类型: 从 /api/formats 拿(后端抽取器注册表), 前端不硬编码 */
+  const [formats, setFormats] = useState<string[]>([]);
+
+  /** 列表的两种来源(互斥): 单份(示例/上传) 或 一个文件夹批次 */
+  const [mode, setMode] = useState<"single" | "folder">("single");
+  const [rows, setRows] = useState<DocRow[]>([]);
+  const [batchRows, setBatchRows] = useState<DocRow[]>([]);
+  const [batch, setBatch] = useState<{ id: string; folder: string; zipUrl: string; mappingUrl: string } | null>(null);
+  const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
 
   const [configs, setConfigs] = useState<ConfigRow[]>([]);
   const [configRef, setConfigRef] = useState<string | null>(null);
@@ -63,6 +112,15 @@ export default function App() {
   // 日志弹窗关掉后焦点要回到这个按钮, 否则键盘用户被扔到页面开头(组件库的默认回收依赖"点击时按钮已聚焦")
   const logBtnRef = useRef<HTMLButtonElement>(null);
 
+  const visibleRows = mode === "folder" ? batchRows : rows;
+  const activeRow = visibleRows.find((r) => r.key === activeKey) ?? null;
+  // 用布尔量而不是到处 `mode === "folder"`: 在 JSX 的某个分支里 mode 已被收窄, 再比较会被 TS 判成恒假
+  const folderMode = mode === "folder";
+  // 一键脱敏只在"有东西可跑"时出现: 单份模式要选中一份, 文件夹模式要有至少一份能跑的
+  const canRun = folderMode
+    ? batchRows.some((r) => r.status !== "unsupported")
+    : rows.length > 0 || selection !== null;
+
   // 暗色: 顶层加 .dark(theme.css 的 dark 变体就挂在这个 class 上)
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -83,7 +141,9 @@ export default function App() {
   const refreshPresets = useCallback(async () => {
     setPresetsLoading(true);
     try {
-      setPresets(await api.loadPresets());
+      const list = await api.loadPresets();
+      // 示例行与上传行拼成单份列表(上传件在前 —— 刚传的就是要看的那份)
+      setRows((prev) => [...prev.filter((r) => r.kind === "upload"), ...presetRows(list)]);
       setError(null);
     } catch (e) {
       setError(`示例加载失败: ${(e as Error).message}`);
@@ -140,6 +200,8 @@ export default function App() {
   useEffect(() => { refreshModels(); }, [refreshModels]);
   useEffect(() => {
     api.loadHealth().then((h) => setVersion(h.version)).catch(() => {});
+    // 类型清单拿不到就不预过滤(照样能跑, 只是不在选文件夹时提示"X 个不支持")
+    api.loadFormats().then(setFormats).catch(() => setFormats([]));
   }, []);
 
   // 版本号一到就写进标题栏。与桌面壳设的那个原生标题是同一句 —— 谁生效都对。
@@ -147,32 +209,184 @@ export default function App() {
     document.title = version ? `${APP_TITLE} · v${version}` : APP_TITLE;
   }, [version]);
 
-  const pickPreset = (p: Preset) => {
-    setSelection({ preset: p.name, token: null, filename: p.name, url: p.url });
-    setResult(null);
+  /**
+   * 选中一份文档。
+   * **已处理好的** → 右栏给正常的脱敏前后对比; **还没处理好的**（待跑/跑中/未处理/失败）→
+   * 右栏显示它的状态与原因, 而不是一片空白对比。
+   */
+  const pickRow = (row: DocRow) => {
+    setSelection(row.ref);
+    setActiveKey(row.key);
+    setResult(row.status === "ok" && row.outputUrl
+      ? { output_name: row.outputName ?? "", output_url: row.outputUrl, counts: row.counts ?? {}, kind: "" }
+      : null);
     setError(null);
     setDrawerOpen(false);
   };
 
-  // 选中一份已上传的文档(刚上传完也走这里): 与 pickPreset 一样, 换文档就把上一次的结果与报错清掉
-  const selectUpload = (u: UploadResp) => {
-    setSelection({ preset: null, token: u.token, filename: u.filename, url: u.url });
-    setResult(null);
-    setError(null);
-    setDrawerOpen(false);
-  };
-
-  const upload = async (file: File) => {
+  const upload = async (files: File[]) => {
     setUploading(true);
     try {
-      const up = await api.uploadFile(file);
-      // 同名重传就换掉旧的那条, 列表里不留两份一样的
-      setUploads((prev) => [up, ...prev.filter((u) => u.filename !== up.filename)]);
-      selectUpload(up);
+      for (const [i, file] of files.entries()) {
+        const up = await api.uploadFile(file);
+        const row = uploadRows([up])[0];
+        // 同名重传就换掉旧的那条, 列表里不留两份一样的
+        setRows((prev) => [row, ...prev.filter((r) => !(r.kind === "upload" && r.name === up.filename))]);
+        pickRow(row);
+        if (files.length > 1) setUploadProgress({ done: i + 1, total: files.length });
+      }
+      setMode("single");
     } catch (e) {
       setError(`上传失败: ${(e as Error).message}`);
     } finally {
       setUploading(false);
+      setUploadProgress(null);
+    }
+  };
+
+  /**
+   * 选一个文件夹 = 一个批次: 逐份上传(保留相对目录), 然后一次跑完。
+   *
+   * 预过滤: 不支持的扩展名与超过 50MB 的不上传 —— 但它们**照样进列表**, 状态就写"未处理 + 原因";
+   * 静默丢掉才是有害的那种"省事"。
+   */
+  const pickFolder = async (files: File[]) => {
+    const rel = (f: File) => (f.webkitRelativePath || f.name).split("/").slice(1).join("/") || f.name;
+    // 隐藏项整层跳过(与后端/CLI 同规则): 否则每个 Mac 文件夹都会多出一堆 .DS_Store
+    const picked = files
+      .map((f) => ({ file: f, relpath: rel(f) }))
+      .filter((x) => !x.relpath.split("/").some((p) => p.startsWith(".")));
+    const folder = (files[0]?.webkitRelativePath || "").split("/")[0] || "文件夹";
+    const known = (name: string) => formats.length === 0 || formats.includes(extOf(name));
+    const todo = picked.filter((x) => known(x.file.name) && x.file.size <= MAX_FILE_BYTES);
+    const bad = picked.filter((x) => !known(x.file.name));
+    const tooBig = picked.filter((x) => known(x.file.name) && x.file.size > MAX_FILE_BYTES);
+
+    if (!todo.length && !bad.length && !tooBig.length) {
+      setError("这个文件夹里没有可脱敏的文档");
+      return;
+    }
+    if (todo.length > FOLDER_MAX_FILES || todo.reduce((n, x) => n + x.file.size, 0) > FOLDER_MAX_BYTES) {
+      setError(`一次最多 ${FOLDER_MAX_FILES} 份 / 500MB（这次 ${todo.length} 份），分两批跑`);
+      return;
+    }
+    if (!todo.length) {
+      // 全是不能跑的: 照样把行立起来, 让"为什么没跑"写在每一份上, 而不是只弹一句红条
+      setError("这个文件夹里没有可脱敏的文档 —— 每份的原因写在下面的列表里");
+    }
+
+    const id = `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const row = (x: { file: File; relpath: string }, status: DocRow["status"], reason?: string): DocRow => ({
+      key: `${id}:${x.relpath}`,
+      name: x.relpath,
+      tag: "文件夹",
+      kind: "batch",
+      status,
+      reason,
+      ref: {
+        preset: null, token: id, filename: x.relpath,
+        url: status === "idle" ? `/uploads/${id}/${x.relpath}` : "",
+      },
+    });
+    setBatchRows([
+      ...todo.map((x) => row(x, "idle")),
+      ...bad.map((x) => row(x, "unsupported", `${extOf(x.file.name) || "无扩展名"} 不支持`)),
+      ...tooBig.map((x) => row(x, "unsupported", "超过 50MB 上限")),
+    ]);
+    setBatch({ id, folder, zipUrl: "", mappingUrl: "" });
+    setBatchSummary(null);
+    setMode("folder");
+    setSelection(null);
+    setActiveKey(null);
+    setResult(null);
+    setError(null);
+
+    setUploading(true);
+    setUploadProgress({ done: 0, total: todo.length });
+    const failed = new Map<string, string>();
+    for (const [i, x] of todo.entries()) {
+      try {
+        await api.uploadFile(x.file, { id, relpath: x.relpath });
+      } catch (e) {
+        failed.set(x.relpath, (e as Error).message);
+      }
+      setUploadProgress({ done: i + 1, total: todo.length });
+    }
+    setUploading(false);
+    setUploadProgress(null);
+    if (failed.size) {
+      // 没传上去的不能留在"待跑": 标成失败并把原因说清楚
+      setBatchRows((prev) => prev.map((r) => failed.has(r.name)
+        ? { ...r, status: "error", reason: `上传失败：${failed.get(r.name)}` }
+        : r));
+    }
+  };
+
+  const configPayload = (): { config?: string | ConfigData } => {
+    // 未编辑 → 发口径名(日志显示真实口径); 编辑过 → 发内联对象
+    if (configData && configDirty) return { config: configData };
+    if (configRef) return { config: configRef };
+    return {};
+  };
+
+  /** 跑批次: 一个 job, 进度按"第 i/N 份"走; 取消时已完成的那几份是完整产物, 照旧给出来 */
+  const runBatch = async () => {
+    if (!batch) return;
+    const t0 = Date.now();
+    const job = `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    runningJob.current = job;
+    setRunning(true);
+    setError(null);
+    setProgress(null);
+    setStartedAt(t0);
+    const poll = window.setInterval(() => {
+      api.runProgress(job).then(setProgress).catch(() => {});
+    }, 600);
+    setBatchRows((prev) => prev.map((r) => (r.status === "idle" ? { ...r, status: "running" } : r)));
+    try {
+      const resp = await api.anonymizeBatch({ batch: batch.id, job, ...configPayload() });
+      const bySource = new Map(resp.results.map((r) => [r.source, r]));
+      const nextRows = batchRows.map((r) => {
+        const hit = bySource.get(r.name);
+        // 后端没提到这一份 = 它压根没上传(预过滤掉的), 状态本来就是对的; 只有还挂着"跑中"的要放回去
+        if (!hit) return r.status === "running" ? { ...r, status: "idle" as const } : r;
+        return hit.status === "ok"
+          ? { ...r, status: "ok" as const, counts: hit.counts, outputName: hit.output_name, outputUrl: hit.output_url, reason: undefined }
+          : { ...r, status: hit.status, reason: hit.reason };
+      });
+      setBatchRows(nextRows);
+      setBatch((b) => (b ? { ...b, zipUrl: resp.zip_url, mappingUrl: resp.mapping_url } : b));
+      // 汇总按**列表**算, 不用后端的 summary: 客户端预过滤掉的(类型不支持/超 50MB/没传上去的)不在后端账上,
+      // 按后端算会得出"2 份"，而用户眼前明明有 3 行 —— 那是两套数字打架。
+      setBatchSummary({
+        total: nextRows.length,
+        ok: nextRows.filter((r) => r.status === "ok").length,
+        unsupported: nextRows.filter((r) => r.status === "unsupported").length,
+        error: nextRows.filter((r) => r.status === "error").length,
+      });
+      setResult({
+        output_name: "",
+        output_url: "",
+        kind: "",
+        counts: resp.results.reduce<Record<string, number>>((acc, r) => {
+          for (const [k, v] of Object.entries(r.counts ?? {})) acc[k] = (acc[k] ?? 0) + v;
+          return acc;
+        }, {}),
+        trace: { source: batch.folder, extractor: "", detectors: [], timing: { total_ms: Date.now() - t0 }, detections: [] },
+      });
+      if (resp.batch.cancelled) {
+        setError(`已取消：这批跑完 ${resp.summary.ok + resp.summary.unsupported + resp.summary.error}/${resp.summary.total} 份，已完成的产物在上面。`);
+      }
+    } catch (e) {
+      const msg = (e as Error).message;
+      setBatchRows((prev) => prev.map((r) => (r.status === "running" ? { ...r, status: "idle" } : r)));
+      setError(msg.includes("已取消") ? null : `脱敏失败: ${msg}`);
+    } finally {
+      window.clearInterval(poll);
+      setProgress(null);
+      setStartedAt(null);
+      runningJob.current = null;
+      setRunning(false);
     }
   };
 
@@ -192,15 +406,18 @@ export default function App() {
       const payload: { preset?: string; token?: string; config?: string | ConfigData; job?: string } = { job };
       if (selection.preset) payload.preset = selection.preset;
       else if (selection.token) payload.token = selection.token;
-      // 未编辑 → 发口径名(日志显示真实口径); 编辑过 → 发内联对象
-      if (configData && configDirty) payload.config = configData;
-      else if (configRef) payload.config = configRef;
+      Object.assign(payload, configPayload());
 
       const resp = await api.anonymize(payload);
       setResult(resp);
+      // 这一行标记成"已处理", 与批次里的行同一套状态(点回去才有对比看)
+      setRows((prev) => prev.map((r) => (r.key === activeKey
+        ? { ...r, status: "ok", counts: resp.counts, outputName: resp.output_name, outputUrl: resp.output_url, reason: undefined }
+        : r)));
       setLogOpen(false);
     } catch (e) {
       const msg = (e as Error).message;
+      setRows((prev) => prev.map((r) => (r.key === activeKey ? { ...r, status: "error", reason: msg } : r)));
       // 用户自己按的取消: 不该当成"脱敏失败"弹红条
       setError(msg.includes("已取消") ? null : `脱敏失败: ${msg}`);
     } finally {
@@ -247,6 +464,24 @@ export default function App() {
 
   const runInfo = progressInfo(progress);
   const elapsed = startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0;
+  const batchTimeMs = result?.trace?.timing?.total_ms ?? null;
+
+  /** 右栏(脱敏后)该显示什么: 已处理好的给对比, 没处理好的给它的状态 */
+  const outPlaceholder = !activeRow
+    ? (mode === "folder" ? "点一份看它的前后对比，或先点「一键脱敏」跑完这批" : "点击「一键脱敏」查看结果")
+    : activeRow.status === "ok"
+      ? "正在加载脱敏件…"
+      : activeRow.status === "running"
+        ? `正在处理：${runInfo.label}`
+        : activeRow.status === "unsupported"
+          ? `未处理：${activeRow.reason ?? "该类型暂不支持"}`
+          : activeRow.status === "error"
+            ? `失败：${activeRow.reason ?? "未知原因"}`
+            : "还没跑 —— 点「一键脱敏」";
+  /** 左栏(原文)同理: 没传上去的那份没有原文可看, 原因写在原地 */
+  const srcPlaceholder = !activeRow
+    ? "左侧选择上传文档"
+    : `未上传：${activeRow.reason ?? "这份没有可预览的原文"}`;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -267,7 +502,7 @@ export default function App() {
           <Button
             ref={logBtnRef}
             variant="ghost" size="xs"
-            disabled={!result?.trace}
+            disabled={mode === "folder" || !result?.trace?.detections?.length}
             onClick={() => setLogOpen(true)}
           >
             运行日志
@@ -325,28 +560,61 @@ export default function App() {
           }`}
         >
           <PresetList
-            presets={presets}
-            uploads={uploads}
-            activeName={selection?.filename ?? null}
+            rows={visibleRows}
+            activeKey={activeKey}
             loading={presetsLoading}
             loaded={presetsLoaded}
             uploading={uploading}
-            onPick={pickPreset}
-            onPickUpload={selectUpload}
+            uploadProgress={uploadProgress}
+            folderName={mode === "folder" ? batch?.folder ?? "文件夹" : null}
+            hasFolderPicker={HAS_FOLDER_PICKER}
+            onPick={pickRow}
+            onPickFolder={(files) => void pickFolder(files)}
+            onExitFolder={() => { setMode("single"); setSelection(null); setActiveKey(null); setResult(null); }}
             onRefresh={() => void refreshPresets()}
-            onUpload={(f) => void upload(f)}
+            onUpload={(files) => void upload(files)}
           />
-          {/* 一键脱敏只在"有东西可跑"时出现: 列表里有文档(示例或上传件), 或已选中一份文档
-              (示例还没加载时列表是空的, 所以照样要看 selection) */}
-          {presets.length > 0 || selection !== null ? (
-            <Button id="run" className="w-full" disabled={!selection || running} onClick={() => void run()}>
-              {running ? "脱敏中…" : "一键脱敏"}
+          {canRun ? (
+            <Button
+              id="run"
+              className="w-full"
+              disabled={running || (!folderMode && !selection)}
+              onClick={() => void (folderMode ? runBatch() : run())}
+            >
+              {running ? "脱敏中…" : folderMode ? `一键脱敏（${batchRows.length} 份）` : "一键脱敏"}
             </Button>
+          ) : null}
+          {/* 整包取走: 只含脱敏件; 映射表含原文, 单独一个口子并说明风险。
+              用 outline 而不是再来一个实心主按钮 —— 与「一键脱敏」并排时两个黑块看着像一对开关 */}
+          {batch?.zipUrl ? (
+            <a
+              id="downloadZip"
+              href={`${batch.zipUrl}?name=${encodeURIComponent(batch.folder)}`}
+              download
+              className="inline-flex w-full flex-none items-center justify-center rounded-lg border px-2.5 py-2 text-sm font-medium hover:bg-muted"
+            >
+              打包下载（zip）
+            </a>
+          ) : null}
+          {batch?.mappingUrl ? (
+            <a
+              href={batch.mappingUrl}
+              download
+              title="映射表含原文, 切勿与脱敏件一起外发"
+              className="flex-none text-center text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              下载映射表（含原文，勿外发）
+            </a>
           ) : null}
           {/* 最准档跑一份合同要 30+ 秒: 只说"脱敏中…"用户会以为卡死了 —— 给出阶段、进度、已用秒数, 并允许取消 */}
           {running ? (
             <div className="space-y-1.5" id="progress">
               <p className="text-xs leading-snug text-foreground/80">{runInfo.label}</p>
+              {progress?.file ? (
+                <p className="truncate text-[11px] leading-snug text-muted-foreground" title={progress.file}>
+                  {progress.file}
+                </p>
+              ) : null}
               {runInfo.pct !== null ? (
                 <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
                   <div
@@ -386,8 +654,9 @@ export default function App() {
             <StatsCard
               counts={result.counts}
               total={api.totalCounts(result.counts)}
-              totalMs={result.trace?.timing?.total_ms ?? null}
+              totalMs={batchTimeMs}
               convertedFrom={result.trace?.converted_from ?? null}
+              summary={mode === "folder" ? batchSummary : null}
             />
           ) : null}
         </aside>
@@ -399,14 +668,14 @@ export default function App() {
 
         <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
           <Preview
-            pane="src" title="原文" placeholder="左侧选择上传文档"
+            pane="src" title="原文" placeholder={srcPlaceholder}
             filename={selection?.filename ?? ""} url={selection?.url ?? ""}
-            action={selection ? { label: "下载原件", href: selection.url } : undefined}
+            action={selection?.url ? { label: "下载原件", href: selection.url } : undefined}
           />
           <Preview
-            pane="out" title="脱敏后" placeholder="点击「一键脱敏」查看结果"
+            pane="out" title="脱敏后" placeholder={outPlaceholder}
             filename={result?.output_name ?? ""} url={result?.output_url ?? ""}
-            action={result ? { label: "下载脱敏件", href: result.output_url } : undefined}
+            action={result?.output_url ? { label: "下载脱敏件", href: result.output_url } : undefined}
           />
         </main>
       </div>

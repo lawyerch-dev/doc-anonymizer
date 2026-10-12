@@ -1,6 +1,6 @@
 import type {
-  AnonymizeResp, ConfigData, ConfigDetail, ConfigRow, Detection, DownloadState, Health, LlmModelRow,
-  ModelsResp, Preset, PrepareState, ProgressState, UploadResp,
+  AnonymizeBatchResp, AnonymizeResp, ConfigData, ConfigDetail, ConfigRow, Detection, DownloadState, Health,
+  LlmModelRow, ModelsResp, Preset, PrepareState, ProgressState, UploadResp,
 } from "../types";
 
 async function json<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
@@ -67,14 +67,31 @@ export const cancelModelDownload = () =>
     body: JSON.stringify({}),
   });
 
-export const uploadFile = (file: File) =>
+/** 上传一份文件。带 `batch` 时落进批次目录并保留 `relpath`(界面"选文件夹"走这条)。 */
+export const uploadFile = (file: File, batch?: { id: string; relpath: string }) =>
   fileToBase64(file).then((content_b64) =>
-    postJson<UploadResp>("/api/upload", { filename: file.name, content_b64 }),
+    postJson<UploadResp>("/api/upload", {
+      filename: file.name,
+      content_b64,
+      ...(batch ? { batch: batch.id, relpath: batch.relpath } : {}),
+    }),
   );
+
+/**
+ * 界面上"选文件夹"的预过滤清单。
+ * 来源是后端的抽取器注册表 —— 前端**不硬编码**类型, 否则加个抽取器界面就不认。
+ */
+export const loadFormats = () =>
+  json<{ extensions: string[] }>("/api/formats").then((r) => r.extensions);
 
 export const anonymize = (payload: {
   preset?: string; token?: string; config?: string | ConfigData; job?: string;
 }) => postJson<AnonymizeResp>("/api/anonymize", payload);
+
+/** 一个文件夹一批跑完(逐份三态见响应里的 results) */
+export const anonymizeBatch = (payload: {
+  batch: string; config?: string | ConfigData; job?: string;
+}) => postJson<AnonymizeBatchResp>("/api/anonymize", payload);
 
 /** 跑的时候按 job id 读进度(轮询, 不占那条正在跑的请求) */
 export const runProgress = (job: string) =>
