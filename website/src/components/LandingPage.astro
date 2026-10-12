@@ -3,6 +3,7 @@
  * 落地页外壳(头部/落地页/页脚)。中英两条路由共用它, 只传 locale —— 避免同一个页面抄两遍。
  */
 import Landing from "./Landing";
+import ThemeSwitch from "./ThemeSwitch";
 import { url } from "../lib/site";
 import { COPY } from "../lib/landing-copy";
 
@@ -12,6 +13,8 @@ const c = COPY[locale];
 const repo = "https://github.com/lawyerch-dev/doc-anonymizer";
 // 语言切换: 中文在根路径, 英文在 /en/
 const switchHref = locale === "zh" ? url("/en/") : url("/");
+// 页脚链接混着站内与 GitHub: 站内那条必须加 base, 否则子路径部署 404
+const href = (target: string) => (target.startsWith("/") ? url(target) : target);
 ---
 <!doctype html>
 <html lang={c.htmlLang} class="h-full antialiased">
@@ -20,23 +23,45 @@ const switchHref = locale === "zh" ? url("/en/") : url("/");
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{c.title}</title>
     <meta name="description" content={c.metaDescription} />
+    {/* 主题防闪: 先于任何样式跑, 按存储值(与文档站同一键)或系统偏好决定首屏亮暗 */}
+    <script is:inline>
+      (() => {
+        const stored = localStorage.getItem("starlight-theme");
+        const dark =
+          stored === "dark" ||
+          (stored !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        const root = document.documentElement;
+        root.classList.toggle("dark", dark);
+        root.dataset.theme = dark ? "dark" : "light";
+      })();
+    </script>
   </head>
   <body class="min-h-full bg-background text-foreground">
     <header class="border-b">
-      <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4 text-sm">
+      <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 text-sm">
         <a href={url(locale === "zh" ? "/" : "/en/")} class="font-medium">doc-anonymizer</a>
         <nav class="flex items-center gap-4 text-muted-foreground">
-          <a href={url(c.docs[0]!.href)} class="hover:text-foreground">{c.nav.docs}</a>
+          <a href={href(c.docs[0]!.href)} class="hover:text-foreground">{c.nav.docs}</a>
           <a href={repo} class="hover:text-foreground">{c.nav.github}</a>
           <a href={switchHref} class="rounded-md border px-2 py-1 hover:text-foreground">{c.nav.switchLabel}</a>
+          <ThemeSwitch client:load />
         </nav>
       </div>
     </header>
     <Landing client:load repo={repo} locale={locale} />
-    <footer class="border-t px-6 py-8 text-sm text-muted-foreground">
-      <div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
-        <span>{c.footerLicense}</span>
-        <span>{c.footerTech}</span>
+    <!-- 收口横条: 浅色下走反色(深底), 与正文卡片明显分开;
+         深色下 --foreground 接近纯白, 反色会留一条扎眼的白带 —— 改成 card 面 + 细线分隔。 -->
+    <footer class="border-t border-transparent bg-foreground text-background dark:border-border dark:bg-card dark:text-foreground">
+      <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-8 gap-y-4 px-6 py-10">
+        <div>
+          <div class="text-lg font-semibold">doc-anonymizer</div>
+          <div class="mt-1 text-xs opacity-70">{c.footerLicense} · {c.footerTech}</div>
+        </div>
+        <nav class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+          {c.footerLinks.map((l) => (
+            <a href={href(l.href)} class="opacity-70 transition-opacity hover:opacity-100">{l.label}</a>
+          ))}
+        </nav>
       </div>
     </footer>
   </body>
