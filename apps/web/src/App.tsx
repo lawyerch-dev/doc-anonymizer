@@ -10,7 +10,7 @@ import { SettingsSheet } from "./components/SettingsSheet";
 import { StatsCard } from "./components/StatsCard";
 import * as api from "./lib/api";
 import { DEFAULT_SCHEME, progressInfo, visibleSchemes } from "./lib/formats";
-import type { AnonymizeResp, ConfigData, ConfigRow, LlmModelRow, Preset, ProgressState, Selection } from "./types";
+import type { AnonymizeResp, ConfigData, ConfigRow, LlmModelRow, Preset, ProgressState, Selection, UploadResp } from "./types";
 
 /**
  * 署名与版本进**窗口标题栏**（桌面上由壳设原生标题，浏览器里就是这个 document.title）。
@@ -33,6 +33,8 @@ export default function App() {
   const [presetsLoading, setPresetsLoading] = useState(false);
   const [presetsLoaded, setPresetsLoaded] = useState(false);
   const [uploading, setUploading] = useState(false);
+  // 本次会话上传过的文件: 与示例同列显示(上传完不在列表里露面, 用户就不知道自己选了什么)
+  const [uploads, setUploads] = useState<UploadResp[]>([]);
 
   const [configs, setConfigs] = useState<ConfigRow[]>([]);
   const [configRef, setConfigRef] = useState<string | null>(null);
@@ -152,14 +154,21 @@ export default function App() {
     setDrawerOpen(false);
   };
 
+  // 选中一份已上传的文档(刚上传完也走这里): 与 pickPreset 一样, 换文档就把上一次的结果与报错清掉
+  const selectUpload = (u: UploadResp) => {
+    setSelection({ preset: null, token: u.token, filename: u.filename, url: u.url });
+    setResult(null);
+    setError(null);
+    setDrawerOpen(false);
+  };
+
   const upload = async (file: File) => {
     setUploading(true);
     try {
       const up = await api.uploadFile(file);
-      setSelection({ preset: null, token: up.token, filename: up.filename, url: up.url });
-      setResult(null);
-      setError(null);
-      setDrawerOpen(false);
+      // 同名重传就换掉旧的那条, 列表里不留两份一样的
+      setUploads((prev) => [up, ...prev.filter((u) => u.filename !== up.filename)]);
+      selectUpload(up);
     } catch (e) {
       setError(`上传失败: ${(e as Error).message}`);
     } finally {
@@ -317,16 +326,18 @@ export default function App() {
         >
           <PresetList
             presets={presets}
-            activeName={selection?.preset ?? null}
+            uploads={uploads}
+            activeName={selection?.filename ?? null}
             loading={presetsLoading}
             loaded={presetsLoaded}
             uploading={uploading}
             onPick={pickPreset}
+            onPickUpload={selectUpload}
             onRefresh={() => void refreshPresets()}
             onUpload={(f) => void upload(f)}
           />
-          {/* 一键脱敏只在"有东西可跑"时出现: 示例列表有内容, 或已选中/已上传一份文档
-              (上传件不进列表, 所以要带 selection —— 否则只上传不加载示例就没法跑) */}
+          {/* 一键脱敏只在"有东西可跑"时出现: 列表里有文档(示例或上传件), 或已选中一份文档
+              (示例还没加载时列表是空的, 所以照样要看 selection) */}
           {presets.length > 0 || selection !== null ? (
             <Button id="run" className="w-full" disabled={!selection || running} onClick={() => void run()}>
               {running ? "脱敏中…" : "一键脱敏"}

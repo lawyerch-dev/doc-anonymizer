@@ -34,3 +34,22 @@
   --color-selected: var(--selected);
   --color-selected-foreground: var(--selected-foreground);
 }
+
+/* 限高后的内部滚动区(命中统计表、文档列表)要让人看出"还能往下滚":
+   macOS 的浮层滚动条平时不显示, 于是"刚好切在半行"看着就像内容被裁掉了、滚不动。
+   只走 ::-webkit-scrollbar —— 一旦同时写了 scrollbar-width/scrollbar-color,
+   Chromium 就不再采用自定义滚动条(退回浮层款), 又变回看不见。
+   颜色只用主题里的边框色, 不引入新色。 */
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}

@@ -38,7 +38,7 @@ export function StatsCard({ counts, total, totalMs, convertedFrom }: Props) {
                 已由 {convertedFrom} 转换，版式可能被重排
               </p>
             ) : null}
-            <div className="max-h-40 overflow-auto overscroll-contain">
+            <div className="scroll-thin max-h-40 overflow-auto overscroll-contain">
               <table id="stats" className="w-full border-collapse text-[13px]">
                 <thead>
                   <tr className="text-left text-muted-foreground">
