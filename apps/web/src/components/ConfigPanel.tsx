@@ -125,11 +125,134 @@ export function ConfigPanel(props: Props) {
               {currentRow?.hint || (configKind === "user" ? "你自己保存的方案" : "")}
               {configKind === "user" ? <span className="ml-1 opacity-70">· 我的配置</span> : null}
             </Note>
-            {/* 一条方案 = 引擎/模型 + 系统默认的脱敏规则; 下面两处就是覆盖它的两个开关 */}
-            <p className="text-xs leading-snug text-muted-foreground">
-              一套方案自带引擎与默认规则；下面「脱敏规则」「识别方式」就是覆盖它们的地方。
-            </p>
             </div>
+
+      {/* ---- 识别方式: 方案自带一套引擎/模型, 这里是覆盖它的地方。
+           排在「脱敏规则」前面: 先定靠什么认, 再定认出来怎么脱 ---- */}
+      <div>
+        <h4 className="mb-2.5 text-sm font-semibold text-foreground"
+            title="号码、邮箱与你填的词表一直都在认，不用配；人名、机构、地址这类才需要模型。">
+          识别方式（用不用模型）
+        </h4>
+            {d ? (
+              <div className="space-y-5">
+                <div>
+                  <Field title="不用模型＝只认固定写法的号码与你的词表。选模型才会认人名、机构、地址。">
+                    要不要用模型来认人名、机构、地址
+                  </Field>
+                  <div className="space-y-1.5">
+                    {recognitionModes.map((m) => {
+                      const on = mode === m.id;
+                      return (
+                        <label
+                          key={m.id}
+                          className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+                            on ? "border-selected bg-selected/10 ring-1 ring-selected/40" : "border-input hover:bg-accent/50"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="recognition-mode"
+                            className="mt-0.5 size-4"
+                            checked={on}
+                            onChange={() => onChange({ ...d, detectors: detectorsFor(m.id) })}
+                          />
+                          <span className="min-w-0">
+                            <span className={on ? "font-medium" : ""}>{m.name}</span>
+                            <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{m.hint}</span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 用过小模型才有模型可挑; 否则这行只是噪音。
+                    默认只报"已启用哪几个模型", 要换才展开 —— 目录名(gyr66/pii-engineer)不是用户该做的决定。 */}
+                {d.detectors.onnx_ner ? (
+                  modelDirs.length ? (
+                    <div>
+                      <Field title="推荐两个都选：实测覆盖率最高；它们认的类别有重叠，重复的会自动去掉。">
+                        本机小模型
+                      </Field>
+                      {selectedDirs.length ? (
+                        <Note>
+                          已启用：{selectedDirs.map((dir) => onnxModelInfo(dir).name).join(" + ")}
+                          {selectedDirs.length > 1 ? "（取并集，重复的会自动去掉）" : ""}
+                        </Note>
+                      ) : (
+                        <p className="text-xs text-destructive">至少要选一个模型 —— 一个都不选，这一层就起不来。</p>
+                      )}
+                      {/* 模型清单直接铺开(不折起来): 选哪几个模型是这一层的实质内容, 藏一层要多点一下 */}
+                      <div className="mt-2 space-y-1.5">
+                          {modelDirs.map((dir) => {
+                            const info = onnxModelInfo(dir);
+                            const on = selectedDirs.includes(dir);
+                            return (
+                              <label
+                                key={dir}
+                                className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                                  on ? "border-selected/60 bg-selected/5" : "border-input hover:bg-accent/50"
+                                }`}
+                                title={dir}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="mt-0.5 size-4"
+                                  checked={on}
+                                  onChange={(e) => {
+                                    const next = e.target.checked
+                                      ? [...selectedDirs, dir]
+                                      : selectedDirs.filter((v) => v !== dir);
+                                    onChange({ ...d, onnx: { ...d.onnx, model_dirs: next } });
+                                  }}
+                                />
+                                <span className="min-w-0">
+                                  <span className={on ? "font-medium" : ""}>
+                                    {info.name}
+                                    {info.recommended ? (
+                                      <span className="ml-1.5 rounded bg-selected/10 px-1.5 py-px text-[10px] text-selected">
+                                        推荐
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                  <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                                    {info.hint}
+                                  </span>
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                    </div>
+                  ) : (
+                    <Note title="选「本机小模型」后，识别能力会随首次准备自动装好。">
+                      本机识别能力还没装好 —— 保持选中「本机小模型」，首次准备时会自动装好
+                    </Note>
+                  )
+                ) : null}
+
+                {/* 勾了「本地大模型」就是"选一个模型"：起服务是 app 的事，
+                    不摆地址/别名/启动命令 —— 那些是实现细节，不是用户要做的决定。 */}
+                {d.detectors.llm_ner ? (
+                  llmModels.length ? (
+                    <div title="开跑前会自动把本机服务起好（换了模型就换掉它）；起不来会直接报错，不会静默跳过这一层。">
+                      <LlmModels
+                        models={llmModels}
+                        modelId={d.llm?.model_id ?? ""}
+                        onChangeModelId={(v) => onChange({ ...d, llm: { ...d.llm, model_id: v } })}
+                        onModelsChanged={onModelsChanged}
+                      />
+                    </div>
+                  ) : (
+                    <Note title="选一个模型后会自动装好，稍等片刻即可用。">
+                      本机识别能力还没装好 —— 保持选中「本地大模型」，自动装好后就能用
+                    </Note>
+                  )
+                ) : null}
+              </div>
+            ) : null}
+      </div>
 
       {/* ---- 脱敏规则: 系统默认与你的覆盖都在这一张表里(值就是从上面那套方案来的) ---- */}
       <div>
@@ -206,135 +329,6 @@ export function ConfigPanel(props: Props) {
             ) : null}
       </div>
 
-      {/* ---- 识别方式: 方案自带一套引擎/模型, 这里是覆盖它的地方 ---- */}
-      <div>
-        <h4 className="mb-2.5 text-sm font-semibold text-foreground"
-            title="号码、邮箱与你填的词表一直都在认，不用配；人名、机构、地址这类才需要模型。">
-          识别方式（用不用模型）
-        </h4>
-            {d ? (
-              <div className="space-y-5">
-                <div>
-                  <Field title="不用模型＝只认固定写法的号码与你的词表。选模型才会认人名、机构、地址。">
-                    要不要用模型来认人名、机构、地址
-                  </Field>
-                  <div className="space-y-1.5">
-                    {recognitionModes.map((m) => {
-                      const on = mode === m.id;
-                      return (
-                        <label
-                          key={m.id}
-                          className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
-                            on ? "border-selected bg-selected/10 ring-1 ring-selected/40" : "border-input hover:bg-accent/50"
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="recognition-mode"
-                            className="mt-0.5 size-4"
-                            checked={on}
-                            onChange={() => onChange({ ...d, detectors: detectorsFor(m.id) })}
-                          />
-                          <span className="min-w-0">
-                            <span className={on ? "font-medium" : ""}>{m.name}</span>
-                            <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{m.hint}</span>
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 用过小模型才有模型可挑; 否则这行只是噪音。
-                    默认只报"已启用哪几个模型", 要换才展开 —— 目录名(gyr66/pii-engineer)不是用户该做的决定。 */}
-                {d.detectors.onnx_ner ? (
-                  modelDirs.length ? (
-                    <div>
-                      <Field title="推荐两个都选：实测覆盖率最高；它们认的类别有重叠，重复的会自动去掉。">
-                        本机小模型
-                      </Field>
-                      {selectedDirs.length ? (
-                        <Note>
-                          已启用：{selectedDirs.map((dir) => onnxModelInfo(dir).name).join(" + ")}
-                          {selectedDirs.length > 1 ? "（取并集，重复的会自动去掉）" : ""}
-                        </Note>
-                      ) : (
-                        <p className="text-xs text-destructive">至少要选一个模型 —— 一个都不选，这一层就起不来。</p>
-                      )}
-                      <details className="mt-2">
-                        <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-                          调整模型
-                        </summary>
-                        <div className="mt-2 space-y-1.5">
-                          {modelDirs.map((dir) => {
-                            const info = onnxModelInfo(dir);
-                            const on = selectedDirs.includes(dir);
-                            return (
-                              <label
-                                key={dir}
-                                className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                                  on ? "border-selected/60 bg-selected/5" : "border-input hover:bg-accent/50"
-                                }`}
-                                title={dir}
-                              >
-                                <input
-                                  type="checkbox"
-                                  className="mt-0.5 size-4"
-                                  checked={on}
-                                  onChange={(e) => {
-                                    const next = e.target.checked
-                                      ? [...selectedDirs, dir]
-                                      : selectedDirs.filter((v) => v !== dir);
-                                    onChange({ ...d, onnx: { ...d.onnx, model_dirs: next } });
-                                  }}
-                                />
-                                <span className="min-w-0">
-                                  <span className={on ? "font-medium" : ""}>
-                                    {info.name}
-                                    {info.recommended ? (
-                                      <span className="ml-1.5 rounded bg-selected/10 px-1.5 py-px text-[10px] text-selected">
-                                        推荐
-                                      </span>
-                                    ) : null}
-                                  </span>
-                                  <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
-                                    {info.hint}
-                                  </span>
-                                </span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </details>
-                    </div>
-                  ) : (
-                    <Note title="选「本机小模型」后，识别能力会随首次准备自动装好。">
-                      本机识别能力还没装好 —— 保持选中「本机小模型」，首次准备时会自动装好
-                    </Note>
-                  )
-                ) : null}
-
-                {/* 勾了「本地大模型」就是"选一个模型"：起服务是 app 的事，
-                    不摆地址/别名/启动命令 —— 那些是实现细节，不是用户要做的决定。 */}
-                {d.detectors.llm_ner ? (
-                  llmModels.length ? (
-                    <div title="开跑前会自动把本机服务起好（换了模型就换掉它）；起不来会直接报错，不会静默跳过这一层。">
-                      <LlmModels
-                        models={llmModels}
-                        modelId={d.llm?.model_id ?? ""}
-                        onChangeModelId={(v) => onChange({ ...d, llm: { ...d.llm, model_id: v } })}
-                        onModelsChanged={onModelsChanged}
-                      />
-                    </div>
-                  ) : (
-                    <Note title="选一个模型后会自动装好，稍等片刻即可用。">
-                      本机识别能力还没装好 —— 保持选中「本地大模型」，自动装好后就能用
-                    </Note>
-                  )
-                ) : null}
-              </div>
-            ) : null}
-      </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
