@@ -83,6 +83,45 @@ warn_if_no_onnx_models() {
   fi
 }
 
+# 起服务前先处理端口: 上一次开发还开着(另一个终端 / 关终端留下的孤儿)时, 后端与 Vite 会各自占住
+# 8000 与 5173, 这次的起不来 —— 后端只甩一段 OSError 栈, Vite 还默认"换个口继续"悄悄跑到 5174
+# (页面看着能开, 其实连的是旧进程)。而"重开一次开发服务"的默认语义本来就是: 关掉旧的, 起新的。
+# 所以这里直接收走上一次的 —— 但**只收本仓库自己的** docanon web / vite(按命令行认),
+# 别人的进程一律报错停手, 不乱杀。
+# 没有 lsof 的环境(典型: git-bash)查不了, 就跳过(不误报)。
+port_holder() {
+  has lsof || return 0
+  lsof -nP -iTCP:"$1" -sTCP:LISTEN -t 2>/dev/null | head -n1 || true
+}
+
+is_own_dev_proc() {
+  local cmd
+  cmd="$(ps -o command= -p "$1" 2>/dev/null || true)"
+  case "$cmd" in
+    *"docanon web"*) return 0 ;;
+    *"$ROOT/node_modules/.bin/vite"* | *"$ROOT/node_modules/vite/"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+reclaim_port() {
+  local p="$1" who i
+  who="$(port_holder "$p")"
+  [ -n "$who" ] || return 0
+  is_own_dev_proc "$who" || die "端口 $p 被本仓库之外的进程占着: pid $who  $(ps -o command= -p "$who" 2>/dev/null)
+     别人的进程不动。换个口: ./scripts/dev.sh web -p 8001"
+  say "端口 $p 被上一次的开发进程占着(pid $who), 先收走"
+  kill -TERM "$who" 2>/dev/null || true
+  for ((i = 0; i < 10; i++)); do
+    sleep 0.5
+    if [ -z "$(port_holder "$p")" ]; then return 0; fi
+  done
+  say "  pid $who 没退, 强杀"
+  kill -9 "$who" 2>/dev/null || true
+  sleep 0.5
+  [ -z "$(port_holder "$p")" ] || die "端口 $p 还是收不走: $(lsof -nP -iTCP:"$p" -sTCP:LISTEN 2>/dev/null)"
+}
+
 # ---- 子命令 ----
 
 cmd_setup() {
@@ -123,6 +162,7 @@ cmd_web() {
     esac
   done
 
+  reclaim_port "$port"
   say "→ http://127.0.0.1:$port    (Ctrl+C 停止)"
   exec .venv/bin/docanon web "${args[@]}"
 }
@@ -139,6 +179,10 @@ cmd_webui() {
   # 这是"少一层必须报错, 不许静默"那条硬边界, 所以在起后端之前先拦下来。
   [ -f apps/web/dist/index.html ] || die "缺 apps/web/dist/index.html —— 后端 docanon web 会因此起不来, Vite 代理会静默 404。先构建: npm run build:web（或 npm run setup）"
   warn_if_no_onnx_models
+  # 后端口(默认 8000)与 Vite 口(5173, 见 apps/web/vite.config.ts)都先收干净:
+  # 上次残留的话, 后端会裸栈退出, Vite 会默认换到 5174 —— 而下面还提示你开 5173, 那就开到了旧进程上
+  reclaim_port "$port"
+  reclaim_port 5173
   say "→ 开发请开 http://127.0.0.1:5173 (Vite 热更, 别开 :$port —— 那是后端, 且是旧构建产物)   (Ctrl+C 停止)"
   say "  (后端 :$port 是 Vite 的代理目标, 不弹浏览器 —— 由 Vite 转发 /api 等)"
 
