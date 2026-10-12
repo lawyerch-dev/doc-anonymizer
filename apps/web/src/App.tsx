@@ -244,7 +244,9 @@ export default function App() {
       <header className="flex flex-none items-baseline gap-3 border-b bg-card px-6 py-3">
         <Logo className="size-6 flex-none self-center" />
         <h1 className="text-lg font-semibold">文档脱敏工具</h1>
-        <span className="text-[13px] text-muted-foreground">选文档 → 预览 → 一键脱敏 → 原格式前后对比</span>
+        <span className="text-[13px] tabular-nums text-muted-foreground">
+          {version ? `v${version} · ` : ""}@陈恒律师自研自用
+        </span>
         <div className="ml-auto flex items-center gap-1.5">
           <Button
             variant="ghost" size="xs"
@@ -307,7 +309,7 @@ export default function App() {
             抽屉打开时若把窗口拉宽到 md, 这些 fixed/宽度/阴影要被 md: 前缀收回常态 ——
             否则会留一个盖住半屏、又(因为按钮 md:hidden)没有出口的固定层 */}
         <aside
-          className={`min-h-0 w-[280px] flex-none space-y-3 overflow-auto overscroll-contain md:block ${
+          className={`flex min-h-0 w-[280px] flex-none flex-col gap-3 overflow-auto overscroll-contain md:flex ${
             drawerOpen
               ? "fixed inset-y-0 left-0 z-40 w-[300px] bg-background p-4 shadow-xl md:static md:w-[280px] md:bg-transparent md:p-0 md:shadow-none"
               : "hidden"
@@ -386,7 +388,7 @@ export default function App() {
 
         <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
           <Preview
-            pane="src" title="原文" placeholder="左侧选择或上传一个文档"
+            pane="src" title="原文" placeholder="左侧选择上传文档"
             filename={selection?.filename ?? ""} url={selection?.url ?? ""}
             action={selection ? { label: "下载原件", href: selection.url } : undefined}
           />

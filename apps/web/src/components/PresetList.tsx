@@ -2,6 +2,9 @@ import { useRef } from "react";
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import type { Preset } from "../types";
 
+/** 还没选文件时的三步引导(窄栏里放不下长文案, 只给动作词) */
+const STEPS = ["上传文件", "点击一键脱敏", "检查效果"];
+
 type Props = {
   presets: Preset[];
   activeName: string | null;
@@ -18,8 +21,8 @@ export function PresetList({ presets, activeName, loading, loaded, onPick, onRef
   const fileRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="rounded-xl border bg-card p-3.5">
-      <div className="mb-2.5 flex items-center justify-between">
+    <div className="flex min-h-56 flex-1 flex-col rounded-xl border bg-card p-3.5">
+      <div className="mb-2.5 flex flex-none items-center justify-between">
         <h3 className="text-[13px] font-semibold tracking-wide text-muted-foreground">选择文档</h3>
         <Button
           id="loadSamples"
@@ -44,7 +47,7 @@ export function PresetList({ presets, activeName, loading, loaded, onPick, onRef
         }}
       />
       <Button
-        className="mb-2.5 w-full"
+        className="mb-2.5 w-full flex-none"
         disabled={uploading}
         onClick={() => fileRef.current?.click()}
       >
@@ -52,9 +55,9 @@ export function PresetList({ presets, activeName, loading, loaded, onPick, onRef
       </Button>
 
       {loading ? (
-        <div className="text-xs text-muted-foreground">加载中…</div>
+        <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">加载中…</div>
       ) : presets.length ? (
-        <div className="max-h-56 overflow-auto overscroll-contain">
+        <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
           {presets.map((p) => {
             const active = p.name === activeName;
             return (
@@ -82,9 +85,28 @@ export function PresetList({ presets, activeName, loading, loaded, onPick, onRef
           })}
         </div>
       ) : loaded ? (
-        <div className="text-xs text-muted-foreground">samples/ 无可预览示例</div>
+        <div className="flex flex-1 items-center justify-center px-3 text-center text-xs text-muted-foreground">
+          samples/ 无可预览示例
+        </div>
       ) : (
-        <div className="text-xs text-muted-foreground">点上方「加载示例」载入内置测试文档</div>
+        <ol className="flex flex-1 flex-col justify-center px-1">
+          {STEPS.map((step, i) => (
+            <li key={step} className="flex gap-2.5">
+              <span className="flex flex-col items-center">
+                <span className="flex size-5 flex-none items-center justify-center rounded-full bg-primary text-[11px] font-medium text-primary-foreground">
+                  {i + 1}
+                </span>
+                {/* 连接线: 左列被 align-items:stretch 拉到本行满高, flex-1 吃掉圆点以下的余量; 最后一步不画 */}
+                {i < STEPS.length - 1 ? (
+                  <span aria-hidden className="w-px flex-1 bg-border" />
+                ) : null}
+              </span>
+              <span className={`text-[13px] leading-5 text-foreground/80 ${i < STEPS.length - 1 ? "pb-5" : ""}`}>
+                {step}
+              </span>
+            </li>
+          ))}
+        </ol>
       )}
     </div>
   );
