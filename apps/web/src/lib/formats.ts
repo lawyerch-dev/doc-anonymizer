@@ -1,19 +1,5 @@
 export const TEXT_EXT = ["txt", "md", "markdown", "csv"];
 
-/**
- * 「选文件夹」**默认只收办公文档**。
- *
- * 为什么要有这一层: 选错一个代码仓库时, 里面成百上千个 `.md`/`.txt`/`.png` 也是"支持的类型",
- * 会被当成待脱敏文档全捞进来(实测反馈)。默认按办公文档收, 其余靠开关显式打开。
- *
- * 这里只写"默认收什么"; **能力清单仍然只有后端 `/api/formats` 一个出处** ——
- * 将来加个抽取器, 它会自动落进"开关打开后额外收"的那一档, 不会在这里漏掉。
- */
-export const OFFICE_EXTS = [".doc", ".docx", ".xls", ".xlsx", ".wps", ".pdf", ".csv"];
-
-/** 开关文案(与上面的 OFFICE_EXTS 相对) */
-export const EXTRA_EXTS_LABEL = "也收图片与纯文本（扫描件 .png/.jpg、.md/.txt）";
-
 export const ENTITY_TYPES = [
   "PHONE", "ID_CARD", "PASSPORT", "PLATE", "BANK_CARD", "EMAIL", "IP", "USCC",
   "PERSON", "ORG", "LOCATION", "AMOUNT", "DOB", "SECRET", "CUSTOM", "DEFAULT",

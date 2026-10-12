@@ -92,15 +92,16 @@ const after = await page.evaluate(() => {
 
 console.log(JSON.stringify({ preset: PRESET, render: before, after, errors: errors.slice(0, 20) }, null, 1));
 
-// ---- 选文件夹(批量): 默认只收办公文档 → 勾开关再收图片/文本 → 跑批 → 状态 → 对比 → 整包下载 ----
-// 夹具故意造得"像代码仓库": 办公文档两份、依赖目录一堆 .md、隐藏项、不支持的类型、一个超 50MB 的。
-// 断言的正是那几条硬约束: 默认不把 .md/.png 当待脱敏文档捞进来、依赖目录与隐藏项跳过、
-// 不支持的必须**露面**(列表里标未处理, 或计数行里说得清)、产物保留相对目录、包里没有映射表。
+// ---- 选文件夹(批量): 默认只收办公文档 + 只收这一层 → 设置里改规则 → 跑批 → 状态 → 对比 → 整包下载 ----
+// 夹具故意造得"像代码仓库": 顶层办公文档两份、子目录里还有一份、依赖目录一堆 .md、隐藏项、
+// 不支持的类型、一个超 50MB 的。断言的正是那几条硬约束: 默认不把 .md/.png/子目录里的东西当待脱敏
+// 文档捞进来、依赖目录与隐藏项跳过、不支持的必须**露面**、产物保留相对目录、包里没有映射表。
 const FOLDER = fs.mkdtempSync(path.join(os.tmpdir(), 'docanon-folder-'));
 const F = (p) => path.join(FOLDER, p);
 fs.mkdirSync(F('合同'), { recursive: true });
 fs.mkdirSync(F('node_modules/left-pad'), { recursive: true });
-fs.copyFileSync(path.join(REPO, 'samples/sample.xlsx'), F('合同/清单.xlsx'));
+fs.copyFileSync(path.join(REPO, 'samples/sample.xlsx'), F('清单.xlsx'));
+fs.copyFileSync(path.join(REPO, 'samples/sample.xlsx'), F('合同/附件清单.xlsx')); // 子目录里的: 默认不收
 fs.copyFileSync(path.join(REPO, 'samples/sample_text.pdf'), F('报告.pdf'));
 fs.writeFileSync(F('说明.md'), '联系 李四 13998765432\n');
 fs.writeFileSync(F('图.psd'), Buffer.from([0x38, 0x42, 0x50, 0x53]));
@@ -129,11 +130,17 @@ await uploaded();
 const rowsDefault = await folderRows();
 const notesDefault = await folderNotes();
 
-// 勾上"也收图片与纯文本": 同一份文件清单立刻按新规则重筛(不用再选一次目录)
-await page.locator('input[type=checkbox]').first().check();
+// 左栏那个「改」→ 设置抽屉 → 勾「纯文本」与「连子文件夹一起收」。
+// 改完**自动按手上那份文件清单重筛**(不用再选一次目录), 所以关掉抽屉就该看到新行。
+await page.locator('#editUploadRule').click();
+await page.waitForSelector('#schemeSel', { timeout: 10000 });
+await page.locator('label', { hasText: '纯文本' }).first().locator('input').check();
+await page.locator('label', { hasText: '连子文件夹' }).first().locator('input').check();
+await page.keyboard.press('Escape');
 await wait(2500);
 await uploaded();
 const rowsExtra = await folderRows();
+const ruleSummary = (await page.locator('#editUploadRule').locator('xpath=..').innerText()).replace(/\s+/g, ' ').trim();
 
 await page.locator('#run').click();
 await page.waitForSelector('.doc-row[data-status=ok]', { timeout: 180000 });
@@ -164,14 +171,16 @@ if (await page.locator('#downloadZip').count()) {
 
 console.log(JSON.stringify({
   folder: {
-    rowsDefault, notesDefault, rowsExtra, rowsAfterRun, summary,
+    rowsDefault, notesDefault, rowsExtra, ruleSummary, rowsAfterRun, summary,
     blockedHint, okPaneHasContent, zip,
     expected: {
-      // 默认档: 只在办公文档里收 —— .md/.png/.psd 与依赖目录里的东西一个都不许进列表
+      // 默认: 只在办公文档里收, 且不往子文件夹里看 —— .md/.psd 与 合同/ 下的东西一个都不许进列表
       defaultSkipsNonOffice: !rowsDefault.some((r) => /\.(md|txt|png|psd|ts|json)$/.test(r.name)),
+      defaultSkipsNested: !rowsDefault.some((r) => r.name.includes('/')),
       // 超 50MB 的办公文档仍然要露面(标未处理), 不能因为跑不了就消失
       tooBigStillVisible: rowsDefault.some((r) => r.name.endsWith('超大扫描.pdf') && r.status === 'unsupported'),
-      extraAfterToggle: rowsExtra.some((r) => r.name.endsWith('.md')), // 勾上开关后 .md 才进来
+      extraAfterRuleChange: rowsExtra.some((r) => r.name.endsWith('.md')),
+      recursiveAfterRuleChange: rowsExtra.some((r) => r.name.startsWith('合同/')),
       zipHasNoMapping: !(zip?.entries ?? []).some((e) => e.name.includes('mapping.json')),
       zipKeepsSubdir: (zip?.entries ?? []).some((e) => e.name.startsWith('合同/')),
     },

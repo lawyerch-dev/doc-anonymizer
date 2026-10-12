@@ -8,8 +8,12 @@ import { PresetList } from "./components/PresetList";
 import { Preview } from "./components/Preview";
 import { SettingsSheet } from "./components/SettingsSheet";
 import { StatsCard } from "./components/StatsCard";
+import { UploadPrefsPanel } from "./components/UploadPrefsPanel";
 import * as api from "./lib/api";
-import { DEFAULT_SCHEME, OFFICE_EXTS, progressInfo, visibleSchemes } from "./lib/formats";
+import { DEFAULT_SCHEME, progressInfo, visibleSchemes } from "./lib/formats";
+import {
+  loadUploadPrefs, saveUploadPrefs, uploadRuleSummary, type UploadPrefs,
+} from "./lib/uploadPrefs";
 import type {
   AnonymizeResp, BatchSummary, ConfigData, ConfigRow, DocRow, LlmModelRow, Preset, ProgressState,
   Selection, UploadResp,
@@ -85,8 +89,8 @@ export default function App() {
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   /** 界面上能认出哪些类型: 从 /api/formats 拿(后端抽取器注册表), 前端不硬编码 */
   const [formats, setFormats] = useState<string[]>([]);
-  /** 选文件夹的收件范围: 默认只收办公文档; 勾上才收图片与纯文本(扫描件) */
-  const [includeExtra, setIncludeExtra] = useState(false);
+  /** 收件规则(收哪些类型 / 要不要连子文件夹): 设置里可编辑, 存本地 */
+  const [uploadPrefs, setUploadPrefs] = useState<UploadPrefs>(loadUploadPrefs);
   /** 上一批跳过了什么(只计数): "不进列表"与"装作没有"是两回事 */
   const [skipNote, setSkipNote] = useState<string | null>(null);
 
@@ -263,35 +267,39 @@ export default function App() {
   /**
    * 选一个文件夹 = 一个批次: 逐份上传(保留相对目录), 然后一次跑完。
    *
-   * **默认只收办公文档**(`OFFICE_EXTS`)。实测反馈: 选错一个代码仓库时, 里面成百上千个
-   * `.md`/`.txt`/`.png` 也属于"支持的类型", 会被当成待脱敏文档全捞进来。要收图片与纯文本
-   * (扫描件就是这一档) 勾上面那个开关。
+   * 收件规则与"要不要连子文件夹"来自设置(`uploadPrefs`, 默认**只收办公文档 + 只收这一层**)。
+   * 实测反馈: 选错一个代码仓库时, 里面成百上千个 `.md`/`.txt`/`.png`(子目录里更多)也是
+   * "能读的类型", 会被当成待脱敏文档全捞进来。
    *
-   * 跳过的分三类: 非办公文件、隐藏项(`.DS_Store`)、依赖/构建目录(`node_modules` 等)。
-   * 它们**只计数**并写在列表上方 —— 不进列表, 但也绝不装作没有("静默少一层"那条边界)。
+   * 没进的按四类**计数**并写在列表上方: 子文件夹里的、非收件类型、依赖/构建目录、隐藏项 ——
+   * 不进列表, 但也绝不装作没有("静默少一层"那条边界)。
    */
-  const pickFolder = async (files: File[], extra = includeExtra) => {
+  const pickFolder = async (files: File[], prefs: UploadPrefs = uploadPrefs) => {
     lastPicked.current = files;
     const relOf = (f: File) => (f.webkitRelativePath || f.name).split("/").slice(1).join("/") || f.name;
     const folder = (files[0]?.webkitRelativePath || "").split("/")[0] || "文件夹";
+    // 规则可能与后端的能力清单不一致(改过配置/后端升过级): 以两边都认的为准; 清单没拿到就信规则
+    const allowed = new Set(
+      formats.length ? prefs.extensions.filter((e) => formats.includes(e)) : prefs.extensions,
+    );
 
     let hidden = 0;
+    let nested = 0;
     let blocked = 0;
     const picked: { file: File; relpath: string }[] = [];
     for (const f of files) {
       const relpath = relOf(f);
       const parts = relpath.split("/");
       if (parts.some((p) => p.startsWith("."))) { hidden += 1; continue; }
+      if (parts.length > 1 && !prefs.recursive) { nested += 1; continue; }
       if (parts.slice(0, -1).some((p) => BLOCKED_DIRS.has(p))) { blocked += 1; continue; }
       picked.push({ file: f, relpath });
     }
 
-    const known = (name: string) => formats.length === 0 || formats.includes(extOf(name));
     const keep: typeof picked = [];
     const skipped: typeof picked = [];
     for (const x of picked) {
-      const wanted = known(x.file.name) && (extra || OFFICE_EXTS.includes(extOf(x.file.name)));
-      (wanted ? keep : skipped).push(x);
+      (allowed.has(extOf(x.file.name)) ? keep : skipped).push(x);
     }
     const todo = keep.filter((x) => x.file.size <= MAX_FILE_BYTES);
     const tooBig = keep.filter((x) => x.file.size > MAX_FILE_BYTES);
@@ -304,9 +312,10 @@ export default function App() {
     const top = [...byExt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
     const rest = skipped.length - top.reduce((n, [, c]) => n + c, 0);
     const notes: string[] = [];
+    if (nested) notes.push(`子文件夹里 ${nested} 个未收（设置里可打开「连子文件夹一起收」）`);
     if (skipped.length) {
       notes.push(
-        `已跳过 ${skipped.length} 个非办公文件（${top.map(([e, c]) => `${e} ${c}`).join(" · ")}` +
+        `已跳过 ${skipped.length} 个非收件类型（${top.map(([e, c]) => `${e} ${c}`).join(" · ")}` +
         `${rest ? ` 等 ${rest} 个` : ""}）`,
       );
     }
@@ -343,9 +352,9 @@ export default function App() {
     setResult(null);
     setError(todo.length || tooBig.length
       ? null
-      : extra
-        ? "这个文件夹里没有可脱敏的文档"
-        : "这个文件夹里没有办公文档 —— 要收图片与纯文本，勾上面那个开关");
+      : nested && !prefs.recursive
+        ? "这个文件夹里没有可脱敏的文档 —— 文档都在子文件夹里，设置里可打开「连子文件夹一起收」"
+        : "这个文件夹里没有收件规则内的文档 —— 在 设置 → 上传文件 里可改收件规则");
     if (!todo.length) return;
 
     setUploading(true);
@@ -369,10 +378,14 @@ export default function App() {
     }
   };
 
-  /** 勾/取消"也收图片与纯文本": 手上还留着刚才那个文件夹的文件清单, 立刻按新规则重筛一遍 */
-  const toggleIncludeExtra = (value: boolean) => {
-    setIncludeExtra(value);
-    if (lastPicked.current.length) void pickFolder(lastPicked.current, value);
+  /**
+   * 改收件规则(设置里): 存下来, 并且**按手上那个文件夹的清单立刻重筛** ——
+   * 那份文件的清单还留着, 不用再选一次目录。
+   */
+  const changeUploadPrefs = (next: UploadPrefs) => {
+    setUploadPrefs(next);
+    saveUploadPrefs(next);
+    if (mode === "folder" && lastPicked.current.length) void pickFolder(lastPicked.current, next);
   };
 
   const configPayload = (): { config?: string | ConfigData } => {
@@ -621,8 +634,8 @@ export default function App() {
             uploadProgress={uploadProgress}
             folderName={mode === "folder" ? batch?.folder ?? "文件夹" : null}
             hasFolderPicker={HAS_FOLDER_PICKER}
-            includeExtra={includeExtra}
-            onIncludeExtra={toggleIncludeExtra}
+            ruleSummary={uploadRuleSummary(uploadPrefs, formats)}
+            onEditRule={() => setSettingsOpen(true)}
             skipNote={mode === "folder" ? skipNote : null}
             onPick={pickRow}
             onPickFolder={(files) => void pickFolder(files)}
@@ -751,6 +764,9 @@ export default function App() {
           setShowIntro(true);
         }}
       >
+        {/* 上传收件规则放最上面: 左栏那个「改」跳到这儿, 一眼就能看到(下面才是脱敏方案与策略) */}
+        <UploadPrefsPanel formats={formats} prefs={uploadPrefs} onChange={changeUploadPrefs} />
+        <div className="my-7 border-t" />
         <ConfigPanel
           configs={configs}
           configRef={configRef}

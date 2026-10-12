@@ -35,6 +35,13 @@
   --color-selected-foreground: var(--selected-foreground);
 }
 
+/* 原生控件的强调色: 多选框默认是浏览器蓝, 与这套黑白 + 一点红的配色不搭(设置里一片蓝勾)。
+   只改"被选中的那格"的颜色, 不动形状与尺寸 —— 与 kit 的 theme-toggler/开关保持同一套语义色。 */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--primary);
+}
+
 /* 限高后的内部滚动区(命中统计表、文档列表)要让人看出"还能往下滚":
    macOS 的浮层滚动条平时不显示, 于是"刚好切在半行"看着就像内容被裁掉了、滚不动。
    只走 ::-webkit-scrollbar —— 一旦同时写了 scrollbar-width/scrollbar-color,
