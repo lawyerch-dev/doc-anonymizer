@@ -153,6 +153,18 @@ export function ConfigPanel(props: Props) {
                   用假名替代人名/机构
                 </label>
 
+                {/* 自定义敏感词紧跟在"怎么替代人名/机构"后面: 它也是"我关心的词"这一类的补充 */}
+                <div>
+                  <Field title="你自己关心的词（项目代号、客户名…），命中后按「自定义」那类的策略处理。">
+                    自定义敏感词（逗号分隔）
+                  </Field>
+                  <DictField
+                    key={configRef ?? ""}
+                    value={d.dictionary ?? []}
+                    onCommit={(dictionary) => onChange({ ...d, dictionary })}
+                  />
+                </div>
+
                 <div>
                   <Field title="「保持原样」＝这一类不处理；其余策略见下拉选项与右侧效果示例。">
                     每类信息怎么处理
@@ -189,17 +201,6 @@ export function ConfigPanel(props: Props) {
                       })}
                     </tbody>
                   </table>
-                </div>
-
-                <div>
-                  <Field title="你自己关心的词（项目代号、客户名…），命中后按「自定义」那类的策略处理。">
-                    自定义敏感词（逗号分隔）
-                  </Field>
-                  <DictField
-                    key={configRef ?? ""}
-                    value={d.dictionary ?? []}
-                    onCommit={(dictionary) => onChange({ ...d, dictionary })}
-                  />
                 </div>
               </div>
             ) : null}
