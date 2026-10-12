@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { Button } from "@doc-anonymizer/ui/primitives/button";
+import { EXTRA_EXTS_LABEL } from "../lib/formats";
 import type { DocRow, DocStatus } from "../types";
 import { totalCounts } from "../lib/api";
 
@@ -32,6 +33,11 @@ type Props = {
   folderName: string | null;
   /** 环境支不支持选文件夹(webkitdirectory) —— 不支持就不显示入口, 不装作能用 */
   hasFolderPicker: boolean;
+  /** 开关: 除办公文档外, 是否也收图片与纯文本(默认关 —— 免得选到代码仓库把几百个 .md 捞进来) */
+  includeExtra: boolean;
+  onIncludeExtra: (value: boolean) => void;
+  /** 上一批跳过了什么(只计数, 不进列表)。null = 没有可说的 */
+  skipNote: string | null;
   onPick: (row: DocRow) => void;
   onPickFolder: (files: File[]) => void;
   onExitFolder: () => void;
@@ -41,7 +47,7 @@ type Props = {
 
 export function PresetList({
   rows, activeKey, loading, loaded, uploading, uploadProgress, folderName, hasFolderPicker,
-  onPick, onPickFolder, onExitFolder, onRefresh, onUpload,
+  includeExtra, onIncludeExtra, skipNote, onPick, onPickFolder, onExitFolder, onRefresh, onUpload,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
@@ -77,6 +83,12 @@ export function PresetList({
         </p>
       ) : null}
 
+      {folderName && skipNote ? (
+        <p className="mb-2.5 flex-none text-[11px] leading-snug text-muted-foreground" title={skipNote}>
+          {skipNote}
+        </p>
+      ) : null}
+
       {/* 选文件夹: 保留相对层级(webkitRelativePath), 一批一次跑完。
           批次里也留着这个入口(文案变"换一个文件夹…") —— 否则想换一个得先"返回"再点一次 */}
       {hasFolderPicker ? (
@@ -97,7 +109,7 @@ export function PresetList({
           <Button
             id="pickFolder"
             variant={folderName ? "outline" : "default"}
-            className="mb-2.5 w-full flex-none"
+            className="mb-1.5 w-full flex-none"
             disabled={uploading}
             onClick={() => folderRef.current?.click()}
           >
@@ -105,6 +117,16 @@ export function PresetList({
               ? `上传中 ${uploadProgress.done}/${uploadProgress.total}`
               : folderName ? "换一个文件夹…" : "选择文件夹…"}
           </Button>
+          {/* 默认只收办公文档: 代码仓库/素材目录里的几百个 .md/.png 不该被当成待脱敏文档 */}
+          <label className="mb-2.5 flex flex-none cursor-pointer items-start gap-2 text-[11px] leading-snug text-muted-foreground">
+            <input
+              type="checkbox"
+              className="mt-0.5 size-3.5 flex-none"
+              checked={includeExtra}
+              onChange={(e) => onIncludeExtra(e.target.checked)}
+            />
+            {EXTRA_EXTS_LABEL}
+          </label>
         </>
       ) : null}
 

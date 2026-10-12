@@ -10,6 +10,12 @@
 
 **Spec:** [docs/specs/2026-10-12-folder-batch-design.md](../../docs/specs/2026-10-12-folder-batch-design.md)
 
+> **实施中的偏差（2026-10-12，按实测反馈收紧）**：Task 8 的收件规则改成**默认只收办公文档**
+> （`OFFICE_EXTS`）—— 选错一个代码仓库时，成百上千个 `.md`/`.txt`/`.png` 会被当成待脱敏文档捞进来。
+> 现在：`.md/.txt/图片` 要勾「也收图片与纯文本」才收；`node_modules`/`dist`/`target` 等依赖与构建目录
+> 整层跳过；跳过的只**计数**（"已跳过 N 个非办公文件（.md 12 · .png 3）"）。Task 10 的 E2E 夹具随之
+> 改成"像代码仓库"的那一份。现状以 spec 与 CHANGELOG 为准。
+
 ## 文件结构
 
 | 文件 | 责任 | 动作 |

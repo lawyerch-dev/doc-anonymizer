@@ -9,7 +9,7 @@ import { Preview } from "./components/Preview";
 import { SettingsSheet } from "./components/SettingsSheet";
 import { StatsCard } from "./components/StatsCard";
 import * as api from "./lib/api";
-import { DEFAULT_SCHEME, progressInfo, visibleSchemes } from "./lib/formats";
+import { DEFAULT_SCHEME, OFFICE_EXTS, progressInfo, visibleSchemes } from "./lib/formats";
 import type {
   AnonymizeResp, BatchSummary, ConfigData, ConfigRow, DocRow, LlmModelRow, Preset, ProgressState,
   Selection, UploadResp,
@@ -28,6 +28,15 @@ const FOLDER_MAX_FILES = 300;
 const FOLDER_MAX_BYTES = 500 * 1024 * 1024;
 /** 单文件上限, 与后端 `routes._MAX_BYTES` 对齐 */
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
+
+/**
+ * 选文件夹时整层跳过的目录(隐藏目录如 `.git`/`.venv` 由"隐藏项"那条规则一起挡掉)。
+ * 选到代码仓库/工程目录时, 这些里面是依赖与构建产物, 不是案子材料。
+ */
+const BLOCKED_DIRS = new Set([
+  "node_modules", "dist", "build", "target", "out", "vendor", "coverage",
+  "__pycache__", "site-packages", "bower_components", "Pods", "DerivedData",
+]);
 
 /**
  * 选文件夹靠 `<input webkitdirectory>`。它在 Safari/Chromium 上都有, 但**WKWebView(桌面壳)未必放行** --
@@ -76,6 +85,10 @@ export default function App() {
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   /** 界面上能认出哪些类型: 从 /api/formats 拿(后端抽取器注册表), 前端不硬编码 */
   const [formats, setFormats] = useState<string[]>([]);
+  /** 选文件夹的收件范围: 默认只收办公文档; 勾上才收图片与纯文本(扫描件) */
+  const [includeExtra, setIncludeExtra] = useState(false);
+  /** 上一批跳过了什么(只计数): "不进列表"与"装作没有"是两回事 */
+  const [skipNote, setSkipNote] = useState<string | null>(null);
 
   /** 列表的两种来源(互斥): 单份(示例/上传) 或 一个文件夹批次 */
   const [mode, setMode] = useState<"single" | "folder">("single");
@@ -111,6 +124,8 @@ export default function App() {
   const runningJob = useRef<string | null>(null);
   // 日志弹窗关掉后焦点要回到这个按钮, 否则键盘用户被扔到页面开头(组件库的默认回收依赖"点击时按钮已聚焦")
   const logBtnRef = useRef<HTMLButtonElement>(null);
+  // 上次选的文件夹里的文件清单: 勾/取消"也收图片与纯文本"时按新规则重筛, 不用再选一次目录
+  const lastPicked = useRef<File[]>([]);
 
   const visibleRows = mode === "folder" ? batchRows : rows;
   const activeRow = visibleRows.find((r) => r.key === activeKey) ?? null;
@@ -226,6 +241,7 @@ export default function App() {
 
   const upload = async (files: File[]) => {
     setUploading(true);
+    setSkipNote(null); // 那行计数属于文件夹批次, 切回单份就别留着了
     try {
       for (const [i, file] of files.entries()) {
         const up = await api.uploadFile(file);
@@ -247,33 +263,56 @@ export default function App() {
   /**
    * 选一个文件夹 = 一个批次: 逐份上传(保留相对目录), 然后一次跑完。
    *
-   * 预过滤: 不支持的扩展名与超过 50MB 的不上传 —— 但它们**照样进列表**, 状态就写"未处理 + 原因";
-   * 静默丢掉才是有害的那种"省事"。
+   * **默认只收办公文档**(`OFFICE_EXTS`)。实测反馈: 选错一个代码仓库时, 里面成百上千个
+   * `.md`/`.txt`/`.png` 也属于"支持的类型", 会被当成待脱敏文档全捞进来。要收图片与纯文本
+   * (扫描件就是这一档) 勾上面那个开关。
+   *
+   * 跳过的分三类: 非办公文件、隐藏项(`.DS_Store`)、依赖/构建目录(`node_modules` 等)。
+   * 它们**只计数**并写在列表上方 —— 不进列表, 但也绝不装作没有("静默少一层"那条边界)。
    */
-  const pickFolder = async (files: File[]) => {
-    const rel = (f: File) => (f.webkitRelativePath || f.name).split("/").slice(1).join("/") || f.name;
-    // 隐藏项整层跳过(与后端/CLI 同规则): 否则每个 Mac 文件夹都会多出一堆 .DS_Store
-    const picked = files
-      .map((f) => ({ file: f, relpath: rel(f) }))
-      .filter((x) => !x.relpath.split("/").some((p) => p.startsWith(".")));
+  const pickFolder = async (files: File[], extra = includeExtra) => {
+    lastPicked.current = files;
+    const relOf = (f: File) => (f.webkitRelativePath || f.name).split("/").slice(1).join("/") || f.name;
     const folder = (files[0]?.webkitRelativePath || "").split("/")[0] || "文件夹";
-    const known = (name: string) => formats.length === 0 || formats.includes(extOf(name));
-    const todo = picked.filter((x) => known(x.file.name) && x.file.size <= MAX_FILE_BYTES);
-    const bad = picked.filter((x) => !known(x.file.name));
-    const tooBig = picked.filter((x) => known(x.file.name) && x.file.size > MAX_FILE_BYTES);
 
-    if (!todo.length && !bad.length && !tooBig.length) {
-      setError("这个文件夹里没有可脱敏的文档");
-      return;
+    let hidden = 0;
+    let blocked = 0;
+    const picked: { file: File; relpath: string }[] = [];
+    for (const f of files) {
+      const relpath = relOf(f);
+      const parts = relpath.split("/");
+      if (parts.some((p) => p.startsWith("."))) { hidden += 1; continue; }
+      if (parts.slice(0, -1).some((p) => BLOCKED_DIRS.has(p))) { blocked += 1; continue; }
+      picked.push({ file: f, relpath });
     }
-    if (todo.length > FOLDER_MAX_FILES || todo.reduce((n, x) => n + x.file.size, 0) > FOLDER_MAX_BYTES) {
-      setError(`一次最多 ${FOLDER_MAX_FILES} 份 / 500MB（这次 ${todo.length} 份），分两批跑`);
-      return;
+
+    const known = (name: string) => formats.length === 0 || formats.includes(extOf(name));
+    const keep: typeof picked = [];
+    const skipped: typeof picked = [];
+    for (const x of picked) {
+      const wanted = known(x.file.name) && (extra || OFFICE_EXTS.includes(extOf(x.file.name)));
+      (wanted ? keep : skipped).push(x);
     }
-    if (!todo.length) {
-      // 全是不能跑的: 照样把行立起来, 让"为什么没跑"写在每一份上, 而不是只弹一句红条
-      setError("这个文件夹里没有可脱敏的文档 —— 每份的原因写在下面的列表里");
+    const todo = keep.filter((x) => x.file.size <= MAX_FILE_BYTES);
+    const tooBig = keep.filter((x) => x.file.size > MAX_FILE_BYTES);
+
+    const byExt = new Map<string, number>();
+    for (const x of skipped) {
+      const e = extOf(x.file.name) || "无扩展名";
+      byExt.set(e, (byExt.get(e) ?? 0) + 1);
     }
+    const top = [...byExt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const rest = skipped.length - top.reduce((n, [, c]) => n + c, 0);
+    const notes: string[] = [];
+    if (skipped.length) {
+      notes.push(
+        `已跳过 ${skipped.length} 个非办公文件（${top.map(([e, c]) => `${e} ${c}`).join(" · ")}` +
+        `${rest ? ` 等 ${rest} 个` : ""}）`,
+      );
+    }
+    if (blocked) notes.push(`依赖/构建目录 ${blocked} 个`);
+    if (hidden) notes.push(`隐藏项 ${hidden} 个`);
+    setSkipNote(notes.length ? notes.join(" · ") : null);
 
     const id = `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     const row = (x: { file: File; relpath: string }, status: DocRow["status"], reason?: string): DocRow => ({
@@ -288,18 +327,26 @@ export default function App() {
         url: status === "idle" ? `/uploads/${id}/${x.relpath}` : "",
       },
     });
-    setBatchRows([
-      ...todo.map((x) => row(x, "idle")),
-      ...bad.map((x) => row(x, "unsupported", `${extOf(x.file.name) || "无扩展名"} 不支持`)),
-      ...tooBig.map((x) => row(x, "unsupported", "超过 50MB 上限")),
-    ]);
+
+    if (todo.length > FOLDER_MAX_FILES || todo.reduce((n, x) => n + x.file.size, 0) > FOLDER_MAX_BYTES) {
+      setError(`一次最多 ${FOLDER_MAX_FILES} 份 / 500MB（这次 ${todo.length} 份），分两批跑`);
+      return;
+    }
+
+    // 能跑的 + 超 50MB 的(要让人看见是哪几个)进列表; 其余只在上面那行计数里露面
+    setBatchRows([...todo.map((x) => row(x, "idle")), ...tooBig.map((x) => row(x, "unsupported", "超过 50MB 上限"))]);
     setBatch({ id, folder, zipUrl: "", mappingUrl: "" });
     setBatchSummary(null);
     setMode("folder");
     setSelection(null);
     setActiveKey(null);
     setResult(null);
-    setError(null);
+    setError(todo.length || tooBig.length
+      ? null
+      : extra
+        ? "这个文件夹里没有可脱敏的文档"
+        : "这个文件夹里没有办公文档 —— 要收图片与纯文本，勾上面那个开关");
+    if (!todo.length) return;
 
     setUploading(true);
     setUploadProgress({ done: 0, total: todo.length });
@@ -320,6 +367,12 @@ export default function App() {
         ? { ...r, status: "error", reason: `上传失败：${failed.get(r.name)}` }
         : r));
     }
+  };
+
+  /** 勾/取消"也收图片与纯文本": 手上还留着刚才那个文件夹的文件清单, 立刻按新规则重筛一遍 */
+  const toggleIncludeExtra = (value: boolean) => {
+    setIncludeExtra(value);
+    if (lastPicked.current.length) void pickFolder(lastPicked.current, value);
   };
 
   const configPayload = (): { config?: string | ConfigData } => {
@@ -568,9 +621,18 @@ export default function App() {
             uploadProgress={uploadProgress}
             folderName={mode === "folder" ? batch?.folder ?? "文件夹" : null}
             hasFolderPicker={HAS_FOLDER_PICKER}
+            includeExtra={includeExtra}
+            onIncludeExtra={toggleIncludeExtra}
+            skipNote={mode === "folder" ? skipNote : null}
             onPick={pickRow}
             onPickFolder={(files) => void pickFolder(files)}
-            onExitFolder={() => { setMode("single"); setSelection(null); setActiveKey(null); setResult(null); }}
+            onExitFolder={() => {
+              setMode("single");
+              setSelection(null);
+              setActiveKey(null);
+              setResult(null);
+              setSkipNote(null);
+            }}
             onRefresh={() => void refreshPresets()}
             onUpload={(files) => void upload(files)}
           />
