@@ -33,14 +33,10 @@ export function UploadPrefsPanel({ formats, prefs, onChange, defaultOpen }: Prop
       <AccordionItem value="upload">
         <AccordionTrigger
           className="py-3.5 text-base font-semibold hover:no-underline"
-          title="「选择文件夹」时收哪些文件、要不要连子文件夹。默认只收办公文档、只收所选文件夹这一层。"
+          title="「选择文件夹」时收哪些文件、要不要遍历子文件夹。默认只收办公文档、只收所选文件夹这一层。"
         >
-          <span className="flex w-full items-baseline gap-2 pr-1">
-            上传文件
-            <span className="ml-auto text-xs font-normal tabular-nums text-muted-foreground">
-              {uploadRuleSummary(prefs, formats)}
-            </span>
-          </span>
+          {/* 只放标题: 触发器的宽度是满的, 右侧再塞一行摘要就会与折叠箭头叠在一起 */}
+          上传文件
         </AccordionTrigger>
         <AccordionContent className="pb-5">
           <p className="mb-3 text-xs leading-snug text-muted-foreground">
@@ -89,12 +85,17 @@ export function UploadPrefsPanel({ formats, prefs, onChange, defaultOpen }: Prop
               onChange={(e) => onChange({ ...prefs, recursive: e.target.checked })}
             />
             <span>
-              连子文件夹一起收
+              遍历子文件夹
               <span className="block text-xs font-normal leading-snug text-muted-foreground">
-                默认不勾：只收所选文件夹里的文件，子文件夹里的不算。
+                勾上就连子文件夹里的文件一起收；默认不勾，只收所选文件夹这一层。
               </span>
             </span>
           </label>
+
+          {/* 规则摘要放在展开区里 —— 收起来时左栏那行「收件：…」也一直看得见 */}
+          <p className="pt-3.5 text-xs tabular-nums text-muted-foreground">
+            当前：{uploadRuleSummary(prefs, formats)}
+          </p>
         </AccordionContent>
       </AccordionItem>
     </Accordion>

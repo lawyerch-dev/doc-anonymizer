@@ -25,9 +25,10 @@ export function StatsCard({ counts, total, totalMs, convertedFrom, summary }: Pr
       <Accordion defaultValue={["stats"]}>
         <AccordionItem value="stats" className="border-b-0">
           <AccordionTrigger className="py-0" title="本次脱敏抹掉了哪些类型、各多少处">
-            <span className="flex w-full items-baseline gap-2 pr-1">
+            {/* flex-1 + min-w-0(不是 w-full): 触发器右边还有折叠箭头, 内容占满 100% 会与它叠在一起 */}
+            <span className="flex min-w-0 flex-1 items-baseline gap-2 pr-1">
               <span className="text-[13px] font-semibold tracking-wide text-muted-foreground">命中统计</span>
-              <span className="ml-auto text-xs tabular-nums text-muted-foreground">
+              <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
                 合计 {total}
                 {totalMs != null ? ` · ${Math.round(totalMs)}ms` : ""}
               </span>

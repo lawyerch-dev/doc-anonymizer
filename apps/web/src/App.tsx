@@ -314,7 +314,7 @@ export default function App() {
     const top = [...byExt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
     const rest = skipped.length - top.reduce((n, [, c]) => n + c, 0);
     const notes: string[] = [];
-    if (nested) notes.push(`子文件夹里 ${nested} 个未收（设置里可打开「连子文件夹一起收」）`);
+    if (nested) notes.push(`子文件夹里 ${nested} 个未收（设置里可打开「遍历子文件夹」）`);
     if (skipped.length) {
       notes.push(
         `已跳过 ${skipped.length} 个非收件类型（${top.map(([e, c]) => `${e} ${c}`).join(" · ")}` +
@@ -355,7 +355,7 @@ export default function App() {
     setError(todo.length || tooBig.length
       ? null
       : nested && !prefs.recursive
-        ? "这个文件夹里没有可脱敏的文档 —— 文档都在子文件夹里，设置里可打开「连子文件夹一起收」"
+        ? "这个文件夹里没有可脱敏的文档 —— 文档都在子文件夹里，设置里可打开「遍历子文件夹」"
         : "这个文件夹里没有收件规则内的文档 —— 在 设置 → 上传文件 里可改收件规则");
     if (!todo.length) return;
 
