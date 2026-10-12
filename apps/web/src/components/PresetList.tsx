@@ -6,23 +6,50 @@ type Props = {
   presets: Preset[];
   activeName: string | null;
   loading: boolean;
+  // 是否已经点过「加载示例」: 区分"还没加载"(给引导文案)与"加载过但 samples/ 是空的"
+  loaded: boolean;
   onPick: (preset: Preset) => void;
   onRefresh: () => void;
   onUpload: (file: File) => void;
   uploading: boolean;
 };
 
-export function PresetList({ presets, activeName, loading, onPick, onRefresh, onUpload, uploading }: Props) {
+export function PresetList({ presets, activeName, loading, loaded, onPick, onRefresh, onUpload, uploading }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="rounded-xl border bg-card p-3.5">
       <div className="mb-2.5 flex items-center justify-between">
         <h3 className="text-[13px] font-semibold tracking-wide text-muted-foreground">选择文档</h3>
-        <Button variant="ghost" size="xs" onClick={onRefresh} disabled={loading} title="重新加载 samples/ 里的示例">
-          ↻ 刷新示例
+        <Button
+          id="loadSamples"
+          variant="ghost"
+          size="xs"
+          onClick={onRefresh}
+          disabled={loading}
+          title="从 samples/ 载入内置测试文档"
+        >
+          加载示例
         </Button>
       </div>
+
+      <input
+        ref={fileRef}
+        type="file"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onUpload(f);
+          e.target.value = "";
+        }}
+      />
+      <Button
+        className="mb-2.5 w-full"
+        disabled={uploading}
+        onClick={() => fileRef.current?.click()}
+      >
+        {uploading ? "上传中…" : "上传本地文件…"}
+      </Button>
 
       {loading ? (
         <div className="text-xs text-muted-foreground">加载中…</div>
@@ -54,29 +81,11 @@ export function PresetList({ presets, activeName, loading, onPick, onRefresh, on
             );
           })}
         </div>
-      ) : (
+      ) : loaded ? (
         <div className="text-xs text-muted-foreground">samples/ 无可预览示例</div>
+      ) : (
+        <div className="text-xs text-muted-foreground">点上方「加载示例」载入内置测试文档</div>
       )}
-
-      <input
-        ref={fileRef}
-        type="file"
-        hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onUpload(f);
-          e.target.value = "";
-        }}
-      />
-      <Button
-        variant="outline"
-        size="sm"
-        className="mt-2 w-full"
-        disabled={uploading}
-        onClick={() => fileRef.current?.click()}
-      >
-        {uploading ? "上传中…" : "上传本地文件…"}
-      </Button>
     </div>
   );
 }

@@ -12,6 +12,12 @@ import * as api from "./lib/api";
 import { DEFAULT_SCHEME, progressInfo, visibleSchemes } from "./lib/formats";
 import type { AnonymizeResp, ConfigData, ConfigRow, LlmModelRow, Preset, ProgressState, Selection } from "./types";
 
+/**
+ * 署名与版本进**窗口标题栏**（桌面上由壳设原生标题，浏览器里就是这个 document.title）。
+ * 界面正文里不重复显示 —— 原来那条底部信息条已按反馈移除（不够明显）。
+ */
+const APP_TITLE = "文档脱敏工具 — 陈恒律师 自用";
+
 type Theme = "light" | "dark";
 
 function initialTheme(): Theme {
@@ -23,7 +29,9 @@ function initialTheme(): Theme {
 export default function App() {
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [presets, setPresets] = useState<Preset[]>([]);
-  const [presetsLoading, setPresetsLoading] = useState(true);
+  // 示例**不自动加载**(启动时不读 samples/, 只在上方「加载示例」被点过之后才有内容)
+  const [presetsLoading, setPresetsLoading] = useState(false);
+  const [presetsLoaded, setPresetsLoaded] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const [configs, setConfigs] = useState<ConfigRow[]>([]);
@@ -79,6 +87,7 @@ export default function App() {
       setError(`示例加载失败: ${(e as Error).message}`);
     } finally {
       setPresetsLoading(false);
+      setPresetsLoaded(true);
     }
   }, []);
 
@@ -125,12 +134,16 @@ export default function App() {
       .catch(() => { setModelDirs([]); setLlmModels([]); });
   }, []);
 
-  useEffect(() => { void refreshPresets(); }, [refreshPresets]);
   useEffect(() => { void loadConfigList(); }, [loadConfigList]);
   useEffect(() => { refreshModels(); }, [refreshModels]);
   useEffect(() => {
     api.loadHealth().then((h) => setVersion(h.version)).catch(() => {});
   }, []);
+
+  // 版本号一到就写进标题栏。与桌面壳设的那个原生标题是同一句 —— 谁生效都对。
+  useEffect(() => {
+    document.title = version ? `${APP_TITLE} · v${version}` : APP_TITLE;
+  }, [version]);
 
   const pickPreset = (p: Preset) => {
     setSelection({ preset: p.name, token: null, filename: p.name, url: p.url });
@@ -304,14 +317,19 @@ export default function App() {
             presets={presets}
             activeName={selection?.preset ?? null}
             loading={presetsLoading}
+            loaded={presetsLoaded}
             uploading={uploading}
             onPick={pickPreset}
             onRefresh={() => void refreshPresets()}
             onUpload={(f) => void upload(f)}
           />
-          <Button id="run" className="w-full" disabled={!selection || running} onClick={() => void run()}>
-            {running ? "脱敏中…" : "开始脱敏"}
-          </Button>
+          {/* 一键脱敏只在"有东西可跑"时出现: 示例列表有内容, 或已选中/已上传一份文档
+              (上传件不进列表, 所以要带 selection —— 否则只上传不加载示例就没法跑) */}
+          {presets.length > 0 || selection !== null ? (
+            <Button id="run" className="w-full" disabled={!selection || running} onClick={() => void run()}>
+              {running ? "脱敏中…" : "一键脱敏"}
+            </Button>
+          ) : null}
           {/* 最准档跑一份合同要 30+ 秒: 只说"脱敏中…"用户会以为卡死了 —— 给出阶段、进度、已用秒数, 并允许取消 */}
           {running ? (
             <div className="space-y-1.5" id="progress">
@@ -373,24 +391,12 @@ export default function App() {
             action={selection ? { label: "下载原件", href: selection.url } : undefined}
           />
           <Preview
-            pane="out" title="脱敏后" placeholder="点击「开始脱敏」查看结果"
+            pane="out" title="脱敏后" placeholder="点击「一键脱敏」查看结果"
             filename={result?.output_name ?? ""} url={result?.output_url ?? ""}
             action={result ? { label: "下载脱敏件", href: result.output_url } : undefined}
           />
         </main>
       </div>
-
-      <footer className="flex flex-none items-center justify-center gap-2 border-t bg-card px-6 py-1.5 text-[11px] text-muted-foreground">
-        <span>陈恒律师 自用</span>
-        {version ? (
-          <>
-            <span aria-hidden>·</span>
-            <span className="tabular-nums" title="版本号取自后端 /health, 运行时唯一真相">
-              v{version}
-            </span>
-          </>
-        ) : null}
-      </footer>
 
       <SettingsSheet
         open={settingsOpen}

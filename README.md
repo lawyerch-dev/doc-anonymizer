@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/web-ui.png" width="900" alt="Web 界面：左侧选文档，中间预览原文，点「开始脱敏」后右侧预览保留原格式的脱敏件">
+  <img src="docs/images/web-ui.png" width="900" alt="Web 界面：左侧选文档，中间预览原文，点「一键脱敏」后右侧预览保留原格式的脱敏件">
 </p>
 
 人名、手机号（含座机）、身份证、护照、车牌、银行卡、邮箱、IP、统一社会信用代码、密钥、自定义敏感词

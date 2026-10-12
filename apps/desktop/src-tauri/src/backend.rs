@@ -78,7 +78,10 @@ fn start(app: &AppHandle, window: &WebviewWindow) -> Result<(), String> {
     let mine = child.id();
     *slot().lock().map_err(|_| "内部状态锁坏了".to_string())? = Some(child);
 
-    wait_healthy(port, mine, &program, &args)?;
+    let version = wait_healthy(port, mine, &program, &args)?;
+    // 署名与版本放进**窗口标题栏** —— 从访达双击进来一眼就看到(界面里那条底部信息条已按反馈移除)。
+    // 版本号仍只有一处真相: 它是后端 /health 报的 docanon_core.__version__。
+    let _ = window.set_title(&window_title(version.as_deref()));
 
     let url = format!("http://127.0.0.1:{port}");
     let target: Url = url
@@ -89,12 +92,12 @@ fn start(app: &AppHandle, window: &WebviewWindow) -> Result<(), String> {
         .map_err(|e| format!("窗口切不到 `{url}`: {e}"))
 }
 
-/// 等后端就绪。两条都不许省:
+/// 等后端就绪, 顺手把 `/health` 报的版本号带回去(进窗口标题栏)。两条都不许省:
 ///   1. 自己拉起的那个进程死了就立刻停 —— 端口上还答着话的多半是别人的旧孤儿,
 ///      再等下去只会用别人的服务开出一个假窗口;
 ///   2. `/health` 报的 pid 必须是我拉起的那个 —— 对不上就用 DOCANON_PORT 换个端口,
 ///      否则关窗时杀的不是真正在服务的那个进程。
-fn wait_healthy(port: u16, mine: u32, program: &str, args: &[String]) -> Result<(), String> {
+fn wait_healthy(port: u16, mine: u32, program: &str, args: &[String]) -> Result<Option<String>, String> {
     let deadline = Instant::now() + READY_TIMEOUT;
     loop {
         if let Some(code) = exited() {
@@ -103,12 +106,13 @@ fn wait_healthy(port: u16, mine: u32, program: &str, args: &[String]) -> Result<
                 args.join(" ")
             ));
         }
-        match health_pid(port) {
-            Some(pid) if pid == mine => return Ok(()),
-            Some(pid) => {
+        match health(port) {
+            Some(h) if h.pid == mine => return Ok(h.version),
+            Some(h) => {
                 return Err(format!(
-                    "端口 {port} 上跑着另一个 docanon(pid={pid}), 本壳拉起的后端是 pid={mine}。\
-                     先关掉它, 或用 DOCANON_PORT 换一个端口"
+                    "端口 {port} 上跑着另一个 docanon(pid={}), 本壳拉起的后端是 pid={mine}。\
+                     先关掉它, 或用 DOCANON_PORT 换一个端口",
+                    h.pid
                 ))
             }
             None => {}
@@ -147,19 +151,50 @@ pub fn shutdown() {
     }
 }
 
-/// `/health` 答的是 `{"ok": true, "pid": 1234, ...}`。只需要 pid, 所以不引 HTTP 客户端,
-/// 自己发一条最小的 GET —— 少一个依赖, 也就少一份要跟 Tauri 版本对齐的东西。
-fn health_pid(port: u16) -> Option<u32> {
+/// `/health` 里我们真正要用的两样: 进程号(确认答话的是自己拉起的那个后端)与版本号(进窗口标题栏)。
+struct Health {
+    pid: u32,
+    version: Option<String>,
+}
+
+/// `/health` 答的是 `{"ok": true, "pid": 1234, "version": "x.y.z"}`。不引 HTTP/JSON 客户端,
+/// 自己发一条最小的 GET、解两条最小字段 —— 少一个依赖, 也就少一份要跟 Tauri 版本对齐的东西。
+fn health(port: u16) -> Option<Health> {
     let body = http_get(port)?;
-    let at = body.find("\"pid\"")? + "\"pid\"".len();
+    Some(Health {
+        pid: json_u32(&body, "pid")?,
+        version: json_str(&body, "version"),
+    })
+}
+
+/// 取 `"key": 1234` 里的数字; 找不到或不是数字返回 None。
+fn json_u32(body: &str, key: &str) -> Option<u32> {
+    let at = body.find(&format!("\"{key}\""))? + key.len() + 2;
     let rest = &body[at..];
     let colon = rest.find(':')? + 1;
-    let digits: String = rest[colon..]
+    rest[colon..]
         .trim_start()
         .chars()
         .take_while(|c| c.is_ascii_digit())
-        .collect();
-    digits.parse().ok()
+        .collect::<String>()
+        .parse()
+        .ok()
+}
+
+/// 取 `"key": "value"` 里的字符串。缺失就 None —— 版本号拿不到不该影响"后端可用"这件事。
+fn json_str(body: &str, key: &str) -> Option<String> {
+    let at = body.find(&format!("\"{key}\""))? + key.len() + 2;
+    let rest = &body[at..];
+    let value = rest[rest.find(':')? + 1..].trim_start().strip_prefix('"')?;
+    Some(value[..value.find('"')?].to_string())
+}
+
+/// 窗口标题: 署名 + 版本(版本没拿到就只留署名, 不编一个)。
+fn window_title(version: Option<&str>) -> String {
+    match version {
+        Some(v) => format!("文档脱敏工具 — 陈恒律师 自用 · v{v}"),
+        None => "文档脱敏工具 — 陈恒律师 自用".to_string(),
+    }
 }
 
 fn http_get(port: u16) -> Option<String> {

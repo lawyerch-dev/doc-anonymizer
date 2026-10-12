@@ -21,7 +21,11 @@ fn main() {
             // 反过来做(等就绪再开窗)在首次使用时要黑着屏等一分钟 —— 那看起来就是双击没反应。
             let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("文档脱敏工具")
+                // inner_size 留着当"取消最大化后的还原尺寸"
                 .inner_size(1280.0, 860.0)
+                // 打开就铺满屏幕。用 maximize 而不是 macOS 的原生 fullscreen: 原生全屏会把自己的
+                // 标题栏藏起来, 而署名与版本正要放在标题栏上(见 backend.rs 的 set_title)。
+                .maximized(true)
                 .build()?;
             std::thread::spawn(move || backend::boot(handle, window));
             Ok(())

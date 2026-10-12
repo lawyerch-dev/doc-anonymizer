@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/web-ui.png" width="900" alt="Web UI: pick a document on the left, preview the original in the middle, and after clicking “Start redacting” the right pane previews the redacted file with its formatting preserved">
+  <img src="docs/images/web-ui.png" width="900" alt="Web UI: pick a document on the left, preview the original in the middle, and after clicking “One-click redaction” the right pane previews the redacted file with its formatting preserved">
 </p>
 
 Person names, phone numbers (mobile and landline), ID cards, passports, license plates, bank cards,

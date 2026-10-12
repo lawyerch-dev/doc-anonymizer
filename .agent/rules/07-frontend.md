@@ -32,8 +32,8 @@
 - CI 有两个：[部署文档站](../../.github/workflows/deploy-website.yml)（先跑门禁再发 Pages）与
   [打包桌面版](../../.github/workflows/build-desktop.yml)（macOS/Windows 矩阵，打 tag 时发 Release）。
   详细步骤（含子路径预览的验证方法）见 [`docs/cookbook/shipping-the-website.md`](../../docs/cookbook/shipping-the-website.md)。
-- **DOM 契约**：`tests/e2e/webkit/` 按 `.preset` `#run` `#paneSrc` `#paneOut` `#stats` 选择元素 ——
-  改界面时这几个钩子（`#paneSrc`/`#paneOut` 的 `firstElementChild` 是预览挂载点）不许改名或挪位置。
+- **DOM 契约**：`tests/e2e/webkit/` 按 `#loadSamples` `.preset` `#run` `#paneSrc` `#paneOut` `#stats` 选择元素 —— 改界面时这几个钩子不许改名或挪位置。
+  `#paneSrc`/`#paneOut` 的 `firstElementChild` 是预览挂载点；示例**不自动加载**，点「加载示例」(`#loadSamples`) 才拉 `samples/`；`#run`（一键脱敏）只在列表有内容或已选/已上传文档时出现。
 - 加前端依赖/改构建：`npm run build:web`；dev 态 `npm run dev`（后端 + Vite 并发 + `/api /samples /uploads /outputs /file-viewer /health` 六条前缀代理），
   生产形态 `npm run build:web && npm run dev:backend`。
 
@@ -57,4 +57,4 @@ L1 方案（内置四套只读 / 我的配置）→ L2 逐类型策略 + 词典 
   （`server/progress.py`）；取消走 `/api/anonymize/cancel`，只在**写产物之前**查信号 —— 取消不留半成品。
 - **两条轴别混**：L2 管"脱什么"（实体 × 策略），L3 管"靠什么认"（只给一道选择题：不用模型 / 小模型 / 大模型）；`rule`+`dictionary` 常开不给开关（关它 = 静默漏检，"不要某类"用策略 `keep` 表达）；服务地址、`--alias`、启动命令由 app 自己管（`server/llm_server.py`）。不暴露 OCR、产物命名等"静默少一层"或属契约（非偏好）的选项。
 - 为什么用户配置放 `var/`、为什么 L1 是模板：[决策记录](../notes/implemented/feature/2026-10-08-web-redaction-config.md)。
-- **首次使用向导**（`OnboardingWizard.tsx`）：欢迎 → 选方案 → **选完自动"准备"**（`POST /api/prepare` 按方案在后台补齐所需资源，轮询进度）。全程不出现模型/下载/ONNX/镜像/文件数，准备阶段只有一句"正在准备"+进度条+取消；出错给「重试 / 先跳过」。与 L1 同源、复用一个 `Dialog` 骨架、本地记 `docanon.onboarded`。设置抽屉 Footer 有「重新查看欢迎引导」。
+- **首次使用向导**（`OnboardingWizard.tsx`）：**打开即选方案**（默认「通用」，没有单独的"欢迎"过渡页）→ 选中即 **自动"准备"**（`POST /api/prepare` 按方案在后台补齐所需资源，轮询进度并按实测速率给剩余时间）。全程不出现模型/下载/ONNX/镜像/文件数；出错给「重试 / 先跳过」。与 L1 同源、复用一个 `Dialog` 骨架、本地记 `docanon.onboarded`。设置抽屉 Footer 有「重新查看欢迎引导」。**署名与版本号放窗口标题栏**（桌面壳 `backend.rs` 设原生标题，浏览器里是 `document.title`），界面正文不重复显示。
