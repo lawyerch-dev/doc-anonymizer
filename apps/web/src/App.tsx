@@ -563,7 +563,7 @@ export default function App() {
           <Button
             variant="ghost" size="xs"
             onClick={() => { setUploadOpen(false); setSettingsOpen(true); }}
-            title={`脱敏设置：收件规则、口径、逐类型策略、检测引擎（当前口径：${configRef ?? "未加载"}）`}
+            title={`设置：上传收件规则与脱敏方案（方案 / 脱敏规则 / 识别方式）（当前口径：${configRef ?? "未加载"}）`}
           >
             ⚙ 设置{configDirty ? " •" : ""}
           </Button>
