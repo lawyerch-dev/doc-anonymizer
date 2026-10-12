@@ -28,6 +28,22 @@ BATCH_MAX_FILES = 300
 BATCH_MAX_BYTES = 500 * 1024 * 1024
 
 
+# 这些目录里是构建/供应商产物(文件名带哈希或钉住版本), 内容变了名字就变 —— 可以放心长缓存
+_IMMUTABLE_DIRS = {"assets", "file-viewer"}
+
+
+def _cache_control(path: Path) -> str:
+    """静态件的缓存策略。
+
+    **入口 HTML 绝不能缓存**: 它引用的是带哈希的产物, 一旦浏览器缓存住旧的那份,
+    改完前端刷新页面看到的还是旧界面(踩过: 用户反复刷新仍看到旧版, 以为是没改)。
+    带哈希的资源反过来缓存一年都不怕 —— 内容变了文件名就变。
+    """
+    if _IMMUTABLE_DIRS & set(path.parts):
+        return "public, max-age=31536000, immutable"
+    return "no-cache"
+
+
 def supported_extensions() -> list[str]:
     """界面上"选文件夹"预过滤用的扩展名清单。
 
@@ -145,10 +161,12 @@ class Handler(BaseHTTPRequestHandler):
     out_root = Path(tempfile.mkdtemp(prefix="docanon-web-"))
 
     # ---------- 响应工具 ----------
-    def _send(self, code: int, body: bytes, ctype: str) -> None:
+    def _send(self, code: int, body: bytes, ctype: str, cache: str | None = None) -> None:
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        if cache:
+            self.send_header("Cache-Control", cache)
         self.end_headers()
         self.wfile.write(body)
 
@@ -160,7 +178,7 @@ class Handler(BaseHTTPRequestHandler):
         if not path.is_file():
             self._send(404, b"not found", "text/plain")
             return
-        self._send(200, path.read_bytes(), _ctype(path))
+        self._send(200, path.read_bytes(), _ctype(path), cache=_cache_control(path))
 
     def _send_download(self, path: Path, filename: str) -> None:
         """带 Content-Disposition 的下载, **边读边发**。
@@ -191,8 +209,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         p = self._path()
         if p in ("/", "/index.html"):
-            # _index() 走 resources.LAYOUT["web"], 现在指 apps/web/dist/index.html
-            self._send(200, _index().read_bytes(), "text/html; charset=utf-8")
+            # _index() 走 resources.LAYOUT["web"], 现在指 apps/web/dist/index.html。
+            # 走 _send_file 是为了带上缓存头: 入口 HTML 必须 no-cache(见 _cache_control)
+            self._send_file(_index())
         elif p == "/health":
             # 带上 pid: 桌面壳用它确认"答话的是我自己拉起的那个后端", 而不是占着端口的旧孤儿
             # 带上 version: 界面底部显示的版本号取自这里 —— 只有一处真相(pyproject/__version__),

@@ -84,6 +84,32 @@ def test_health_reports_its_own_pid(ephemeral_server):
     assert body["pid"] == os.getpid()
 
 
+def test_entry_html_is_never_cached(ephemeral_server):
+    """入口 HTML 必须 no-cache。
+
+    它引用的是 **带哈希** 的产物: 浏览器一旦缓存住旧的那份 index.html, 就等于永远加载旧的 JS ——
+    改完前端、用户反复刷新看到的还是旧界面(实测踩过, 还被当成"没改")。
+    带哈希的资源反过来长缓存无妨; 示例/产物这些内容会变的也不能缓存住。
+    """
+    from pathlib import Path
+
+    from docanon_core.server import routes
+
+    with urllib.request.urlopen(f"{ephemeral_server}/", timeout=5) as resp:
+        assert resp.headers.get("Cache-Control") == "no-cache"
+        assert resp.headers["Content-Type"].startswith("text/html")
+
+    assert routes._cache_control(Path("apps/web/dist/index.html")) == "no-cache"
+    assert routes._cache_control(Path("apps/web/dist/assets/index-abc123.js")) == (
+        "public, max-age=31536000, immutable"
+    )
+    assert routes._cache_control(Path("var/vendor/file-viewer/flyfish.js")) == (
+        "public, max-age=31536000, immutable"
+    )
+    assert routes._cache_control(Path("samples/sample.md")) == "no-cache"
+    assert routes._cache_control(Path("outputs/tok/【脱敏版】a.docx")) == "no-cache"
+
+
 def test_health_reports_version_from_the_single_source(ephemeral_server):
     """界面底部显示的版本号取自 /health —— 与包自己的版本必须同源, 否则迟早"界面 v0.2.0、包 v0.3.0"。"""
     from docanon_core import __version__
