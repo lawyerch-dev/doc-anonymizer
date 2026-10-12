@@ -27,7 +27,6 @@ const switchHref = locale === "zh" ? url("/en/") : url("/");
         <a href={url(locale === "zh" ? "/" : "/en/")} class="font-medium">doc-anonymizer</a>
         <nav class="flex items-center gap-4 text-muted-foreground">
           <a href={url(c.docs[0]!.href)} class="hover:text-foreground">{c.nav.docs}</a>
-          <a href={url(locale === "zh" ? "/dev/architecture/" : "/en/dev/architecture/")} class="hover:text-foreground">{c.nav.architecture}</a>
           <a href={repo} class="hover:text-foreground">{c.nav.github}</a>
           <a href={switchHref} class="rounded-md border px-2 py-1 hover:text-foreground">{c.nav.switchLabel}</a>
         </nav>
