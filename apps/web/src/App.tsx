@@ -119,6 +119,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [logOpen, setLogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** 「上传文件」那节在设置里默认展不展开: 从左栏「改」进来就展开, 从顶栏「设置」进来就收起 */
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   // 首次使用向导: 本地记"看过了", 看过一次就不再弹; 设置里可手动叫回来
   const [showIntro, setShowIntro] = useState(() => !hasDoneOnboarding());
@@ -560,8 +562,8 @@ export default function App() {
         <div className="ml-auto flex items-center gap-1.5">
           <Button
             variant="ghost" size="xs"
-            onClick={() => setSettingsOpen(true)}
-            title={`脱敏设置：口径、逐类型策略、检测引擎（当前口径：${configRef ?? "未加载"}）`}
+            onClick={() => { setUploadOpen(false); setSettingsOpen(true); }}
+            title={`脱敏设置：收件规则、口径、逐类型策略、检测引擎（当前口径：${configRef ?? "未加载"}）`}
           >
             ⚙ 设置{configDirty ? " •" : ""}
           </Button>
@@ -635,7 +637,7 @@ export default function App() {
             folderName={mode === "folder" ? batch?.folder ?? "文件夹" : null}
             hasFolderPicker={HAS_FOLDER_PICKER}
             ruleSummary={uploadRuleSummary(uploadPrefs, formats)}
-            onEditRule={() => setSettingsOpen(true)}
+            onEditRule={() => { setUploadOpen(true); setSettingsOpen(true); }}
             skipNote={mode === "folder" ? skipNote : null}
             onPick={pickRow}
             onPickFolder={(files) => void pickFolder(files)}
@@ -765,7 +767,12 @@ export default function App() {
         }}
       >
         {/* 上传收件规则放最上面: 左栏那个「改」跳到这儿, 一眼就能看到(下面才是脱敏方案与策略) */}
-        <UploadPrefsPanel formats={formats} prefs={uploadPrefs} onChange={changeUploadPrefs} />
+        <UploadPrefsPanel
+          formats={formats}
+          prefs={uploadPrefs}
+          onChange={changeUploadPrefs}
+          defaultOpen={uploadOpen}
+        />
         <div className="my-7 border-t" />
         <ConfigPanel
           configs={configs}
