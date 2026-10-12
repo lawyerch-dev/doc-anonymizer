@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetFooter,
   SheetHeader,
   SheetTitle,
@@ -30,10 +29,7 @@ export function SettingsSheet({ open, onOpenChange, onReplayIntro, children }: P
           策略表 + 模型选项都需要横向空间, 挤在 32rem 里每一列都窄。 */}
       <SheetContent side="right" className="w-full gap-0 sm:max-w-2xl!">
         <SheetHeader className="gap-1 border-b px-6 py-5">
-          <SheetTitle className="text-lg">脱敏设置</SheetTitle>
-          <SheetDescription className="text-pretty">
-            上传收件规则、方案、逐类型策略与检测引擎。改完可直接试跑，满意再保存为「我的配置」。
-          </SheetDescription>
+          <SheetTitle className="text-lg">设置</SheetTitle>
         </SheetHeader>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-6">{children}</div>
         <SheetFooter className="border-t px-6 py-3">

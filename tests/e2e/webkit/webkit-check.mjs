@@ -133,7 +133,7 @@ const notesDefault = await folderNotes();
 // 左栏那个「改」→ 设置抽屉 → 勾「纯文本」与「遍历子文件夹」。
 // 改完**自动按手上那份文件清单重筛**(不用再选一次目录), 所以关掉抽屉就该看到新行。
 await page.locator('#editUploadRule').click();
-await page.waitForSelector('#schemeSel', { timeout: 10000 });
+await page.waitForSelector('[data-slot=sheet-title]', { timeout: 10000 });
 await page.locator('label', { hasText: '纯文本' }).first().locator('input').check();
 await page.locator('label', { hasText: '遍历子文件夹' }).first().locator('input').check();
 await page.keyboard.press('Escape');

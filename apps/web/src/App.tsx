@@ -773,7 +773,7 @@ export default function App() {
           onChange={changeUploadPrefs}
           defaultOpen={uploadOpen}
         />
-        <div className="my-7 border-t" />
+        <div className="my-3 border-t" />
         <ConfigPanel
           configs={configs}
           configRef={configRef}

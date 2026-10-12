@@ -4,7 +4,6 @@ import {
 } from "@doc-anonymizer/ui/primitives/accordion";
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import { Input } from "@doc-anonymizer/ui/primitives/input";
-import { Label } from "@doc-anonymizer/ui/primitives/label";
 import { EFFECT, ENTITY_TYPES, RECOGNITION_MODES, STRATEGIES, STRATEGY_LABELS, detectorsFor, entityLabel, onnxModelInfo, orderSchemes, recognitionMode, visibleSchemes } from "../lib/formats";
 import { LlmModels } from "./LlmModels";
 import type { ConfigData, ConfigRow, LlmModelRow } from "../types";
@@ -88,33 +87,47 @@ export function ConfigPanel(props: Props) {
   };
 
   return (
-    <div className="space-y-7">
-      {/* ---- L1 方案: 这是整个面板的主控件, 给足体量; 长解释进 title ---- */}
-      <section className="space-y-2.5">
-        <Label className="block text-[13px] font-medium" htmlFor="schemeSel">
-          脱敏方案
-        </Label>
-        <select
-          id="schemeSel"
-          className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm font-medium transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          value={configRef ?? ""}
-          onChange={(e) => onSelectConfig(e.target.value)}
-          title={"不确定选哪个：默认「通用」够用（号码、人名、机构、地址都能认）；\n只要号码、跑得最快选「最快」；要说认得更全（讲课、写案例）选「最准」。"}
-        >
-          {schemeOptions.map((c) => (
-            <option key={c.name} value={c.name}>
-              {c.label}
-              {c.kind === "user" ? "（我的）" : ""}
-            </option>
-          ))}
-        </select>
-        <Note title={currentRow?.hint}>
-          {currentRow?.hint || (configKind === "user" ? "你自己保存的方案" : "")}
-          {configKind === "user" ? <span className="ml-1 opacity-70">· 我的配置</span> : null}
-        </Note>
-      </section>
+    <div className="space-y-3">
+      {/* 方案是一个折叠项: L1 选哪套 + L2 脱什么 + L3 靠什么认 —— 三层是同一件事的三层,
+          归在一个「脱敏方案」下面; 触发器的右侧直接显示当前选的是哪套。 */}
+      <Accordion multiple>
+        <AccordionItem value="scheme">
+          <AccordionTrigger
+            className="py-3.5 text-base font-semibold hover:no-underline"
+            title="选一套方案，再按需细调「脱什么」与「靠什么认」。"
+          >
+            <span className="flex min-w-0 flex-1 items-baseline gap-2 pr-1">
+              脱敏方案
+              <span className="ml-auto shrink-0 text-xs font-normal text-muted-foreground">
+                {currentRow?.label ?? ""}
+              </span>
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-5 pb-5">
+            {/* ---- L1 方案: 这一项里的主控件, 给足体量; 长解释进 title ---- */}
+            <select
+              id="schemeSel"
+              aria-label="脱敏方案"
+              className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm font-medium transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              value={configRef ?? ""}
+              onChange={(e) => onSelectConfig(e.target.value)}
+              title={"不确定选哪个：默认「通用」够用（号码、人名、机构、地址都能认）；\n只要号码、跑得最快选「最快」；要说认得更全（讲课、写案例）选「最准」。"}
+            >
+              {schemeOptions.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.label}
+                  {c.kind === "user" ? "（我的）" : ""}
+                </option>
+              ))}
+            </select>
+            <Note title={currentRow?.hint}>
+              {currentRow?.hint || (configKind === "user" ? "你自己保存的方案" : "")}
+              {configKind === "user" ? <span className="ml-1 opacity-70">· 我的配置</span> : null}
+            </Note>
 
-      <Accordion multiple className="-mt-2">
+      {/* 内层的两条(缩进没跟着重排, 免得整块 diff): 它们只属于上面这套方案。
+          pl-3 是让人一眼看出这两条在「脱敏方案」里面, 不是与它并列。 */}
+      <Accordion multiple className="-mt-2 pl-3">
         {/* ---- L2 自定义脱敏 ---- */}
         <AccordionItem value="l2">
           <AccordionTrigger
@@ -324,6 +337,9 @@ export function ConfigPanel(props: Props) {
                 ) : null}
               </div>
             ) : null}
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
