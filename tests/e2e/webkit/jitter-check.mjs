@@ -14,6 +14,7 @@ const page = await browser.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push('PAGEERROR ' + e.message));
 
+await page.addInitScript(() => { localStorage.setItem('docanon.onboarded', '1'); });
 await page.goto(URL, { waitUntil: 'domcontentloaded' });
 // 示例不再自动加载: 先点「加载示例」再等 .preset 出现
 await page.locator('#loadSamples').click();

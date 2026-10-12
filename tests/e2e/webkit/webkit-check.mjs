@@ -16,6 +16,7 @@ const errors = [];
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 page.on('pageerror', (e) => errors.push('PAGEERROR ' + e.message));
 
+await page.addInitScript(() => { localStorage.setItem('docanon.onboarded', '1'); });
 await page.goto(URL, { waitUntil: 'domcontentloaded' });
 // 示例不再自动加载: 先点「加载示例」再等 .preset 出现
 await page.locator('#loadSamples').click();
