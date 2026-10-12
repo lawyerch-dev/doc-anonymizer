@@ -104,7 +104,8 @@ export function ConfigPanel(props: Props) {
             </span>
           </AccordionTrigger>
           <AccordionContent className="space-y-5 pb-5">
-            {/* ---- L1 方案: 这一项里的主控件, 给足体量; 长解释进 title ---- */}
+            {/* ---- 方案: 这一项里的主控件, 给足体量; 长解释进 title ---- */}
+            <div className="space-y-2.5">
             <select
               id="schemeSel"
               aria-label="脱敏方案"
@@ -124,19 +125,18 @@ export function ConfigPanel(props: Props) {
               {currentRow?.hint || (configKind === "user" ? "你自己保存的方案" : "")}
               {configKind === "user" ? <span className="ml-1 opacity-70">· 我的配置</span> : null}
             </Note>
+            {/* 一条方案 = 引擎/模型 + 系统默认的脱敏规则; 下面两处就是覆盖它的两个开关 */}
+            <p className="text-xs leading-snug text-muted-foreground">
+              一套方案自带引擎与默认规则；下面「脱敏规则」「识别方式」就是覆盖它们的地方。
+            </p>
+            </div>
 
-      {/* 内层的两条(缩进没跟着重排, 免得整块 diff): 它们只属于上面这套方案。
-          pl-3 是让人一眼看出这两条在「脱敏方案」里面, 不是与它并列。 */}
-      <Accordion multiple className="-mt-2 pl-3">
-        {/* ---- L2 自定义脱敏 ---- */}
-        <AccordionItem value="l2">
-          <AccordionTrigger
-            className="py-3.5 text-base font-semibold hover:no-underline"
-            title="按信息类型逐个指定怎么处理：盖掉、打码、换成假名/占位符、删除，或保持原样。"
-          >
-            自定义脱敏
-          </AccordionTrigger>
-          <AccordionContent className="pb-5">
+      {/* ---- 脱敏规则: 系统默认与你的覆盖都在这一张表里(值就是从上面那套方案来的) ---- */}
+      <div>
+        <h4 className="mb-2.5 text-sm font-semibold text-foreground"
+            title="按信息类型逐个指定怎么处理：盖掉、打码、换成假名/占位符、删除，或保持原样。">
+          脱敏规则
+        </h4>
             {d ? (
               <div className="space-y-5">
                 <label className="flex cursor-pointer items-center gap-2.5 text-sm">
@@ -204,18 +204,14 @@ export function ConfigPanel(props: Props) {
                 </div>
               </div>
             ) : null}
-          </AccordionContent>
-        </AccordionItem>
+      </div>
 
-        {/* ---- L3 检测引擎 ---- */}
-        <AccordionItem value="l3">
-          <AccordionTrigger
-            className="py-3.5 text-base font-semibold hover:no-underline"
-            title="这一层只管「靠什么认」；「脱什么」在上面「自定义脱敏」里。号码、邮箱与你填的词表一直都在认，不用配。"
-          >
-            检测引擎
-          </AccordionTrigger>
-          <AccordionContent className="pb-5">
+      {/* ---- 识别方式: 方案自带一套引擎/模型, 这里是覆盖它的地方 ---- */}
+      <div>
+        <h4 className="mb-2.5 text-sm font-semibold text-foreground"
+            title="号码、邮箱与你填的词表一直都在认，不用配；人名、机构、地址这类才需要模型。">
+          识别方式（用不用模型）
+        </h4>
             {d ? (
               <div className="space-y-5">
                 <div>
@@ -338,9 +334,7 @@ export function ConfigPanel(props: Props) {
                 ) : null}
               </div>
             ) : null}
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+      </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
