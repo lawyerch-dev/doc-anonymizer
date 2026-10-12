@@ -1,0 +1,80 @@
+/* 左右两个面板共用的控制件: 拖拽手柄 + 收起/展开按钮。
+   这里只管"长什么样", 位置(贴在谁的哪条边)由各自组件的样式给 —— 免得两处漂移。 */
+
+.da-panel-grip,
+.da-panel-toggle {
+  /* 默认不出现: 各自组件在自己的断点(左栏 50rem / 右栏 72rem)才打开 */
+  display: none;
+  position: fixed;
+  /* 侧栏 z-index 是 --sl-z-index-menu(5), 比正文高一级才点得到 */
+  z-index: calc(var(--sl-z-index-menu) + 1);
+}
+
+.da-panel-grip {
+  cursor: col-resize;
+  touch-action: none; /* 触屏拖动时别把页面一起滚了 */
+}
+
+.da-panel-grip::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(50% - 1px);
+  width: 2px;
+  border-radius: 1px;
+  background-color: transparent;
+  transition: background-color 0.15s ease;
+}
+
+.da-panel-grip:hover::after,
+.da-panel-grip:focus-visible::after,
+.da-panel-resizing .da-panel-grip::after {
+  background-color: var(--sl-color-accent);
+}
+
+.da-panel-grip:focus-visible {
+  outline: none;
+}
+
+.da-panel-toggle {
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 1px solid var(--sl-color-hairline-shade);
+  border-radius: 50%;
+  background-color: var(--sl-color-bg-sidebar);
+  color: var(--sl-color-gray-3);
+  cursor: pointer;
+  /* 手柄横跨整条边, 会与按钮的中心重叠 —— 按钮必须再高一级, 否则点它等于开始拖拽 */
+  z-index: calc(var(--sl-z-index-menu) + 2);
+}
+
+.da-panel-toggle svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  transition: transform 0.15s ease;
+}
+
+.da-panel-toggle:hover {
+  color: var(--sl-color-white);
+  border-color: var(--sl-color-accent);
+}
+
+/* 拖动中: 光标全程 col-resize, 别让手指底下的链接把光标改回去 */
+.da-panel-resizing,
+.da-panel-resizing body,
+.da-panel-resizing :where(*) {
+  cursor: col-resize;
+}
+
+.da-panel-resizing {
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .da-panel-grip::after,
+  .da-panel-toggle svg {
+    transition: none;
+  }
+}

@@ -1,0 +1,139 @@
+---
+/**
+ * Starlight 左侧栏覆盖件(`components.Sidebar`)。默认侧栏之外只加两样东西:
+ * 1) 边缘的拖拽手柄(≥50rem 出现), 键盘左右方向键也能改;
+ * 2) 收起/展开按钮: 收起 = 导航那一列宽度压到 0。
+ * 宽度与收起状态记在 localStorage, 换页/重开浏览器都还在。
+ *
+ * 宽度写进我们自己的 `--da-nav-width`, **不动 Starlight 的 `--sl-sidebar-width`** ——
+ * 那个变量同时决定右栏目录的宽度与正文的定位, 改它会把右侧整块挤坏(踩过)。
+ *
+ * 两个控制件为什么是 `position: fixed`: 它们只能渲染在 `.sidebar-content` 里(靠 default
+ * 组件带出来), 而 `.sidebar-pane` 是 `overflow: auto` 的滚动容器 —— 用 fixed 才不会被裁掉,
+ * 也才能贴着"宽度是变量"的侧栏边缘。按钮横跨边缘摆放(一半在侧栏留白里, 一半在正文
+ * 留白里), 所以不会压住导航文字。
+ *
+ * 没 JS 时这套东西整体不生效, 退回 Starlight 默认宽度(18.75rem) —— 不是少一层, 只是没这层增强。
+ */
+import Default from "@astrojs/starlight/components/Sidebar.astro";
+import "../styles/panel-controls.css";
+
+const zh = (Astro.locals.starlightRoute.lang ?? "en").startsWith("zh");
+const t = zh
+  ? { collapse: "收起侧栏", expand: "展开侧栏", grip: "拖动调整侧栏宽度(方向键微调)" }
+  : { collapse: "Collapse sidebar", expand: "Expand sidebar", grip: "Drag to resize sidebar (arrow keys to nudge)" };
+---
+
+<Default />
+
+<button
+  class="da-panel-toggle da-sidebar-toggle"
+  type="button"
+  aria-controls="starlight__sidebar"
+  aria-expanded="true"
+  aria-label={t.collapse}
+  data-label-collapse={t.collapse}
+  data-label-expand={t.expand}
+>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="m15 18-6-6 6-6"></path>
+  </svg>
+</button>
+
+<div
+  class="da-panel-grip da-sidebar-grip"
+  role="separator"
+  aria-orientation="vertical"
+  aria-label={t.grip}
+  aria-valuemin="192"
+  aria-valuemax="512"
+  tabindex="0"
+>
+</div>
+
+<script is:inline>
+  // 绘制前就把上次的宽度/收起状态贴上去, 否则首屏会先画成默认宽度再跳一下。
+  (() => {
+    const root = document.documentElement;
+    const width = Number(localStorage.getItem("da-docs-nav-width"));
+    if (width > 0) root.style.setProperty("--da-nav-width", width + "px");
+    if (localStorage.getItem("da-docs-nav-collapsed") === "1") {
+      root.classList.add("da-sidebar-collapsed");
+    }
+  })();
+</script>
+
+<script>
+  import { createPanelResizer } from "../lib/panel-resize";
+
+  createPanelResizer({
+    cssVar: "--da-nav-width",
+    min: 192,
+    max: 512,
+    fallback: 300,
+    gripSelector: ".da-sidebar-grip",
+    toggleSelector: ".da-sidebar-toggle",
+    collapsedClass: "da-sidebar-collapsed",
+    storageKey: "da-docs-nav-width",
+    collapsedStorageKey: "da-docs-nav-collapsed",
+  });
+</script>
+
+<style is:global>
+  :root {
+    --da-nav-width: 18.75rem;
+  }
+
+  @media (min-width: 50rem) {
+    /* Starlight 把正文缩进绑在 --sl-sidebar-width 上, 只在这一处改指我们的变量 */
+    :root[data-has-sidebar] {
+      --sl-content-inline-start: var(--da-nav-width);
+    }
+
+    .sidebar-pane {
+      width: var(--da-nav-width);
+    }
+
+    .da-sidebar-grip {
+      display: block;
+      inset-block: var(--sl-nav-height) 0;
+      inset-inline-start: calc(var(--da-nav-width) - 0.5rem);
+      width: 1rem;
+    }
+
+    .da-sidebar-toggle {
+      display: grid;
+      inset-block-start: 50%;
+      inset-inline-start: calc(var(--da-nav-width) - 0.7rem);
+      transform: translateY(-50%);
+    }
+
+    /* 收起: 导航那一列整列让出去(正文缩进归 0), 但宽度变量本身保留 —— 展开时不用再问用户 */
+    :root[data-has-sidebar].da-sidebar-collapsed {
+      --sl-content-inline-start: 0px;
+    }
+
+    .da-sidebar-collapsed .sidebar-pane {
+      width: 0;
+    }
+
+    /* 连同 Tab 序一起摘掉(visibility 不像 display 会连点可见性一起影响子元素,
+       按钮自己声明 visible 就能留在外面) */
+    .da-sidebar-collapsed .sidebar-content {
+      visibility: hidden;
+    }
+
+    .da-sidebar-collapsed .da-sidebar-grip {
+      display: none;
+    }
+
+    .da-sidebar-collapsed .da-sidebar-toggle {
+      visibility: visible;
+      inset-inline-start: 0.5rem;
+    }
+
+    .da-sidebar-collapsed .da-sidebar-toggle svg {
+      transform: rotate(180deg);
+    }
+  }
+</style>

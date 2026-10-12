@@ -34,7 +34,11 @@ export default defineConfig({
       social: [{ icon: "github", label: "GitHub", href: "https://github.com/lawyerch-dev/doc-anonymizer" }],
       customCss: ["./src/styles/global.css"],
       // 页面内组件用得到 velora 的动效, 由 React island 承载
-      components: {},
+      // 侧栏覆盖件: 左右两栏都加拖拽调宽 + 收起/展开(见那两个文件顶部注释)
+      components: {
+        Sidebar: "./src/components/StarlightSidebar.astro",
+        PageSidebar: "./src/components/StarlightPageSidebar.astro",
+      },
     }),
     react(),
   ],

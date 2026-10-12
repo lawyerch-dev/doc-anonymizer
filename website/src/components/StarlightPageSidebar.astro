@@ -1,0 +1,198 @@
+---
+/**
+ * Starlight 右侧栏(本页目录)覆盖件(`components.PageSidebar`)。与左栏同一套控制件:
+ * 边缘拖拽手柄 + 收起/展开按钮, 宽度与收起状态记在 localStorage。
+ *
+ * 右栏的几何比左栏绕: Starlight 把"目录列"的宽度算成 `目录宽 + 一半留白`
+ * (`--sl-sidebar-width + (100% - 正文宽 - 目录宽) / 2`), 所以我们:
+ * 1) 换一个自己的变量 `--da-toc-width` 进去(默认值不变, 默认观感与原来一致);
+ * 2) 手柄在列的**起始边**(左边), 拖动方向因此与左栏相反 —— 往左拖是变宽(handle: "start");
+ *    而列宽只按宽度变量一半的速度变, 所以再乘 2(sensitivity: 2), 这样手柄才正好跟手;
+ * 3) 手柄的位置不去 CSS 里重算那个公式, 直接量一次目录列的边缘, 写进 `--da-toc-anchor`
+ *    (列在视口右侧, 用 `inset-inline-end` 锚定), 布局一变(拖左栏/改窗口)就重量。
+ *
+ * 手柄定位依赖量出来的锚点, 所以控制件挂在 `da-toc-ready` 这个类上才显示 ——
+ * 免得首屏先出现在视口最右边再跳过去。
+ */
+import Default from "@astrojs/starlight/components/PageSidebar.astro";
+import "../styles/panel-controls.css";
+
+const toc = Astro.locals.starlightRoute.toc;
+const zh = (Astro.locals.starlightRoute.lang ?? "en").startsWith("zh");
+const t = zh
+  ? { collapse: "收起本页目录", expand: "展开本页目录", grip: "拖动调整本页目录宽度(方向键微调)" }
+  : {
+      collapse: "Collapse table of contents",
+      expand: "Expand table of contents",
+      grip: "Drag to resize the table of contents (arrow keys to nudge)",
+    };
+---
+
+<Default />
+
+<script is:inline>
+  // 绘制前贴好宽度与收起状态, 否则首屏会先画成默认宽度再跳一下
+  (() => {
+    const root = document.documentElement;
+    const width = Number(localStorage.getItem("da-docs-toc-width"));
+    if (width > 0) root.style.setProperty("--da-toc-width", width + "px");
+    if (localStorage.getItem("da-docs-toc-collapsed") === "1") {
+      root.classList.add("da-toc-collapsed");
+    }
+  })();
+</script>
+
+{
+  toc && (
+    <>
+      <button
+        class="da-panel-toggle da-toc-toggle"
+        type="button"
+        aria-expanded="true"
+        aria-label={t.collapse}
+        data-label-collapse={t.collapse}
+        data-label-expand={t.expand}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+      </button>
+
+      <div
+        class="da-panel-grip da-toc-grip"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={t.grip}
+        aria-valuemin="208"
+        aria-valuemax="384"
+        tabindex="0"
+      />
+    </>
+  )
+}
+
+<script>
+  import { createPanelResizer } from "../lib/panel-resize";
+
+  createPanelResizer({
+    cssVar: "--da-toc-width",
+    // 手柄在目录列的起始边(左边): 往左拖是变宽, 且列宽只按一半的速度变 -> 起始侧 + 2 倍
+    handle: "start",
+    sensitivity: 2,
+    min: 208,
+    max: 384,
+    fallback: 300,
+    gripSelector: ".da-toc-grip",
+    toggleSelector: ".da-toc-toggle",
+    collapsedClass: "da-toc-collapsed",
+    storageKey: "da-docs-toc-width",
+    collapsedStorageKey: "da-docs-toc-collapsed",
+  });
+
+  // 手柄要贴在目录列的边缘, 而那个位置由 Starlight 的布局公式算出来 —— 量一次写进变量,
+  // 列宽/左栏/窗口一变就重量(ResizeObserver 会在这些情况下都触发)。
+  const column = document.querySelector<HTMLElement>(".right-sidebar-container");
+  if (column && document.querySelector(".da-toc-grip")) {
+    const root = document.documentElement;
+    const measure = () => {
+      const rect = column.getBoundingClientRect();
+      const inset = root.dir === "rtl" ? rect.left : root.clientWidth - rect.left;
+      root.style.setProperty("--da-toc-anchor", `${Math.round(inset)}px`);
+      root.classList.add("da-toc-ready");
+    };
+    measure();
+    new ResizeObserver(measure).observe(column);
+  }
+</script>
+
+<style is:global>
+  :root {
+    --da-toc-width: 18.75rem;
+  }
+
+  @media (min-width: 50rem) {
+    /* 顶栏把搜索框的居中算在"目录宽度"上, 它默认读 --sl-sidebar-width, 换成我们的变量 */
+    :root[data-has-toc] {
+      --__toc-width: var(--da-toc-width);
+    }
+
+    :root[data-has-toc].da-toc-collapsed {
+      --__toc-width: 0rem;
+    }
+  }
+
+  @media (min-width: 72rem) {
+    /* 只把公式里的宽度变量换掉, 默认观感与 Starlight 一致 */
+    .right-sidebar-container {
+      width: calc(var(--da-toc-width) + (100% - var(--sl-content-width) - var(--da-toc-width)) / 2);
+    }
+
+    :root[data-has-sidebar][data-has-toc] .main-pane {
+      width: calc(var(--sl-content-width) + (100% - var(--sl-content-width) - var(--da-toc-width)) / 2);
+    }
+
+    /* 目录文字块的宽度: 不超出去占正文, 也不超过列自己的内宽(原来的 25% 魔术数就这个作用) */
+    .right-sidebar-panel .sl-container {
+      width: calc(var(--da-toc-width) - 2 * var(--sl-sidebar-pad-x));
+      max-width: 100%;
+    }
+
+    .da-toc-ready .da-toc-grip {
+      display: block;
+      inset-block: var(--sl-nav-height) 0;
+      inset-inline-end: calc(var(--da-toc-anchor) - 0.5rem);
+      width: 1rem;
+    }
+
+    .da-toc-ready .da-toc-toggle {
+      display: grid;
+      inset-block-start: 50%;
+      inset-inline-end: calc(var(--da-toc-anchor) - 0.7rem);
+      transform: translateY(-50%);
+    }
+
+    /* 箭头默认朝外(向右) = 点它就是把目录收起来 */
+    .da-toc-toggle svg {
+      transform: rotate(180deg);
+    }
+
+    /* 收起: 目录列整列让出去(padding 与那条分隔线一起去掉), 正文回到整幅居中 */
+    .da-toc-collapsed .right-sidebar-container {
+      width: 0;
+    }
+
+    .da-toc-collapsed .right-sidebar {
+      padding: 0;
+      border-inline-start: 0;
+    }
+
+    .da-toc-collapsed .right-sidebar-panel {
+      visibility: hidden;
+    }
+
+    .da-toc-collapsed[data-has-sidebar][data-has-toc] .main-pane {
+      width: 100%;
+      --sl-content-margin-inline: auto;
+    }
+
+    .da-toc-collapsed .da-toc-grip {
+      display: none;
+    }
+
+    .da-toc-collapsed .da-toc-toggle {
+      inset-inline-end: 0.5rem;
+    }
+
+    .da-toc-collapsed .da-toc-toggle svg {
+      transform: none;
+    }
+  }
+</style>
