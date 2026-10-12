@@ -69,7 +69,12 @@ export default function Landing({ repo, locale }: { repo: string; locale: "zh" |
   const c = COPY[locale];
   return (
     <main className="mx-auto max-w-6xl px-6">
-      {/* 全站网格背景: 顶部一层品牌柔光 + 网格向下渐隐, 免得纯色底太平; 浅色/深色都吃 token */}
+      {/* 全站背景(固定层): 滚动时一直在, 免得下方页面只剩纯色底显得空。
+          三层: 顶部品牌柔光 → 平铺网格(向下渐隐) → 底部透视网格。
+          透视网格有两处必须压住, 否则会留下一条横线:
+          1) --border: 组件默认拿它当线色, 浅色下几乎是白色, 网格会看不见。
+          2) mask: 组件自带 `to-background` 的渐变, 在容器顶边画了一条不透明的 background 色带,
+             会把背后的平铺网格与柔光一刀切断 —— 用向下渐显的遮罩把这一层的入场改成软的。 */}
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div
           className="absolute inset-0"
@@ -82,23 +87,15 @@ export default function Landing({ repo, locale }: { repo: string; locale: "zh" |
           width={48}
           height={48}
           style={{
-            maskImage: "radial-gradient(ellipse 70% 55% at 50% 0%, #000 20%, transparent 100%)",
+            // 渐隐要拖到视口下方: 透视网格是从视口 1/3 处渐显上来的, 扁平网格若在 55% 就没了,
+            // 两层的交界会留下一条横边。让两者在交界处叠加, 才是过渡而不是拼接。
+            maskImage: "radial-gradient(ellipse 78% 88% at 50% 0%, #000 14%, transparent 100%)",
             WebkitMaskImage:
-              "radial-gradient(ellipse 70% 55% at 50% 0%, #000 20%, transparent 100%)",
+              "radial-gradient(ellipse 78% 88% at 50% 0%, #000 14%, transparent 100%)",
           }}
         />
-      </div>
-      {/* Hero */}
-      <section className="relative -mx-6 overflow-hidden px-6 pt-20 pb-16 text-center sm:pt-28">
-        <AuroraBackground intensity="subtle" />
-        {/* 透视网格持续向远处滚动: 首屏的"活"感靠它(纯 CSS, 尊重 prefers-reduced-motion)。
-            两处必须压住, 否则会留下一条横线:
-            1) --border: 组件默认拿它当线色, 浅色下几乎是白色, 网格会看不见。
-            2) mask: 组件自带 `to-background` 的渐变, 在容器顶边画了一条不透明的 background 色带,
-               把上方的全站网格与 aurora 一刀切断 —— 用向下渐显的遮罩把这一层的入场改成软的。 */}
         <div
-          aria-hidden
-          className="absolute inset-x-0 bottom-0 h-3/4"
+          className="absolute inset-x-0 bottom-0 h-2/3"
           style={
             {
               "--border": "color-mix(in oklab, var(--foreground) 22%, transparent)",
@@ -109,6 +106,10 @@ export default function Landing({ repo, locale }: { repo: string; locale: "zh" |
         >
           <RetroGrid angle={65} cellSize={48} opacity={0.9} />
         </div>
+      </div>
+      {/* Hero */}
+      <section className="relative -mx-6 overflow-hidden px-6 pt-20 pb-16 text-center sm:pt-28">
+        <AuroraBackground intensity="subtle" />
         <div className="relative">
           <p className="mb-6 inline-flex items-center gap-2 rounded-full border bg-background/60 px-3 py-1 text-xs text-muted-foreground">
             <LockIcon className="size-3.5" /> {c.badge}
@@ -124,26 +125,6 @@ export default function Landing({ repo, locale }: { repo: string; locale: "zh" |
               className={buttonVariants({ size: "lg", className: "h-11 px-6 text-base" })}
             >
               {c.download} <ArrowRightIcon className="size-4" />
-            </a>
-            <a
-              href={repo}
-              className={buttonVariants({
-                size: "lg",
-                variant: "outline",
-                className: "h-11 px-6 text-base",
-              })}
-            >
-              {c.nav.github}
-            </a>
-            <a
-              href={url(c.docs[0]!.href)}
-              className={buttonVariants({
-                size: "lg",
-                variant: "outline",
-                className: "h-11 px-6 text-base",
-              })}
-            >
-              {c.nav.docs}
             </a>
             <a
               href="#how"
@@ -324,7 +305,7 @@ export default function Landing({ repo, locale }: { repo: string; locale: "zh" |
                 <p className="mt-3 text-xs leading-6 text-muted-foreground">{c.ctaHint}</p>
                 <a
                   href={url(c.docs[0]!.href)}
-                  className="mt-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                  className="mt-3 flex items-center justify-end gap-1 text-sm text-muted-foreground hover:text-foreground"
                 >
                   {c.docs[0]!.title} <ArrowRightIcon className="size-3.5" />
                 </a>

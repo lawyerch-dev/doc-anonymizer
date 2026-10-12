@@ -89,14 +89,14 @@ export const COPY: Record<"zh" | "en", LandingCopy> = {
     htmlLang: "zh-CN",
     title: "doc-anonymizer · 本地文档脱敏",
     metaDescription: "把 Word、Excel、PDF 里的敏感信息在本机抹掉，只改文字、全程不联网",
-    nav: { docs: "文档", github: "GitHub", switchLabel: "English" },
+    nav: { docs: "使用手册", github: "GitHub", switchLabel: "English" },
     badge: "完全离线 · 文件不出你的电脑",
     h1: "纯本地运行的脱敏工具",
     sub: "Word、Excel、PDF、扫描件和图片里的姓名、电话、身份证号，在你自己的电脑上换掉：只改文字，排版原样。全程不联网。",
     download: "下载桌面版",
     cta: "看怎么用",
     downloadHint:
-      "自带运行环境，不用装 Python。macOS 目前只出 Apple Silicon 版，且未签名未公证：首次打开若提示「无法验证开发者」，在「系统设置 → 隐私与安全性」点「仍要打开」。",
+      "macOS 目前只出 Apple Silicon 版，且未签名未公证：首次打开若提示「无法验证开发者」，在「系统设置 → 隐私与安全性」点「仍要打开」。",
     entities: [
       "姓名",
       "手机号",
@@ -213,11 +213,9 @@ export const COPY: Record<"zh" | "en", LandingCopy> = {
     },
     footerLinks: [
       { label: "下载桌面版", href: "https://github.com/lawyerch-dev/doc-anonymizer/releases/latest" },
-      { label: "文档", href: "/start/quickstart/" },
-      { label: "GitHub", href: "https://github.com/lawyerch-dev/doc-anonymizer" },
       { label: "问题反馈", href: "https://github.com/lawyerch-dev/doc-anonymizer/issues" },
     ],
-    footerLicense: "MIT 开源 © 2026 LawyerCH · 组件来自 velora-ui",
+    footerLicense: "MIT 开源 © 2026 LawyerCH",
     footerTech: "本地运行 · 不上传 · 自带运行环境",
   },
   en: {
@@ -225,7 +223,7 @@ export const COPY: Record<"zh" | "en", LandingCopy> = {
     title: "doc-anonymizer · local document redaction",
     metaDescription:
       "Redact sensitive data in Word, Excel and PDF files on your own machine — only the text changes, fully offline",
-    nav: { docs: "Docs", github: "GitHub", switchLabel: "中文" },
+    nav: { docs: "Manual", github: "GitHub", switchLabel: "中文" },
     badge: "Fully offline · Your files never leave your computer",
     h1: "A redaction tool that runs entirely on your machine",
     sub: "Swap out names, phone numbers and ID numbers in Word, Excel, PDF, scans and images on your own computer: only the text changes, the layout stays.",
@@ -349,8 +347,6 @@ export const COPY: Record<"zh" | "en", LandingCopy> = {
     },
     footerLinks: [
       { label: "Download", href: "https://github.com/lawyerch-dev/doc-anonymizer/releases/latest" },
-      { label: "Docs", href: "/en/start/quickstart/" },
-      { label: "GitHub", href: "https://github.com/lawyerch-dev/doc-anonymizer" },
       { label: "Issues", href: "https://github.com/lawyerch-dev/doc-anonymizer/issues" },
     ],
     footerLicense: "MIT © 2026 LawyerCH · components from velora-ui",
