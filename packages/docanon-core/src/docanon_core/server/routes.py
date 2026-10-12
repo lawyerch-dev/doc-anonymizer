@@ -8,11 +8,12 @@ import base64
 import json
 import mimetypes
 import os
+import shutil
 import tempfile
 import uuid
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 from .. import __version__, convert, resources
 from ..pipeline import Cancelled, prepare_detectors, process_file
@@ -21,6 +22,48 @@ from . import downloads, llm_server, prepare, profiles, progress
 from docanon_engine_ner_llm import LLMConfig
 
 _MAX_BYTES = 50 * 1024 * 1024
+
+# 一批的上限: 界面"选文件夹"时前端先拦一道(给出人话), 这里是后端的硬底线(直接调 API 也拦得住)
+BATCH_MAX_FILES = 300
+BATCH_MAX_BYTES = 500 * 1024 * 1024
+
+
+def supported_extensions() -> list[str]:
+    """界面上"选文件夹"预过滤用的扩展名清单。
+
+    **不另抄一份**: 直接问抽取器注册表 —— 加个抽取器就自动出现在界面上。
+    旧格式(.doc/.xls)也算在内: 它们到底能不能跑取决于配置与 LibreOffice, 那是运行时的三态该说的,
+    预过滤阶段把它当"不支持"会让用户连点都不会点。
+    """
+    from ..extractors.base import extractor_classes
+
+    return sorted({ext for cls in extractor_classes() for ext in cls.extensions})
+
+
+def _batch_files(root: Path) -> list[tuple[Path, Path]]:
+    """批次目录里的 (绝对路径, 相对路径), 按相对路径排序。
+
+    跳过隐藏项(`.` 开头的任何一层) —— 与 CLI `_collect` 同一套规则: 否则每个 Mac 文件夹都会
+    多出一堆 `.DS_Store` 进"不支持"。隐藏项不算 unsupported, 由调用方单独说"已忽略 N 个"。
+    """
+    return [
+        (p, p.relative_to(root))
+        for p in sorted(root.rglob("*"))
+        if p.is_file() and not any(part.startswith(".") for part in p.relative_to(root).parts)
+    ]
+
+
+def _make_zip(out_dir: Path, dest: Path) -> int:
+    """把产物目录打成一个 zip, **不含 `mapping.json`** —— 它含原文, 是与脱敏件分开外发的东西。"""
+    import zipfile
+
+    count = 0
+    with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path in sorted(out_dir.rglob("*")):
+            if path.is_file() and path.name != "mapping.json":
+                zf.write(path, path.relative_to(out_dir))
+                count += 1
+    return count
 
 # 资源位置都从 resources 取(调用者的 cwd 与安装布局都无关), 所以用函数而不是导入期常量
 def _web() -> Path:
@@ -56,6 +99,8 @@ _CTYPES = {
     ".woff2": "font/woff2",
     ".woff": "font/woff",
     ".ttf": "font/ttf",
+    # 显式写死: mimetypes 在 Windows 上会读注册表, 同一份代码不该因机器而变
+    ".zip": "application/zip",
 }
 
 _PREVIEWABLE = {".docx", ".xlsx", ".pdf", ".png", ".jpg", ".jpeg", ".txt", ".md", ".csv"}
@@ -117,6 +162,23 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send(200, path.read_bytes(), _ctype(path))
 
+    def _send_download(self, path: Path, filename: str) -> None:
+        """带 Content-Disposition 的下载, **边读边发**。
+
+        整包可能有几百 MB, 不能像 `_send_file` 那样整份读进内存; 文件名按 RFC 5987 编码 ——
+        中文名不编码会乱码或被截成 "download.zip"。
+        """
+        if not path.is_file():
+            self._send(404, b"not found", "text/plain")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", _ctype(path))
+        self.send_header("Content-Length", str(path.stat().st_size))
+        self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quote(filename)}")
+        self.end_headers()
+        with path.open("rb") as fh:
+            shutil.copyfileobj(fh, self.wfile, 1 << 16)
+
     def _path(self) -> str:
         """请求路径(去掉 query)。
 
@@ -152,12 +214,16 @@ class Handler(BaseHTTPRequestHandler):
                 "llm_models": llm_models,
                 "llm_server": llm_server.status(),
             })
+        elif p == "/api/formats":
+            self._json(200, {"extensions": supported_extensions()})
         elif p == "/api/models/download":
             self._json(200, downloads.status())
         elif p == "/api/prepare":
             self._json(200, prepare.status())
         elif p.startswith("/api/progress/"):
             self._json(200, progress.state(p[len("/api/progress/"):]))
+        elif p.startswith("/api/batch/"):
+            self._get_batch_zip(p[len("/api/batch/"):])
         elif p.startswith("/api/configs/"):
             self._get_config(p[len("/api/configs/"):])
         elif p.startswith(_DIST_PREFIX):
@@ -174,6 +240,31 @@ class Handler(BaseHTTPRequestHandler):
     def _serve_static(self, base: Path, rel: str) -> None:
         f = _safe_join(base, rel)
         self._send_file(f) if f else self._send(404, b"bad path", "text/plain")
+
+    def _get_batch_zip(self, rest: str) -> None:
+        """`/api/batch/<产物目录>/zip?name=<文件夹名>` → 整包下载。
+
+        产物目录名来自服务端自己发的 `zip_url`, 但仍要过 `_safe_join`: 这个端点接受外部输入。
+        """
+        out_token, _, kind = rest.partition("/")
+        if kind != "zip":
+            self._json(404, {"error": "not found"})
+            return
+        out = _safe_join(self.out_root / "outputs", out_token)
+        if out is None or not out.is_dir():
+            self._json(404, {"error": "批次产物不存在"})
+            return
+        name = "脱敏产物"
+        query = self.path.split("?", 1)[1] if "?" in self.path else ""
+        for part in query.split("&"):
+            if part.startswith("name="):
+                name = Path(unquote(part[len("name="):])).name or name
+        tmp = self.out_root / f"zip-{uuid.uuid4().hex[:8]}.zip"
+        try:
+            _make_zip(out, tmp)
+            self._send_download(tmp, f"【脱敏版】{name}.zip")
+        finally:
+            tmp.unlink(missing_ok=True)
 
     @staticmethod
     def _presets() -> list[dict]:
@@ -384,11 +475,27 @@ class Handler(BaseHTTPRequestHandler):
         if len(raw) > _MAX_BYTES:
             self._json(400, {"error": "文件过大(>50MB)"})
             return
-        token = uuid.uuid4().hex[:12]
-        dest = self.out_root / "uploads" / token
-        dest.mkdir(parents=True, exist_ok=True)
-        (dest / name).write_bytes(raw)
-        self._json(200, {"token": token, "filename": name, "url": f"/uploads/{token}/{name}"})
+        batch = payload.get("batch")
+        if batch:
+            # 批次(选文件夹): 一个文件夹里的多份进同一个目录, 保留相对层级
+            if not progress.NAME_RE.match(str(batch)):
+                self._json(400, {"error": "非法批次 id"})
+                return
+            rel = str(payload.get("relpath") or name).replace("\\", "/")
+            dest = _safe_join(self.out_root / "uploads" / str(batch), rel)
+            if dest is None:
+                self._json(400, {"error": f"非法相对路径: {rel}"})
+                return
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(raw)
+            token, shown = str(batch), rel
+        else:
+            token = uuid.uuid4().hex[:12]
+            dest = self.out_root / "uploads" / token / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(raw)
+            shown = name
+        self._json(200, {"token": token, "filename": shown, "url": f"/uploads/{token}/{shown}"})
 
     def _anonymize(self, payload: dict) -> None:
         """入口: 先把 job 登记好再干活 —— "准备引擎"(起大模型/载 ONNX)那几秒也要能看见。"""
@@ -414,6 +521,10 @@ class Handler(BaseHTTPRequestHandler):
             tick("prepare")   # 起本地大模型 / 加载 ONNX 都在这一段里, 别让它看起来像卡死
         cfg, cfg_name = self._resolve_config(payload)
         if cfg is None:
+            return
+        # 批次(选文件夹): 一个文件夹一次跑完, 每份是独立的原子单位(见 _anonymize_batch)
+        if payload.get("batch"):
+            self._anonymize_batch(str(payload["batch"]), cfg, job, cancel)
             return
         # 输入来源: 预设文件名 或 已上传 token
         if payload.get("preset"):
@@ -472,6 +583,94 @@ class Handler(BaseHTTPRequestHandler):
                 "timing": res.timing,
                 "detections": res.detections,
             },
+        })
+
+    def _anonymize_batch(self, batch: str, cfg, job: str | None, cancel) -> None:
+        """一个文件夹一次跑完。
+
+        每份都是**独立的原子单位**: `process_file` 自带"先写 .tmp 再 replace", 所以取消或中途失败时
+        已经跑完的那几份产物是完整的、账本也记着 —— 这不是"半成品", 与单份取消(整份不落产物)不冲突。
+
+        逐份三态与 CLI 的 `run` 一致: 不支持的记 `unsupported` 带原因, 出错的记 `error`,
+        **绝不静默少一份**。
+        """
+        if not progress.NAME_RE.match(batch):
+            self._json(400, {"error": "非法批次 id"})
+            return
+        src_root = self.out_root / "uploads" / batch
+        pairs = _batch_files(src_root) if src_root.is_dir() else []
+        if not pairs:
+            self._json(400, {"error": "这个文件夹里没有可脱敏的文档"})
+            return
+        if len(pairs) > BATCH_MAX_FILES:
+            self._json(400, {
+                "error": f"一次最多 {BATCH_MAX_FILES} 份(这次 {len(pairs)} 份), 分两批跑",
+            })
+            return
+        if sum(p.stat().st_size for p, _ in pairs) > BATCH_MAX_BYTES:
+            self._json(400, {"error": "整批超过 500MB, 分两批跑"})
+            return
+
+        # 旧格式要先转: 缺 LibreOffice 时整批记 unsupported(带原因), 而不是炸成 error(与 CLI 同法)
+        legacy_blocked = None
+        if any(p.suffix.lower() in convert.LEGACY_EXTENSIONS for p, _ in pairs):
+            legacy_blocked = convert.unavailable_reason()
+
+        token = uuid.uuid4().hex[:12]
+        work = self.out_root / "outputs" / token
+        work.mkdir(parents=True, exist_ok=True)
+        store = MappingStore()
+        results: list[dict] = []
+        total = len(pairs)
+        cancelled = False
+
+        for i, (src, rel) in enumerate(pairs, start=1):
+            rel_s = str(rel).replace(os.sep, "/")
+            if job is not None:
+                progress.update(job, "extract", 0, 0, file=rel_s, index=i, total_files=total)
+            if legacy_blocked and src.suffix.lower() in convert.LEGACY_EXTENSIONS:
+                results.append({"source": rel_s, "status": "unsupported", "reason": legacy_blocked})
+                continue
+
+            def tick(stage: str, done: int = 0, tot: int = 0, _rel=rel_s, _i=i) -> None:
+                if job is not None:
+                    progress.update(job, stage, done, tot, file=_rel, index=_i, total_files=total)
+
+            try:
+                res = process_file(src, work, cfg, store, rel=rel, progress=tick, cancel=cancel)
+            except Cancelled:
+                cancelled = True
+                break
+            except ValueError as exc:  # build_extractor: 不支持的类型
+                results.append({"source": rel_s, "status": "unsupported", "reason": str(exc)})
+                continue
+            except Exception as exc:  # noqa: BLE001
+                results.append({"source": rel_s, "status": "error", "reason": str(exc)})
+                continue
+            # output_path 是 str(单份流程也是 `Path(res.output_path).name` 这么用的)
+            out_path = Path(res.output_path)
+            out_rel = str(out_path.relative_to(work) if out_path.is_absolute() else out_path)
+            results.append({
+                "source": rel_s,
+                "status": "ok",
+                "output_name": out_path.name,
+                "output_url": f"/outputs/{token}/{out_rel.replace(os.sep, '/')}",
+                "counts": res.entity_counts,
+            })
+
+        # 取消也要落账本: 已完成的部分不能白跑(否则那些产物再也拼不回原文)
+        store.save(work / "mapping.json")
+        self._json(200, {
+            "batch": {"cancelled": cancelled, "total": total},
+            "summary": {
+                "total": total,
+                "ok": sum(1 for r in results if r["status"] == "ok"),
+                "unsupported": sum(1 for r in results if r["status"] == "unsupported"),
+                "error": sum(1 for r in results if r["status"] == "error"),
+            },
+            "results": results,
+            "mapping_url": f"/outputs/{token}/mapping.json",
+            "zip_url": f"/api/batch/{token}/zip",
         })
 
     def log_message(self, fmt: str, *args) -> None:  # 静默默认日志

@@ -35,15 +35,29 @@ def begin(job_id: str) -> threading.Event:
                 _jobs.pop(old, None)
         _jobs[job_id] = {
             "stage": "extract", "done": 0, "total": 0, "cancelled": False, "cancel": cancel,
+            # 批次(选文件夹)专用: 单份流程这三个字段一直是空/0
+            "file": "", "index": 0, "total_files": 0,
         }
     return cancel
 
 
-def update(job_id: str, stage: str, done: int = 0, total: int = 0) -> None:
+def update(
+    job_id: str, stage: str, done: int = 0, total: int = 0,
+    *, file: str | None = None, index: int | None = None, total_files: int | None = None,
+) -> None:
+    """更新进度。`file`/`index`/`total_files` 是"传了才改" —— 单份流程的 `progress(stage, done, total)`
+    不该把批次信息擦掉。"""
     with _lock:
         job = _jobs.get(job_id)
-        if job is not None:
-            job.update(stage=stage, done=done, total=total)
+        if job is None:
+            return
+        job.update(stage=stage, done=done, total=total)
+        if file is not None:
+            job["file"] = file
+        if index is not None:
+            job["index"] = index
+        if total_files is not None:
+            job["total_files"] = total_files
 
 
 def finish(job_id: str) -> None:
@@ -70,12 +84,16 @@ def state(job_id: str) -> dict:
     with _lock:
         job = _jobs.get(job_id)
         if job is None:
-            return {"stage": "unknown", "done": 0, "total": 0, "cancelled": False}
+            return {"stage": "unknown", "done": 0, "total": 0, "cancelled": False,
+                    "file": "", "index": 0, "total_files": 0}
         return {
             "stage": job["stage"],
             "done": job["done"],
             "total": job["total"],
             "cancelled": job["cancelled"],
+            "file": job.get("file", ""),
+            "index": job.get("index", 0),
+            "total_files": job.get("total_files", 0),
         }
 
 
