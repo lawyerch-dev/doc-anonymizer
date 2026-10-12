@@ -33,8 +33,7 @@
   [打包桌面版](../../.github/workflows/build-desktop.yml)（macOS/Windows 矩阵，打 tag 时发 Release）。
   详细步骤（含子路径预览的验证方法）见 [`docs/cookbook/shipping-the-website.md`](../../docs/cookbook/shipping-the-website.md)。
 - **DOM 契约**：`tests/e2e/webkit/` 按 `#loadSamples` `.preset` `#run` `#paneSrc` `#paneOut` `#stats` 选择元素 —— 改界面时这几个钩子不许改名或挪位置。
-  `#paneSrc`/`#paneOut` 的 `firstElementChild` 是预览挂载点；示例**不自动加载**（点 `#loadSamples`）；`#run`（一键脱敏）只在有文档可选/已选时出现；`#stats` 折叠时靠 `keepMounted` 留在 DOM。
-  批量（选文件夹）另有一组：`#pickFolder`（目录选择入口）、`.doc-row`（列表每行，带 `data-status`，`.preset` 仍在示例行上）、`#batchSummary`（"N 份：X 已脱敏 · Y 未处理 · Z 失败"）、`#downloadZip`（整包）。
+  `#paneSrc`/`#paneOut` 的 `firstElementChild` 是预览挂载点；示例**不自动加载**（点 `#loadSamples`）；`#run`（一键脱敏）只在有文档可选/已选时出现；`#stats` 折叠时靠 `keepMounted` 留在 DOM；批量（选文件夹）另有 `#pickFolder`（目录入口）、`.doc-row`（每行，带 `data-status`）、`#batchSummary`（批次汇总）、`#downloadZip`（整包），`.preset` 仍在示例行上。
 - 加前端依赖/改构建：`npm run build:web`；dev 态 `npm run dev`（后端 + Vite 并发 + `/api /samples /uploads /outputs /file-viewer /health` 六条前缀代理），
   生产形态 `npm run build:web && npm run dev:backend`。
 
