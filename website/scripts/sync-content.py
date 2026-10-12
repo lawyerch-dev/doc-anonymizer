@@ -157,6 +157,72 @@ def discover_extra() -> list[dict]:
     return pages
 
 
+# 侧栏摆法: 每组 = (中文名, 英文名, 取哪些页)。取法二选一 —— 按清单的 group, 或按 slug。
+# 只决定"怎么摆", 不决定"哪些上站"; 结构里没排到的页会兜底进「开发者 → 其他」。
+DEV_TREE: list[tuple[str, str, dict]] = [
+    ("概览", "Overview", {"groups": ("dev",), "except_slugs": ("components", "ui", "website-doc")}),
+    ("工程实现", "Engineering", {"slugs": ("components", "ui", "website-doc")}),
+    ("契约细则", "Contract rules", {"groups": ("agent",)}),
+    ("决策记录", "Decision records", {"groups": ("notes",)}),
+    ("操作手册", "Playbooks", {"groups": ("skills",)}),
+    ("事故复盘", "Post-mortems", {"groups": ("postmortem",)}),
+    ("操作指引", "Guides", {"groups": ("cookbook",)}),
+    ("各包约定", "Packages", {"groups": ("packages",)}),
+]
+
+
+def build_sidebar(pages: list[dict]) -> list[dict]:
+    """把清单里的页摆成侧栏: 顶层只给普通用户两组, 开发类收进默认收起的「开发者」。
+
+    为什么要这样摆: 落地页的读者是法务/人力/财务, 而文档站原来把「开始」和
+    「契约细则 / 决策记录 / 事故复盘 / 操作手册」平级铺开 —— 第一眼全是给维护者看的东西。
+    内容一条不删, 只是不再挡在用户面前。
+
+    只决定"怎么摆", 不决定"哪些上站": `discover_extra()` 新发现的笔记仍有位置(兜底进「其他」),
+    所以"树里加了就上站"这条自动化不受影响。
+    """
+    items_of: dict[str, dict] = {}
+    for entry in pages:
+        item: dict[str, object] = {"label": entry["title"], "slug": f"{entry['group']}/{entry['slug']}"}
+        if entry.get("en_title"):                      # 侧栏标签跟着语言切换
+            item["translations"] = {"en": entry["en_title"]}
+        items_of[f"{entry['group']}/{entry['slug']}"] = item
+
+    used: set[str] = set()
+
+    def take(*, groups: tuple[str, ...] = (), slugs: tuple[str, ...] = (),
+             except_slugs: tuple[str, ...] = ()) -> list[dict]:
+        picked: list[dict] = []
+        for key, item in items_of.items():             # items_of 保序 = 清单顺序
+            if key in used:
+                continue
+            group, slug = key.split("/", 1)
+            if slug in except_slugs:
+                continue
+            if (groups and group in groups) or (slugs and slug in slugs):
+                used.add(key)
+                picked.append(item)
+        return picked
+
+    def group(label: str, label_en: str, items: list[dict], **extra: object) -> dict:
+        return {"label": label, "translations": {"en": label_en}, "items": items, **extra}
+
+    sidebar = [
+        group("使用", "Getting started", take(groups=("start",))),
+        group("关于", "About", take(groups=("other",))),
+    ]
+    dev = [
+        group(zh, en, take(groups=spec.get("groups", ()), slugs=spec.get("slugs", ()),
+                           except_slugs=spec.get("except_slugs", ())))
+        for zh, en, spec in DEV_TREE
+    ]
+    leftovers = [item for key, item in items_of.items() if key not in used]
+    if leftovers:
+        dev.append(group("其他", "Other", leftovers))
+    sidebar.append(group("开发者", "Developers", [g for g in dev if g["items"]], collapsed=True))
+    return sidebar
+
+
 def main() -> None:
     mp = SITE / "content-manifest.json"
     manifest = json.loads(mp.read_text(encoding="utf-8"))
@@ -192,22 +258,8 @@ def main() -> None:
             )
             written.append(en_dest.relative_to(SITE).as_posix())
 
-    # 侧栏也由同一份清单生成: 避免 astro.config 里再抄一遍组与顺序
-    groups: dict[str, list[dict[str, object]]] = {}
-    for entry in pages:
-        item: dict[str, object] = {"label": entry["title"], "slug": f"{entry['group']}/{entry['slug']}"}
-        if entry.get("en_title"):                      # 侧栏标签跟着语言切换
-            item["translations"] = {"en": entry["en_title"]}
-        groups.setdefault(entry["group"], []).append(item)
-    label_of = {"start": "开始", "dev": "开发", "agent": "契约细则", "packages": "包",
-                "skills": "操作手册", "notes": "决策记录", "cookbook": "操作指引", "postmortem": "事故复盘", "other": "其他"}
-    label_en = {"start": "Start", "dev": "Development", "agent": "Contract rules", "packages": "Packages",
-                "skills": "Playbooks", "notes": "Decision records", "cookbook": "Guides",
-                "postmortem": "Post-mortems", "other": "Other"}
-    sidebar = [
-        {"label": label_of.get(g, g), "translations": {"en": label_en.get(g, g)}, "items": items}
-        for g, items in groups.items()
-    ]
+    # 侧栏也由同一份清单生成(怎么摆见 build_sidebar): 避免 astro.config 里再抄一遍组与顺序
+    sidebar = build_sidebar(pages)
     sidebar_ts = SITE / "src" / "sidebar.generated.mjs"
     sidebar_ts.write_text(
         "// 由 scripts/sync-content.py 从 content-manifest.json 生成, 不要手改\n"

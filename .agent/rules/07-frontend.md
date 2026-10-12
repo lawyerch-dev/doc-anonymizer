@@ -14,7 +14,7 @@
 - **别把 velora 组件拷进任何 app**：复用靠包不靠复制，`tests/test_docs.py` 会拦
   （为什么：[决策记录](../notes/implemented/architecture/2026-10-07-shared-ui-package.md)）。
   导入：组件 `@doc-anonymizer/ui/<名字>`、区块 `…/blocks/<名字>`、基础件 `…/primitives/<名字>`；
-  名录见 `packages/ui/src/manifest.json`（文档站「开发 → 组件库总览」就是它渲染的）。
+  名录见 `packages/ui/src/manifest.json`（文档站「开发者 → 工程实现 → 组件库总览」就是它渲染的）。
 - 加组件：`cd packages/ui && npx shadcn@latest add @velora/<名字> && npm run sync -w @doc-anonymizer/ui`（`sync` 把 shadcn 的 `@/` 导入改成相对路径并刷新清单，守卫会查漏改）。
 - 页面专属的组合组件放各自的 `src/components/`（如 `website/src/components/Landing.tsx`）。
 - website 的内容：`website/content-manifest.json`（唯一清单）→ `website/scripts/sync-content.py`

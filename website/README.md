@@ -29,6 +29,16 @@ src/sidebar.generated.mjs          ← 侧栏也由同一份清单生成
 **加一页 = 在 `content-manifest.json` 加一行**（别改生成的目录，也别在 `astro.config.mjs` 里手写侧栏）。
 清单里的文件不存在时同步脚本直接报错退出；`tests/test_docs.py` 也检查文件存在与 slug 不重复。
 
+### 侧栏怎么摆（读者分层）
+
+顶层只有三组：**使用 / 关于**（普通用户，默认展开）和 **开发者**（默认收起）。
+契约细则、决策记录、操作手册、事故复盘、操作指引、各包约定都排在折叠层里 ——
+落地页的读者是法务/人力/财务，第一眼不该是契约与复盘。
+
+摆法写在 `scripts/sync-content.py` 的 `build_sidebar()` + `DEV_TREE`，**只决定"怎么摆"，
+不决定"哪些上站"**：`.agent/**` 与各包 `AGENTS.md` 由 `discover_extra()` 自动上站，
+结构里没排到的页兜底进「开发者 → 其他」，所以新加的笔记不会从侧栏消失。
+
 ## 组件从哪来
 
 通用组件都在 [`packages/ui`](../packages/ui/README.md)：`import { Marquee } from "@doc-anonymizer/ui/marquee";`

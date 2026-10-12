@@ -199,7 +199,7 @@ Astro 5 + Starlight (search/TOC/prev-next built in), with content coming straigh
 (manifest `website/content-manifest.json`); components live in the shared library [`packages/ui`](packages/ui/README.md)
 (`@doc-anonymizer/ui`: velora **100 components + 31 blocks** + shadcn primitives, MIT), and
 **whenever the product frontend changes stacks it imports that same package**, so the look and the components
-never fork. The catalog is on the site under "Development → Component library overview".
+never fork. The catalog is on the site under "Developers → Engineering → Component library overview".
 For details, the measured framework comparison, and pitfalls, see [website/README.md](website/README.md).
 
 ### Desktop build (the thing you hand to someone else)

@@ -13,7 +13,7 @@
 | `src/theme.css` | 设计 token + 全部 keyframes（消费方 `@import` 即可） | `@import "@doc-anonymizer/ui/theme.css";` |
 | `src/manifest.json` | 上面这些的清单（网站"组件库总览"页就是它渲染的） | `@doc-anonymizer/ui/manifest.json` |
 
-完整名录（131 项、带说明）：文档站 →「开发 → 组件库总览」，或直接看
+完整名录（131 项、带说明）：文档站 →「开发者 → 工程实现 → 组件库总览」，或直接看
 [`src/manifest.json`](src/manifest.json)。
 
 ## 用法
