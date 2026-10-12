@@ -73,6 +73,17 @@ export function LlmModels({ models, modelId, onChangeModelId, onModelsChanged }:
     if (!m.downloaded) void install(m.id);
   };
 
+  /** 默认选中目录里标"推荐"的那个: 打开这一节不该看到"一个都没勾" ——
+   *  界面勾上的与后端真去起服务的必须是同一个, 所以走 `pick` 写回配置, 而不是只画个勾。 */
+  const pickedDefault = useRef(false);
+  useEffect(() => {
+    if (modelId || pickedDefault.current) return;
+    const recommended = models.find((m) => m.recommended);
+    if (!recommended) return;
+    pickedDefault.current = true;
+    pick(recommended);
+  }, [modelId, models]);   // eslint-disable-line react-hooks/exhaustive-deps
+
   const cancel = async () => {
     try {
       setDl(await api.cancelModelDownload());
