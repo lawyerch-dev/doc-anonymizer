@@ -53,7 +53,7 @@ npm run dev               # = tauri dev；等价于仓库根的 npm run dev:desk
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `DOCANON_ROOT` | 源码树向上查找 / 包内 `docanon/` | 资源根（只读：configs、web、samples、vendor） |
-| `DOCANON_DATA` | 源码态不设；打包态见下 | 可写状态根（下载的模型、用户自建方案） |
+| `DOCANON_DATA` | 源码态不设；打包态见下 | 可写状态根（下载的模型、用户改过的方案、界面偏好） |
 | `DOCANON_PYTHON` | 包内 sidecar → `<root>/.venv` 的 python → `python3` | 后端解释器（覆盖它就等于强制走源码态） |
 | `DOCANON_CONFIG` | `configs/onnx.yaml` | 配置文件（相对资源根） |
 | `DOCANON_PORT` | `8770` | 服务端口 |

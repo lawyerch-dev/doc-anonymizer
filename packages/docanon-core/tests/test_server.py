@@ -495,6 +495,20 @@ def test_delete_builtin_is_rejected(ephemeral_server):
     assert excinfo.value.code == 400
 
 
+def test_api_settings_round_trip_and_validation(ephemeral_server):
+    """界面偏好走 /api/settings 落盘: 从没改过是空对象, 改完能读回来, 形状不对 400。"""
+    assert _get(ephemeral_server, "/api/settings") == {}
+
+    upload = {"extensions": [".pdf", ".png"], "recursive": True}
+    assert _request(ephemeral_server, "/api/settings", "PUT", {"upload": upload})["saved"] is True
+    assert _get(ephemeral_server, "/api/settings")["upload"] == upload
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        _request(ephemeral_server, "/api/settings", "PUT", {"upload": {"extensions": ["pdf"]}})
+    assert excinfo.value.code == 400
+    assert "extensions" in json.loads(excinfo.value.read())["error"]
+
+
 def test_import_yaml_creates_user_profile(ephemeral_server):
     import base64
     text = "strategies:\n  ORG: redact\ndetectors:\n  rule: true\n"

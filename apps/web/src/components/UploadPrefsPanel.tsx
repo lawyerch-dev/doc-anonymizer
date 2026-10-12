@@ -14,8 +14,8 @@ type Props = {
  * 设置里的「上传文件」: 「选择文件夹」收哪些类型、要不要连子文件夹。
  * 与「脱敏方案」同一套 Accordion 交互(可折叠), 当前规则写在展开区末尾。
  *
- * 默认只收办公文档、只收所选文件夹这一层 —— 实测反馈: 选到代码仓库之类的目录时, 几百个
- * `.md`/图片会被当成待脱敏文档捞进来。
+ * 默认收办公文档与图片、只收所选文件夹这一层 —— 案卷材料基本就这两档(扫描件是图片);
+ * "只收这一层"是实测反馈: 选到代码仓库之类的目录时, 几百个 `.md` 会被当成待脱敏文档捞进来。
  */
 export function UploadPrefsPanel({ formats, prefs, onChange, defaultOpen }: Props) {
   const groups = groupExtensions(formats);
@@ -33,15 +33,15 @@ export function UploadPrefsPanel({ formats, prefs, onChange, defaultOpen }: Prop
       <AccordionItem value="upload">
         <AccordionTrigger
           className="py-3.5 text-base font-semibold hover:no-underline"
-          title="「选择文件夹」时收哪些文件、要不要遍历子文件夹。默认只收办公文档、只收所选文件夹这一层。"
+          title="「选择文件夹」时收哪些文件、要不要遍历子文件夹。默认收办公文档与图片、只收所选文件夹这一层。"
         >
           {/* 只放标题: 触发器的宽度是满的, 右侧再塞一行摘要就会与折叠箭头叠在一起 */}
           上传文件
         </AccordionTrigger>
         <AccordionContent className="pb-5">
           <p className="mb-3 text-xs leading-snug text-muted-foreground">
-            「选择文件夹」时收哪些文件。默认只收办公文档、只收所选文件夹这一层 ——
-            免得选到代码仓库之类的目录，把几百个 .md／图片当成待脱敏文档捞进来。
+            「选择文件夹」时收哪些文件。默认收办公文档与图片、只收所选文件夹这一层 ——
+            免得选到代码仓库之类的目录，把几百个 .md 当成待脱敏文档捞进来。
           </p>
 
           <div className="space-y-3">

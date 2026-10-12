@@ -68,7 +68,7 @@ def ephemeral_server(tmp_path, monkeypatch) -> Iterator[str]:
     """
     from docanon_core import server
     from docanon_core.config import load_config
-    from docanon_core.server import profiles
+    from docanon_core.server import profiles, settings
 
     monkeypatch.setattr(server.Handler, "out_root", tmp_path)
     monkeypatch.setattr(server.Handler, "config", load_config())
@@ -76,6 +76,8 @@ def ephemeral_server(tmp_path, monkeypatch) -> Iterator[str]:
     monkeypatch.setattr(server.Handler, "config_name", "default.yaml")
     # 用户配置落盘到 tmp_path: 测试不会读到/污染真实的 var/configs
     monkeypatch.setattr(profiles, "user_dir", lambda: tmp_path / "var" / "configs")
+    # 界面偏好同理: 落到 tmp_path, 别动仓库里的 var/settings.json
+    monkeypatch.setattr(settings, "path", lambda: tmp_path / "var" / "settings.json")
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()

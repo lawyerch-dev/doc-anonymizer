@@ -138,7 +138,8 @@ on `127.0.0.1` only, with no auth (for local, single-user use).
   "when to use which" is shown on its own line underneath — both come from the **first two comment lines** of
   each yaml (edit the wording in the file and the UI follows), while anything below them is detail for whoever
   edits the config and never reaches users. The default is "General" (recognises numbers, names, organizations
-  and addresses, using the local small model, in milliseconds). Create / save-as / export / import.
+  and addresses, using the local small model, in milliseconds). **Edits are saved automatically**, with a
+  "reset to defaults" right there; export / import also available.
   `configs/legal.yaml` ("redact identifiers and contacts only, leave names/orgs/amounts alone") still ships and
   is still the CLI's default `-c`, but it is **not exposed in the UI dropdown** (see `HIDDEN_SCHEMES` in
   `apps/web/src/lib/formats.ts`).
@@ -156,16 +157,21 @@ on `127.0.0.1` only, with no auth (for local, single-user use).
   to leave one kind alone, set its strategy to `keep` in L2 — don't switch off an engine (that silently drops
   detections).
 
-Edit and **try a run inline with the current editor contents** (no need to save first); name and save or export
-once happy. Engine pre-check runs at run time — a missing model / unreachable LLM returns 400 + a reason
+Edits are **saved automatically and take effect at once** — the three built-ins are read-only, so a change lands
+in a **same-named user config** (editing "General" writes `var/configs/onnx.yaml`). The scheme dropdown therefore
+**still lists only those three**, marking the edited one as changed, with a "reset to defaults" that clears every
+edit and goes back to the factory scheme (configs you imported from elsewhere are left alone). Use export / import
+to back the current settings up or move them to another machine. Engine pre-check runs at run time — a missing model / unreachable LLM returns 400 + a reason
 (never silently dropping a layer); the list endpoint does **not** pre-check (so it never loads ONNX each call).
 User configs share the built-in schema and live in the gitignored `var/configs/`; **built-ins are read-only**
-(no edit, no delete).
+(no edit, no delete). UI preferences (the "Settings → Upload files" intake rule) live in `var/settings.json`
+(`/api/settings`) — like models and configs they count as **writable state**, so in a packaged build they land
+under `DOCANON_DATA` (macOS `~/Library/Application Support/docanon`) and survive a machine move.
 
 Endpoints: `/` `/assets/*` `/health` `/api/presets` `/api/configs` `/api/configs/{ref}` `/api/models`
 `/api/models/download` `/api/upload` `/api/anonymize` `/api/progress/{job}` (plus `PUT`/`DELETE /api/configs/{name}`,
 `POST /api/configs/import`, `GET /api/configs/{name}/export`, `POST /api/models/download/cancel`,
-`POST /api/anonymize/cancel`).
+`POST /api/anonymize/cancel`, `GET`/`PUT /api/settings`).
 `/api/configs` lists built-ins and user configs and marks the current one; `/api/models` reports the ONNX
 dirs, the LLM defaults and the **downloadable model catalogue**; `/api/models/download` starts / polls /
 cancels the in-app model download (it takes a catalogue `id` only, **never a URL**); `/api/upload` takes `{filename, content_b64}`;

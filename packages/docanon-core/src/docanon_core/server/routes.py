@@ -18,7 +18,7 @@ from urllib.parse import quote, unquote
 from .. import __version__, convert, resources
 from ..pipeline import Cancelled, prepare_detectors, process_file
 from ..redaction.mapping import MappingStore
-from . import downloads, llm_server, prepare, profiles, progress
+from . import downloads, llm_server, prepare, profiles, progress, settings
 from docanon_engine_ner_llm import LLMConfig
 
 _MAX_BYTES = 50 * 1024 * 1024
@@ -235,6 +235,12 @@ class Handler(BaseHTTPRequestHandler):
             })
         elif p == "/api/formats":
             self._json(200, {"extensions": supported_extensions()})
+        elif p == "/api/settings":
+            # 界面偏好(收件规则这类): 从没改过就是 {}, 由界面用自己的默认值(默认值只有前端一处真相)
+            try:
+                self._json(200, settings.load())
+            except settings.SettingsError as exc:
+                self._json(400, {"error": str(exc)})
         elif p == "/api/models/download":
             self._json(200, downloads.status())
         elif p == "/api/prepare":
@@ -441,6 +447,17 @@ class Handler(BaseHTTPRequestHandler):
     # ---------- 配置写入 ----------
     def do_PUT(self) -> None:  # noqa: N802
         p = self._path()
+        if p == "/api/settings":
+            try:
+                payload = self._read_json()
+            except Exception as exc:  # noqa: BLE001
+                self._json(400, {"error": f"请求解析失败: {exc}"})
+                return
+            try:
+                self._json(200, {"saved": True, "settings": settings.save(payload)})
+            except settings.SettingsError as exc:
+                self._json(400, {"error": str(exc)})
+            return
         if not p.startswith("/api/configs/"):
             self._send(404, b"not found", "text/plain")
             return

@@ -132,7 +132,8 @@ flowchart TB
 - **L1 方案**：在**内置的三套**（`configs/*.yaml`，只读）与**我的配置**（`var/configs/<名>.yaml`）间选一套
   —— 通用 / 最准 / 最快。选项里只放**短名**，"什么时候用哪套"单独显示在下面 —— 这两句就是各自 yaml 开头的
   **前两行注释**（改文案改注释，界面自动跟着变）；再往下写的是给改配置的人的细节，不会端到用户面前。
-  默认停在「通用」（认得号码、人名、机构、地址，且是本机小模型、毫秒级）；可新建 / 另存为 / 导出 / 导入。
+  默认停在「通用」（认得号码、人名、机构、地址，且是本机小模型、毫秒级）；**改完自动保存**，旁边给
+  「恢复默认」，也可导出 / 导入。
   `configs/legal.yaml`（"只抹标识与联系方式、人名机构金额全留"）仍在仓库里、仍是 CLI 的默认 `-c`，
   但**不在界面下拉中暴露**（见 `apps/web/src/lib/formats.ts` 的 `HIDDEN_SCHEMES`）。
 - **L2 自定义脱敏**：逐类型策略（界面显示中文名，如"盖成 `**`"；对应 yaml 里的 `redact` / `mask` /
@@ -145,14 +146,18 @@ flowchart TB
   固定写法的号码/邮箱与自定义词表**一直开着**（不靠模型，也没必要关）——"不想动某一类"请改 L2 的策略为
   「保持原样」，而不是关引擎（关引擎 = 静默漏检）。
 
-改完**直接用当前编辑器内容内联试跑**（不必先存盘），满意再命名保存或导出。运行期做引擎预检：缺模型 /
-连不上 LLM 返回 400 + 原因（不静默少一层）；列表接口**不**预检（不每次加载 ONNX）。
+改完**自动保存并立即生效**，不用手动存：内置三套是只读的，改动落在**同名用户配置**里（改「通用」→
+`var/configs/onnx.yaml`）—— 所以方案下拉**仍然只有那三套**，只给改过的那套标一句「已改」，旁边一个
+「恢复默认」把改动全清掉、回到出厂（从外面导入的配置文件不会被删）。要把当前设置备份或搬到别的机器，
+用「导出 / 导入」。运行期做引擎预检：缺模型 / 连不上 LLM 返回 400 + 原因（不静默少一层）；列表接口**不**预检（不每次加载 ONNX）。
 用户配置与内置**同 schema**，落在已 gitignore 的 `var/configs/`；**内置只读**（拒改拒删）。
+界面偏好（「设置 → 上传文件」的收件规则）存在 `var/settings.json`（`/api/settings`）—— 与模型、方案同属
+**可写状态**，打包后一起落在 `DOCANON_DATA`（macOS `~/Library/Application Support/docanon`），换机器不丢。
 
 接口：`/` `/assets/*` `/health` `/api/presets` `/api/configs` `/api/configs/{ref}` `/api/models`
 `/api/models/download` `/api/upload` `/api/anonymize` `/api/progress/{job}`（另 `PUT`/`DELETE /api/configs/{name}`、
 `POST /api/configs/import`、`GET /api/configs/{name}/export`、`POST /api/models/download/cancel`、
-`POST /api/anonymize/cancel`）。
+`POST /api/anonymize/cancel`、`GET`/`PUT /api/settings`）。
 `/api/configs` 列内置+用户并标当前；`/api/models` 报可选 ONNX 目录、LLM 默认与**可下载的大模型目录**；
 `/api/models/download` 起步/查询/取消界面内的模型下载（只收目录里的 `id`，**不收 URL**）；
 `/api/upload` 入参 `{filename, content_b64}`；`/api/anonymize` 入参 `{preset|token, config?, job?}`，

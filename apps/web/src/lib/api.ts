@@ -2,6 +2,13 @@ import type {
   AnonymizeBatchResp, AnonymizeResp, ConfigData, ConfigDetail, ConfigRow, Detection, DownloadState, Health,
   LlmModelRow, ModelsResp, Preset, PrepareState, ProgressState, UploadResp,
 } from "../types";
+import type { UploadPrefs } from "./uploadPrefs";
+
+/**
+ * 后端存的界面偏好(`var/settings.json`)。**只放用户改过的段** —— 缺哪段就用界面默认值
+ * (默认值只有 `lib/uploadPrefs.ts` 一处真相, 后端不认识"默认"这回事)。
+ */
+export type AppSettings = { upload?: UploadPrefs };
 
 async function json<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const resp = await fetch(input, { cache: "no-store", ...init });
@@ -54,6 +61,17 @@ export const loadConfigData = (ref: string) =>
 
 export const loadModels = () => json<ModelsResp>("/api/models");
 
+/** 界面偏好: 从没改过就是 `{}`(由界面用自己的默认值) */
+export const loadSettings = () => json<AppSettings>("/api/settings");
+
+/** 存界面偏好(整段覆盖)。放后端而不是 localStorage: 换机器/清 WebView 数据不该丢 */
+export const saveSettings = (settings: AppSettings) =>
+  json<{ saved: boolean }>("/api/settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
+  });
+
 export const startModelDownload = (id: string) =>
   postJson<DownloadState>("/api/models/download", { id });
 
@@ -105,6 +123,11 @@ export const cancelAnonymize = (job: string) =>
     body: JSON.stringify({ job }),
   });
 
+/** 删掉一份用户配置(恢复默认时清那些"影子"); 内置会被后端拒掉 */
+export const deleteConfig = (name: string) =>
+  json<{ deleted: string }>(`/api/configs/${encodeURIComponent(name)}`, { method: "DELETE" });
+
+/** 改完就存(自动保存用): 名字是用户配置名; 内置方案走不了这条路(后端拒写) */
 export const saveConfig = (name: string, data: ConfigData) =>
   json<{ saved: boolean; name: string }>(`/api/configs/${encodeURIComponent(name)}`, {
     method: "PUT",

@@ -10,9 +10,9 @@ import { SettingsSheet } from "./components/SettingsSheet";
 import { StatsCard } from "./components/StatsCard";
 import { UploadPrefsPanel } from "./components/UploadPrefsPanel";
 import * as api from "./lib/api";
-import { DEFAULT_SCHEME, progressInfo, visibleSchemes } from "./lib/formats";
+import { DEFAULT_SCHEME, progressInfo, shadowNameOf, shadowState, visibleSchemes } from "./lib/formats";
 import {
-  loadUploadPrefs, saveUploadPrefs, uploadRuleSummary, type UploadPrefs,
+  defaultUploadPrefs, uploadRuleSummary, type UploadPrefs,
 } from "./lib/uploadPrefs";
 import type {
   AnonymizeResp, BatchSummary, ConfigData, ConfigRow, DocRow, LlmModelRow, Preset, ProgressState,
@@ -89,8 +89,8 @@ export default function App() {
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   /** 界面上能认出哪些类型: 从 /api/formats 拿(后端抽取器注册表), 前端不硬编码 */
   const [formats, setFormats] = useState<string[]>([]);
-  /** 收件规则(收哪些类型 / 要不要连子文件夹): 设置里可编辑, 存本地 */
-  const [uploadPrefs, setUploadPrefs] = useState<UploadPrefs>(loadUploadPrefs);
+  /** 收件规则(收哪些类型 / 要不要连子文件夹): 设置里可编辑, 存在后端(见下面的读取 effect) */
+  const [uploadPrefs, setUploadPrefs] = useState<UploadPrefs>(defaultUploadPrefs);
   /** 上一批跳过了什么(只计数): "不进列表"与"装作没有"是两回事 */
   const [skipNote, setSkipNote] = useState<string | null>(null);
 
@@ -107,6 +107,9 @@ export default function App() {
   const [configData, setConfigData] = useState<ConfigData | null>(null);
   const [configKind, setConfigKind] = useState<"builtin" | "user" | null>(null);
   const [configDirty, setConfigDirty] = useState(false);
+  /** 自动保存的状态: 设置里给一行字看("正在保存…/已自动保存/保存失败") */
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [modelDirs, setModelDirs] = useState<string[]>([]);
   const [llmModels, setLlmModels] = useState<LlmModelRow[]>([]);
 
@@ -148,7 +151,7 @@ export default function App() {
     localStorage.setItem("docanon.theme", theme);
   }, [theme]);
 
-  // 设置里改了东西没保存就刷新/关页 → 让浏览器确认一次, 否则改动静默丢掉
+  // 设置里改了还没落盘(在自动保存的防抖窗口里, 或存盘失败) → 让浏览器确认一次, 否则改动丢掉
   useEffect(() => {
     if (!configDirty) return;
     const onLeave = (e: BeforeUnloadEvent) => {
@@ -210,6 +213,90 @@ export default function App() {
     }
   }, [loadConfigData]);
 
+  // ---- 自动保存: 设置里改完就存, 不用点保存 ----
+  // 内置三套是只读的(configs/*.yaml), 所以改动落在**同名影子**里(改 `onnx.yaml` → 存
+  // `var/configs/onnx.yaml`)。影子不进方案下拉: 界面上还是那三套, 只是标一句"已改",
+  // 并给一个「恢复默认」把影子清掉。防抖 800ms: 连打词表/拖下拉时别把 PUT 打成一串。
+  const pending = useRef<ConfigData | null>(null);
+  const saveTimer = useRef<number | null>(null);
+
+  /** 丢掉还没落盘的改动(恢复默认/换方案要重来时用) */
+  const cancelPending = () => {
+    if (saveTimer.current !== null) {
+      window.clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    pending.current = null;
+  };
+
+  const persist = useCallback(async (data: ConfigData) => {
+    // 已经在用户配置上(影子/导入的那份) → 原地覆盖; 还在内置上 → 落到它的影子
+    const target = configKind === "user" && configRef
+      ? configRef
+      : shadowNameOf(configRef ?? DEFAULT_SCHEME);
+    setSaveState("saving");
+    try {
+      await api.saveConfig(target, data);
+      localStorage.setItem("docanon.config", target);
+      setConfigDirty(false);
+      setSaveError(null);
+      setSaveState("saved");
+      // 刚立起影子: 当前口径要切到它(否则跑的仍是那份只读的内置), 列表也要重取, 影子才查得到
+      if (target !== configRef) await loadConfigList();
+    } catch (e) {
+      setSaveState("error");
+      setSaveError((e as Error).message);
+    }
+  }, [configRef, configKind, loadConfigList]);
+
+  /** 把还没落盘的改动立刻存掉(换方案前调一次, 别把刚改的那步丢掉) */
+  const flushSave = useCallback(async () => {
+    if (saveTimer.current !== null) {
+      window.clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    const data = pending.current;
+    if (!data) return;
+    pending.current = null;
+    await persist(data);
+  }, [persist]);
+
+  const changeConfig = (next: ConfigData) => {
+    setConfigData(next);
+    setConfigDirty(true);
+    cancelPending();
+    pending.current = next;
+    saveTimer.current = window.setTimeout(() => void flushSave(), 800);
+  };
+
+  /**
+   * 换方案: 先把改动落盘再换, 否则防抖窗口里那次改动会跟着旧方案一起丢掉。
+   * 选的是内置那套时若已有影子(你改过它), 就接着用影子 —— 换一圈回来改动还在。
+   */
+  const switchConfig = async (name: string) => {
+    await flushSave();
+    setSaveState("idle");
+    const shadow = shadowNameOf(name);
+    const customized = configs.some((c) => c.kind === "user" && c.name === shadow);
+    await loadConfigData(customized ? shadow : name);
+  };
+
+  /** 一键恢复默认: 清掉所有影子(你改过的方案都在里面), 回到出厂那套 */
+  const resetConfig = async () => {
+    cancelPending();
+    setSaveState("idle");
+    const { shadows } = shadowState(configs);
+    for (const name of shadows) {
+      try {
+        await api.deleteConfig(name);
+      } catch {
+        // 删不掉就留着: 下一次改动照旧能覆盖它, 不该因为清理失败挡住"继续用"
+      }
+    }
+    localStorage.setItem("docanon.config", DEFAULT_SCHEME);
+    await loadConfigList();
+  };
+
   // 模型目录(ONNX 可选 + 可下载的大模型)。下载完成后要重取一次, "已下载"标记才会变。
   const refreshModels = useCallback(() => {
     api.loadModels()
@@ -219,6 +306,13 @@ export default function App() {
 
   useEffect(() => { void loadConfigList(); }, [loadConfigList]);
   useEffect(() => { refreshModels(); }, [refreshModels]);
+  // 收件规则存在后端(`/api/settings`): 打包成 .app 后换机器、清 WebView 数据都不会丢。
+  // 后端没存过就没有这一段, 保持界面默认值; 拉不到也只是回到默认, 不该因此让整个界面不可用。
+  useEffect(() => {
+    api.loadSettings()
+      .then((s) => { if (s.upload) setUploadPrefs(s.upload); })
+      .catch(() => {});
+  }, []);
   useEffect(() => {
     api.loadHealth().then((h) => setVersion(h.version)).catch(() => {});
     // 类型清单拿不到就不预过滤(照样能跑, 只是不在选文件夹时提示"X 个不支持")
@@ -269,7 +363,7 @@ export default function App() {
   /**
    * 选一个文件夹 = 一个批次: 逐份上传(保留相对目录), 然后一次跑完。
    *
-   * 收件规则与"要不要连子文件夹"来自设置(`uploadPrefs`, 默认**只收办公文档 + 只收这一层**)。
+   * 收件规则与"要不要连子文件夹"来自设置(`uploadPrefs`, 默认**收办公文档与图片 + 只收这一层**)。
    * 实测反馈: 选错一个代码仓库时, 里面成百上千个 `.md`/`.txt`/`.png`(子目录里更多)也是
    * "能读的类型", 会被当成待脱敏文档全捞进来。
    *
@@ -381,12 +475,13 @@ export default function App() {
   };
 
   /**
-   * 改收件规则(设置里): 存下来, 并且**按手上那个文件夹的清单立刻重筛** ——
+   * 改收件规则(设置里): 存到后端, 并且**按手上那个文件夹的清单立刻重筛** ——
    * 那份文件的清单还留着, 不用再选一次目录。
    */
   const changeUploadPrefs = (next: UploadPrefs) => {
     setUploadPrefs(next);
-    saveUploadPrefs(next);
+    // 存不上也不打断这一批: 界面已按新规则重筛, 下次改动会再试一次
+    api.saveSettings({ upload: next }).catch(() => {});
     if (mode === "folder" && lastPicked.current.length) void pickFolder(lastPicked.current, next);
   };
 
@@ -507,20 +602,6 @@ export default function App() {
     }
   };
 
-  const saveConfig = async () => {
-    if (!configData) return;
-    const suggested = configRef && !configRef.endsWith(".yaml") ? configRef : "my-config";
-    const name = window.prompt("配置名（字母/数字/下划线/连字符）:", suggested);
-    if (!name) return;
-    try {
-      await api.saveConfig(name, configData);
-      localStorage.setItem("docanon.config", name);
-      await loadConfigList();
-    } catch (e) {
-      setError(`保存失败: ${(e as Error).message}`);
-    }
-  };
-
   const importConfig = async (file: File) => {
     try {
       await api.importConfig(file);
@@ -591,7 +672,7 @@ export default function App() {
           key="intro"
           configs={configs}
           currentConfig={configRef}
-          onPickConfig={(name) => { void loadConfigData(name); }}
+          onPickConfig={(name) => { void switchConfig(name); }}
           onModelsChanged={refreshModels}
           onDone={() => setShowIntro(false)}
         />
@@ -760,6 +841,10 @@ export default function App() {
       <SettingsSheet
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
+        saveState={saveState}
+        saveError={saveError}
+        canReset={shadowState(configs).shadows.size > 0}
+        onReset={() => void resetConfig()}
         onReplayIntro={() => {
           clearOnboarding();
           setSettingsOpen(false);
@@ -781,10 +866,9 @@ export default function App() {
           configKind={configKind}
           modelDirs={modelDirs}
           llmModels={llmModels}
-          onSelectConfig={(name) => void loadConfigData(name)}
-          onChange={(next) => { setConfigData(next); setConfigDirty(true); }}
+          onSelectConfig={(name) => void switchConfig(name)}
+          onChange={changeConfig}
           onModelsChanged={refreshModels}
-          onSave={() => void saveConfig()}
           onImport={(f) => void importConfig(f)}
           onExport={() => { if (configRef) location.href = api.exportConfigUrl(configRef); }}
         />

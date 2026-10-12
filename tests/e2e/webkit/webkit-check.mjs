@@ -92,9 +92,9 @@ const after = await page.evaluate(() => {
 
 console.log(JSON.stringify({ preset: PRESET, render: before, after, errors: errors.slice(0, 20) }, null, 1));
 
-// ---- 选文件夹(批量): 默认只收办公文档 + 只收这一层 → 设置里改规则 → 跑批 → 状态 → 对比 → 整包下载 ----
+// ---- 选文件夹(批量): 默认收办公文档与图片 + 只收这一层 → 设置里改规则 → 跑批 → 状态 → 对比 → 整包下载 ----
 // 夹具故意造得"像代码仓库": 顶层办公文档两份、子目录里还有一份、依赖目录一堆 .md、隐藏项、
-// 不支持的类型、一个超 50MB 的。断言的正是那几条硬约束: 默认不把 .md/.png/子目录里的东西当待脱敏
+// 不支持的类型、一个超 50MB 的。断言的正是那几条硬约束: 默认不把 .md/子目录里的东西当待脱敏
 // 文档捞进来、依赖目录与隐藏项跳过、不支持的必须**露面**、产物保留相对目录、包里没有映射表。
 const FOLDER = fs.mkdtempSync(path.join(os.tmpdir(), 'docanon-folder-'));
 const F = (p) => path.join(FOLDER, p);
@@ -174,8 +174,8 @@ console.log(JSON.stringify({
     rowsDefault, notesDefault, rowsExtra, ruleSummary, rowsAfterRun, summary,
     blockedHint, okPaneHasContent, zip,
     expected: {
-      // 默认: 只在办公文档里收, 且不往子文件夹里看 —— .md/.psd 与 合同/ 下的东西一个都不许进列表
-      defaultSkipsNonOffice: !rowsDefault.some((r) => /\.(md|txt|png|psd|ts|json)$/.test(r.name)),
+      // 默认: 只在办公文档与图片里收, 且不往子文件夹里看 —— .md/.psd 与 合同/ 下的东西一个都不许进列表
+      defaultSkipsNonOffice: !rowsDefault.some((r) => /\.(md|txt|psd|ts|json)$/.test(r.name)),
       defaultSkipsNested: !rowsDefault.some((r) => r.name.includes('/')),
       // 超 50MB 的办公文档仍然要露面(标未处理), 不能因为跑不了就消失
       tooBigStillVisible: rowsDefault.some((r) => r.name.endsWith('超大扫描.pdf') && r.status === 'unsupported'),

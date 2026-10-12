@@ -105,6 +105,26 @@ export function onnxModelInfo(dir: string): { name: string; hint: string; recomm
 }
 
 /**
+ * "影子配置"：你在某套内置方案上改动，改动就落在**同名的用户配置**里
+ * （`onnx.yaml` 的改动存 `var/configs/onnx.yaml`）。
+ *
+ * 它**不出现在方案下拉里** —— 用户看到的仍是通用 / 最准 / 最快那三套，改动自动保存、自动生效；
+ * 把那几个影子删掉就是"恢复默认"。多摆一个"我的配置"选项等于让人以为自己还得管两套东西。
+ */
+export function shadowNameOf(scheme: string): string {
+  return scheme.replace(/\.yaml$/, "");
+}
+
+/** 列表里的内置方案与"影子"：影子的 ref 在界面上要归到它那套内置名下显示（标"已改"、不进下拉） */
+export function shadowState(rows: { name: string; kind: "builtin" | "user" }[]) {
+  const builtin = new Set(rows.filter((r) => r.kind === "builtin").map((r) => r.name));
+  const shadows = new Set(
+    rows.filter((r) => r.kind === "user" && builtin.has(`${r.name}.yaml`)).map((r) => r.name),
+  );
+  return { builtin, shadows, isShadow: (name: string) => shadows.has(name) };
+}
+
+/**
  * 界面上**不给用户选**的方案。`configs/legal.yaml` 仍留在仓库、仍是后端 CLI 的默认 `-c`
  * （以及它的测试与文档都在），只是产品界面里不再暴露 —— 三选一已经够用，多一个"法律文书交付"
  * 只会让人在四个名字里犹豫。要恢复：把名字从这里删掉即可。

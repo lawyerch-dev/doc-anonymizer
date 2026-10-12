@@ -35,13 +35,14 @@ LAYOUT: dict[str, str] = {
     "vendor": "var/vendor/file-viewer",  # file-viewer 预览资源(可选, fetch_file_viewer.sh 下载)
     "samples": "samples",                     # 内置样例(Web 预设 + 测试数据)
     "models": "var/models",                      # 模型权重(可选, 下载得到)
-    "user_configs": "var/configs",            # Web 里用户自建的方案(可选, 用户写出来的)
+    "user_configs": "var/configs",            # Web 里用户改过的方案(可选, 用户写出来的)
+    "settings": "var/settings.json",         # Web 界面偏好(收件规则这类; 可选, 用户改出来的)
     "libreoffice": "var/libreoffice",   # 旧版 Office 转换用(可选, fetch_libreoffice.sh 下载)
     "scripts": "scripts",                     # 开发者脚本
 }
 
 # 上面这些键里, 哪些是"运行期可写状态"(按数据根解析), 哪些是"随包发布的只读资源"(按资源根解析)。
-WRITABLE: frozenset[str] = frozenset({"models", "user_configs"})
+WRITABLE: frozenset[str] = frozenset({"models", "user_configs", "settings"})
 
 # 任何一份能用的源码树/打包根都必须有的资源; 其余(vendor/models)是下载得到的, 缺了只影响功能。
 REQUIRED: tuple[str, ...] = ("configs", "web", "samples")

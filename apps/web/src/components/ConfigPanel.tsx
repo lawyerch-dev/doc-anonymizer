@@ -4,7 +4,7 @@ import {
 } from "@doc-anonymizer/ui/primitives/accordion";
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import { Input } from "@doc-anonymizer/ui/primitives/input";
-import { EFFECT, ENTITY_TYPES, RECOGNITION_MODES, STRATEGIES, STRATEGY_LABELS, detectorsFor, entityLabel, onnxModelInfo, orderSchemes, recognitionMode, visibleSchemes } from "../lib/formats";
+import { EFFECT, ENTITY_TYPES, RECOGNITION_MODES, STRATEGIES, STRATEGY_LABELS, detectorsFor, entityLabel, onnxModelInfo, orderSchemes, recognitionMode, shadowNameOf, shadowState, visibleSchemes } from "../lib/formats";
 import { LlmModels } from "./LlmModels";
 import { Select } from "./Select";
 import type { ConfigData, ConfigRow, LlmModelRow } from "../types";
@@ -19,7 +19,6 @@ type Props = {
   onSelectConfig: (name: string) => void;
   onChange: (next: ConfigData) => void;
   onModelsChanged: () => void;
-  onSave: () => void;
   onImport: (file: File) => void;
   onExport: () => void;
 };
@@ -78,9 +77,13 @@ export function ConfigPanel(props: Props) {
   const mode = d ? recognitionMode(d.detectors) : "none";
   // "两个都用"是合法配置(手写 yaml 会有), 但没在用的时候不必摆出来占位
   const recognitionModes = RECOGNITION_MODES.filter((m) => m.id !== "both" || mode === "both");
+  // 「影子」= 你在某套内置上改动后落的那份用户配置: 不进下拉(还是那三套), 只标「已改」
+  const { shadows, isShadow } = shadowState(configs);
+  // 当前口径是影子时, 下拉要选中的是它那套内置(不然出现"列表里没有这个值"的空白态)
+  const shownRef = configRef && isShadow(configRef) ? `${configRef}.yaml` : configRef;
   // 选中的那一套: 选项里只放短名, "什么时候用它"放在下面单独一行
-  const currentRow = configs.find((c) => c.name === configRef) ?? null;
-  const schemeOptions = orderSchemes(visibleSchemes(configs));
+  const currentRow = configs.find((c) => c.name === shownRef) ?? null;
+  const schemeOptions = orderSchemes(visibleSchemes(configs)).filter((c) => !isShadow(c.name));
 
   const setStrategy = (entity: string, value: string) => {
     if (!d) return;
@@ -97,7 +100,8 @@ export function ConfigPanel(props: Props) {
             className="py-3.5 text-base font-semibold hover:no-underline"
             title="选一套方案，再按需细调「脱什么」与「靠什么认」。"
           >
-            <span className="flex min-w-0 flex-1 items-baseline gap-2 pr-1">
+            {/* 居中而非基线对齐: 16px 标题与 12px 当前方案名同排, 基线对齐会把小字压低 1px */}
+            <span className="flex min-w-0 flex-1 items-center gap-2 pr-1">
               脱敏方案
               <span className="ml-auto shrink-0 text-xs font-normal text-muted-foreground">
                 {currentRow?.label ?? ""}
@@ -112,20 +116,20 @@ export function ConfigPanel(props: Props) {
               aria-label="脱敏方案"
               wrapperClassName="w-full"
               className="h-10 font-medium"
-              value={configRef ?? ""}
+              value={shownRef ?? ""}
               onChange={(e) => onSelectConfig(e.target.value)}
               title={"不确定选哪个：默认「通用」够用（号码、人名、机构、地址都能认）；\n只要号码、跑得最快选「最快」；要说认得更全（讲课、写案例）选「最准」。"}
             >
               {schemeOptions.map((c) => (
                 <option key={c.name} value={c.name}>
                   {c.label}
+                  {shadows.has(shadowNameOf(c.name)) ? "（已改）" : ""}
                   {c.kind === "user" ? "（我的）" : ""}
                 </option>
               ))}
             </Select>
             <Note title={currentRow?.hint}>
               {currentRow?.hint || (configKind === "user" ? "你自己保存的方案" : "")}
-              {configKind === "user" ? <span className="ml-1 opacity-70">· 我的配置</span> : null}
             </Note>
             </div>
 
@@ -322,7 +326,6 @@ export function ConfigPanel(props: Props) {
       </Accordion>
 
       <div className="flex gap-2 pt-1">
-        <Button variant="outline" size="sm" className="flex-1" onClick={props.onSave}>保存为…</Button>
         <input
           ref={importRef}
           type="file"
