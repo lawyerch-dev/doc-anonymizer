@@ -13,7 +13,9 @@ description: Use when publishing a version: bumping versions, updating the chang
    改了 `website/` 与 `packages/ui/` 的版本要跟着跑一次 `npm install --package-lock-only`
    （lock 里记着各 workspace 的版本，不同步 `npm ci` 会报不一致）。`apps/*` 与 `tests/e2e/*` 是私有 app，
    不参与版本同步。
-2. `CHANGELOG.md`：把 `[Unreleased]` 的内容落到 `## [x.y.z] — YYYY-MM-DD`，并留一个空的 `[Unreleased]`。
+2. `CHANGELOG.md`：把 `[Unreleased]` 整段落到 `## [x.y.z] — YYYY-MM-DD` 下，留一个空的 `[Unreleased]`，
+   并把底部的 `[Unreleased]` compare 链接指到新 tag。写法照 `.agent/rules/08-docs.md` 的「更新日志」一节：
+   **一条一行、只写用户能看见的变化**，实现细节与理由进 `.agent/notes/`。
 3. 全量验证（必须真跑，贴结果）：
 
 ```bash

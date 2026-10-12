@@ -20,13 +20,27 @@
 | `docs/architecture.md` | 目录与分层的**为什么**、硬边界索引、决策记录、搬迁历史 | 解释性 |
 | `docs/benchmarks.md` | 模型选型与基准数字 | 实测记录 |
 | `.github/SECURITY.md` | 安全问题的报告流程与已有边界 | 现状权威 |
-| `CHANGELOG.md` · `docs/specs/*` | **记录类**：允许出现旧名字与旧路径 | 历史 |
+| `CHANGELOG.md` | 给用户看的变更公告：一条一行，只写用户能看见的变化（写法见下节） | 记录类 |
+| `docs/specs/*` | 带日期的设计文档：**记录类**，允许出现旧名字与旧路径 | 历史 |
 
 - 改行为 → 同步 README 与对应 rules；改边界 → 改 `AGENTS.md` 与对应 rule。
 - **写进文档的每条命令都要真跑一遍**再说它成立，不许写"理论上"。
 - **能力边界不要手写进文档**（哪些引擎认识哪些实体、起不起得来），让 `docanon engines` 自己报 ——
   写死的清单一定会漂移。
 - docs 站的内容来自仓库 markdown（清单在 `website/content-manifest.json`），不要另存一份。
+
+## 更新日志（`CHANGELOG.md`）
+
+它是**给用户看的公告栏，不是开发记录**：一条一行，只写"做了什么、用户能看见什么"。
+不许写实现细节（文件路径、类名、字段名）、实测数字与理由 —— "为什么这么做、踩了什么坑"
+归 `.agent/notes/`（决策）与 `.agent/postmortem/`（复盘），那里才是能写长的地方。
+
+- 结构照 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)：`[Unreleased]` 在最前，
+  每个版本一节 `## [x.y.z] — YYYY-MM-DD`，节内按 `### Added / Changed / Fixed / Removed / Security` 分组。
+- 一件事只记一条（同一处改动在 Added 与 Changed 里各写一遍就是冗余）；
+  一条尽量压到一行，超过两行的先想想是不是该写进笔记。
+- 底部保留 compare / release 链接：`[Unreleased]` 与**最新已发布版本**比，每次发版跟着改。
+- 发版时把 `[Unreleased]` 整段落到新版本号下，并留一个空的 `[Unreleased]`（见 `.agent/skills/cut-a-release/`）。
 
 ## 双语文档（中英必须成对）
 
