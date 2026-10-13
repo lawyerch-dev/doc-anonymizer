@@ -9,6 +9,8 @@
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-10-14
+
 ### Added
 
 - 官网可切浅色/深色，与文档站共用同一份偏好。
@@ -17,6 +19,8 @@
 - 文档列表每行标状态（待跑 / 跑中 / 已抹 N 处 / 未处理+原因 / 失败），点开看脱敏前后对比；
   跑动中显示「第 i/N 份 · 阶段」与当前文件名，批次结束给一行汇总。
 - 文档站左右两栏（侧栏 / 本页目录）都可拖拽调宽、可一键收起；宽度与收起状态会记住。
+- 脱敏件可以还原：办公文档（Word / Excel / CSV / 文本 / Markdown）交给 AI 改完交回，
+  原位填回真实信息，格式与样式原样保留；命令行已可用，界面入口标「开发中」暂未开放。
 
 ### Changed
 
@@ -32,6 +36,8 @@
 - 左栏调整：示例改为手动「加载示例」，空态给三步引导，上传改主色按钮，
   「开始脱敏」改名「一键脱敏」且只在有文档时出现。
 - 命中统计可折叠并限高；署名与版本号从界面底部挪到窗口标题栏，桌面窗口打开即铺满屏幕。
+- 默认脱敏后的样子从打码（如 138****5678）改为锚点（如 {{PHONE_1}}）：产物仍不含真实信息、
+  可直接外发，并支持事后还原；想要打码外观可在「设置」的逐类型策略里改，这类策略标注「不可还原」。
 
 ### Fixed
 
@@ -122,7 +128,8 @@
 - 命中敏感信息的 PDF 页整页栅格化（该页不留可复制的文字层）。
 - 引擎起不来时不产出任何文件，不把"少一层检测"报成已处理。
 
-[Unreleased]: https://github.com/lawyerch-dev/doc-anonymizer/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/lawyerch-dev/doc-anonymizer/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/lawyerch-dev/doc-anonymizer/releases/tag/v0.6.0
 [0.5.0]: https://github.com/lawyerch-dev/doc-anonymizer/releases/tag/v0.5.0
 [0.4.0]: https://github.com/lawyerch-dev/doc-anonymizer/releases/tag/v0.4.0
 [0.3.0]: https://github.com/lawyerch-dev/doc-anonymizer/releases/tag/v0.3.0
