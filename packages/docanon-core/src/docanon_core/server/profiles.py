@@ -17,7 +17,12 @@ from ..config import Config, config_from_dict
 NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 # 与 detectors.DETECTORS 的键一致(test_profiles 会核对, 防漂移)
 DETECTOR_NAMES: tuple[str, ...] = ("rule", "dictionary", "onnx_ner", "llm_ner")
-STRATEGY_VALUES: tuple[str, ...] = ("redact", "mask", "placeholder", "pseudonym", "remove", "keep")
+# `anchor` 是「脱敏 → 交 AI → 还原」那条链的地基: 锚点可寻址才谈得上还原。它能进界面是因为
+# `/api/restore` 已经在了(见 routes.Handler._restore) —— 少了还原入口还放开它, 用户就会拿到
+# 一份脱敏后再也填不回来的产物, 那比拒绝更糟。
+STRATEGY_VALUES: tuple[str, ...] = (
+    "anchor", "redact", "mask", "placeholder", "pseudonym", "remove", "keep",
+)
 EDITABLE_KEYS: tuple[str, ...] = ("strategies", "dictionary", "detectors", "onnx", "llm", "legacy_convert")
 DEFAULT_REF = "default.yaml"
 

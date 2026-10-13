@@ -1,23 +1,25 @@
 # 最准（本地大模型）
 # 讲课、写案例、对外分享时用：认得更全（能读懂复杂说法），但机构名和金额也会一起抹掉。
 # 与 default.yaml 相同, 但打开 LLM NER 检测器(用哪个模型在 configs/llm_models.yaml 里选)
-# 默认用 ** 盖掉人名/机构(不产假名); 想要可信假名就把 PERSON/ORG 改成 pseudonym
+# 脱敏产物一律是 {{TYPE_N}} 锚点：**不含原文、可直接外发**，事后能一键还原（见 README）。
+# 想要"打码/盖掉"那种外观（不需要还原时）：在界面 L2 逐类型策略里改成 mask / redact / remove。
 strategies:
-  PHONE: mask
-  ID_CARD: mask
-  PASSPORT: mask
-  PLATE: mask
-  BANK_CARD: mask
-  EMAIL: mask
-  IP: redact
-  USCC: mask
-  PERSON: redact
-  ORG: redact
-  LOCATION: redact
-  AMOUNT: redact
-  SECRET: remove
-  CUSTOM: redact
-  DEFAULT: redact
+  PHONE: anchor
+  ID_CARD: anchor
+  PASSPORT: anchor
+  PLATE: anchor
+  BANK_CARD: anchor
+  EMAIL: anchor
+  IP: anchor
+  USCC: anchor
+  PERSON: anchor
+  ORG: anchor
+  LOCATION: anchor
+  AMOUNT: anchor
+  DOB: anchor
+  SECRET: anchor
+  CUSTOM: anchor
+  DEFAULT: anchor
 
 dictionary:
   - 内部项目代号

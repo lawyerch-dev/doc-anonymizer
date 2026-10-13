@@ -33,7 +33,32 @@ export type AnonymizeResp = {
   output_url: string;
   counts: Record<string, number>;
   kind: string;
+  /**
+   * 这份产物能不能还原(产物里有没有可寻址锚点)。
+   * 内置三套默认全类型 anchor, 所以正常是 true; 为 false 时界面**不给**还原入口 ——
+   * 在 L2 把某类型改成了 mask/redact/remove 才会出现这种情况, 替换值里已经没有原文了,
+   * 给一个按下去必然还原不回来的按钮, 比没有更糟。
+   */
+  restorable?: boolean;
+  /** 这份文件里的锚点 → 次数。还原时随请求带上, 后端据此报"少了哪些"。 */
+  anchors?: Record<string, number>;
+  /** 哪一次脱敏的产物目录(还原时凭它指回服务端的 mapping.json) */
+  restore_token?: string | null;
   trace?: Trace;
+};
+
+/** `/api/restore` 的响应: 还原件 + 对账结果 */
+export type RestoreResp = {
+  output_name: string;
+  output_url: string;
+  report_url: string;
+  restored: Record<string, number>;
+  total_restored: number;
+  /** 文中有、映射表里没有 —— AI 编的, 已原样保留未替换 */
+  unknown: string[];
+  /** 该文件本该有、文里没有 —— AI 删了或改坏了 */
+  missing: string[];
+  complete: boolean;
 };
 
 export type UploadResp = { token: string; filename: string; url: string };
@@ -122,6 +147,9 @@ export type DocRow = {
   counts?: Record<string, number>;
   outputName?: string;
   outputUrl?: string;
+  /** 这一份能不能还原 / 它该有哪些锚点(批次里逐份不同 —— 一批共用一份 mapping) */
+  restorable?: boolean;
+  anchors?: Record<string, number>;
   /** 未处理/失败的原因(状态徽标的悬停提示也用它) */
   reason?: string;
   ref: Selection;
@@ -134,6 +162,10 @@ export type BatchFileResult = {
   output_name?: string;
   output_url?: string;
   counts?: Record<string, number>;
+  /** 这份能不能还原(见 `AnonymizeResp.restorable`) */
+  restorable?: boolean;
+  /** 逐份的锚点 —— 一批共用一份 mapping, 还原时要靠它区分"这份该有哪些锚点" */
+  anchors?: Record<string, number>;
   reason?: string;
 };
 
@@ -146,6 +178,28 @@ export type AnonymizeBatchResp = {
   results: BatchFileResult[];
   mapping_url: string;
   zip_url: string;
+  restore_token?: string;
+};
+
+/** 批量还原里一份的结果(成功给下载地址, 失败给原因 —— 一份失败不拖垮整批) */
+export type RestoreBatchItem = {
+  filename: string;
+  status: "ok" | "error";
+  output_name?: string;
+  output_url?: string;
+  total_restored?: number;
+  unknown?: string[];
+  missing?: string[];
+  complete?: boolean;
+  reason?: string;
+};
+
+/** `/api/restore/batch` 的响应: 逐份结果 + 汇总 + 打包下载 */
+export type RestoreBatchResp = {
+  results: RestoreBatchItem[];
+  summary: { total: number; ok: number; error: number };
+  zip_url: string;
+  report_url: string;
 };
 
 /** `/health`: 桌面壳拿 pid 认自己的后端; 界面拿 version 显示版本号(唯一真相在后端) */

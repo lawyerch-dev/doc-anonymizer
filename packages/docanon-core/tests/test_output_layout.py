@@ -10,6 +10,17 @@ from docanon_core.cli import main
 SUPPORTED_HINT = "脱敏版"
 
 
+def _mask_cfg(tmp_path: Path) -> str:
+    """一份打码口径(产物形如 `138****0000`)。
+
+    这些用例验的是**产物命名与布局**, 不是默认策略 —— 拿打码值当"这份文件认对了"的标记最直观,
+    所以显式给一份 mask 配置, 不跟着默认口径(anchor)漂。
+    """
+    p = tmp_path / "mask.yaml"
+    p.write_text("strategies:\n  DEFAULT: mask\ndetectors:\n  rule: true\n", encoding="utf-8")
+    return str(p)
+
+
 def _manifest(out_dir: Path) -> dict:
     return json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
 
@@ -37,7 +48,7 @@ def test_same_name_in_different_subdirs_do_not_overwrite(tmp_path):
     (tmp_path / "src" / "b" / "report.txt").write_text("乙 13912345678\n", encoding="utf-8")
     out = tmp_path / "out"
 
-    code = main(["run", str(tmp_path / "src"), "-o", str(out)])
+    code = main(["run", str(tmp_path / "src"), "-o", str(out), "-c", _mask_cfg(tmp_path)])
 
     assert code == 0
     assert "138****0000" in (out / "a" / "【脱敏版】report.txt").read_text(encoding="utf-8")
@@ -49,7 +60,7 @@ def test_single_file_input_keeps_flat_name(tmp_path):
     src.write_text("张三 13812340000\n", encoding="utf-8")
     out = tmp_path / "out"
 
-    code = main(["run", str(src), "-o", str(out)])
+    code = main(["run", str(src), "-o", str(out), "-c", _mask_cfg(tmp_path)])
 
     assert code == 0
     assert "138****0000" in (out / "【脱敏版】doc.txt").read_text(encoding="utf-8")
@@ -234,7 +245,7 @@ def test_overlong_name_is_truncated_but_writable(tmp_path):
     (src / long_name).write_text("张三 13812340000\n", encoding="utf-8")
     out = tmp_path / "out"
 
-    code = main(["run", str(src), "-o", str(out)])
+    code = main(["run", str(src), "-o", str(out), "-c", _mask_cfg(tmp_path)])
 
     assert code == 0
     produced = [p for p in out.iterdir() if p.suffix not in {".json"}]

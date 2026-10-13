@@ -5,7 +5,7 @@ export const ENTITY_TYPES = [
   "PERSON", "ORG", "LOCATION", "AMOUNT", "DOB", "SECRET", "CUSTOM", "DEFAULT",
 ] as const;
 
-export const STRATEGIES = ["redact", "mask", "placeholder", "pseudonym", "remove", "keep"] as const;
+export const STRATEGIES = ["anchor", "redact", "mask", "placeholder", "pseudonym", "remove", "keep"] as const;
 
 /**
  * "要不要用模型来认" —— L3 唯一的那道选择题。
@@ -67,6 +67,7 @@ export function detectorsFor(mode: RecognitionMode): Record<string, boolean> {
 
 /** 策略代码 → 中文名(下拉里显示中文, 提交的仍是代码) */
 export const STRATEGY_LABELS: Record<string, string> = {
+  anchor: "换成锚点（可还原）",
   redact: "盖成 **",
   mask: "部分打码",
   placeholder: "换成占位符",
@@ -151,6 +152,9 @@ export const DEFAULT_SCHEME = "onnx.yaml";
  *
  * 只排序不筛选（筛选是上面 `visibleSchemes` 的事）：没列进这里的（以后新增的内置、以及"我的配置"）
  * 按后端给的原顺序排在后面，一个都不会被藏掉。
+ *
+ * 三套内置**只决定识别能力**（规则 / +小模型 / +大模型），脱敏产物一律是锚点、都可还原 ——
+ * 没有"可还原的方案"这一档：能不能还原是文档类型决定的，不是方案决定的。
  */
 export const SCHEME_ORDER = ["onnx.yaml", "llm.yaml", "default.yaml"];
 
@@ -171,12 +175,29 @@ export function humanSize(bytes: number): string {
 
 /** 每种策略的效果示例(L2 表格里给人看) */
 export const EFFECT: Record<string, string> = {
+  anchor: "{{PHONE_1}}",
   redact: "**",
   mask: "138****0000",
   placeholder: "<PHONE_1>",
   pseudonym: "林芳",
   remove: "（删除）",
   keep: "（不动）",
+};
+
+/**
+ * 每种策略一句话: 它能不能事后还原。
+ *
+ * L2 表格里给 `anchor` 标"可还原"是有必要的 —— 用户选策略时最容易踩的坑就是选了
+ * `mask`/`redact` 然后以为还能填回去: 那两种在替换那一步就把原文丢了, 数学上不可逆。
+ */
+export const REVERSIBLE: Record<string, boolean> = {
+  anchor: true,
+  placeholder: true,
+  pseudonym: true,
+  redact: false,
+  mask: false,
+  remove: false,
+  keep: true,
 };
 
 /**

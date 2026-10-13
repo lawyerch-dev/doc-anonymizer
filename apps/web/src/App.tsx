@@ -6,6 +6,7 @@ import { Logo } from "./components/Logo";
 import { OnboardingWizard, clearOnboarding, hasDoneOnboarding } from "./components/OnboardingWizard";
 import { PresetList } from "./components/PresetList";
 import { Preview } from "./components/Preview";
+import { RestorePanel } from "./components/RestorePanel";
 import { SettingsSheet } from "./components/SettingsSheet";
 import { StatsCard } from "./components/StatsCard";
 import { UploadPrefsPanel } from "./components/UploadPrefsPanel";
@@ -514,7 +515,11 @@ export default function App() {
         // 后端没提到这一份 = 它压根没上传(预过滤掉的), 状态本来就是对的; 只有还挂着"跑中"的要放回去
         if (!hit) return r.status === "running" ? { ...r, status: "idle" as const } : r;
         return hit.status === "ok"
-          ? { ...r, status: "ok" as const, counts: hit.counts, outputName: hit.output_name, outputUrl: hit.output_url, reason: undefined }
+          ? {
+              ...r, status: "ok" as const, counts: hit.counts,
+              outputName: hit.output_name, outputUrl: hit.output_url,
+              restorable: hit.restorable, anchors: hit.anchors, reason: undefined,
+            }
           : { ...r, status: hit.status, reason: hit.reason };
       });
       setBatchRows(nextRows);
@@ -527,10 +532,15 @@ export default function App() {
         unsupported: nextRows.filter((r) => r.status === "unsupported").length,
         error: nextRows.filter((r) => r.status === "error").length,
       });
+      // 批次: 还原面板用的是**选中那一行**的 anchors(一批共用一份 mapping, 逐份不同)。
+      // 所以这里只带批次 token, anchors 从 activeRow 取 —— 见下面 RestorePanel 的接线。
+      const anyRestorable = nextRows.some((r) => r.restorable);
       setResult({
         output_name: "",
         output_url: "",
         kind: "",
+        restorable: anyRestorable,
+        restore_token: resp.restore_token ?? null,
         counts: resp.results.reduce<Record<string, number>>((acc, r) => {
           for (const [k, v] of Object.entries(r.counts ?? {})) acc[k] = (acc[k] ?? 0) + v;
           return acc;
@@ -815,6 +825,26 @@ export default function App() {
               totalMs={batchTimeMs}
               convertedFrom={result.trace?.converted_from ?? null}
               summary={mode === "folder" ? batchSummary : null}
+            />
+          ) : null}
+          {/* 还原入口只在产物可还原时出现。默认三套口径都出锚点, 所以正常都有;
+              只有在 L2 把某类型改成了 mask/redact/remove 才没有锚点, 按下去也变不回来。
+              批次模式带上**这一批逐份的锚点**: 一批共用一份 mapping, 逐份的锚点不同,
+              拿批次合计去对账会把别的文件的锚点误报成缺失。 */}
+          {result?.restorable && result.restore_token ? (
+            <RestorePanel
+              token={result.restore_token}
+              batch={folderMode}
+              sourceName={folderMode ? batch?.folder ?? "这一批" : result.output_name}
+              expected={
+                folderMode
+                  ? batchRows
+                      .filter((r) => r.status === "ok" && r.anchors && Object.keys(r.anchors).length > 0)
+                      .map((r) => ({ name: r.outputName ?? r.name, anchors: r.anchors! }))
+                  : result.anchors
+                    ? [{ name: result.output_name, anchors: result.anchors }]
+                    : []
+              }
             />
           ) : null}
         </aside>

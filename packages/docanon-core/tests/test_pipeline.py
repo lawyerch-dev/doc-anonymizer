@@ -15,7 +15,7 @@ def _run(tmp_path: Path, text: str):
     return res, out, store
 
 
-def test_pipeline_masks_pii(tmp_path):
+def test_pipeline_replaces_pii(tmp_path):
     res, out, _ = _run(
         tmp_path, "张三手机 13812340000，邮箱 a.b@example.com，身份证 110101199003071234"
     )
@@ -49,13 +49,14 @@ def test_redact_strategy_is_a_flat_marker():
 
 
 def test_default_and_onnx_configs_do_not_fake_names():
-    """默认配置交付的必须是 ** 而不是可信的假名/假公司, 免得用户以为没脱敏。"""
+    """默认配置交付的必须是**锚点**(不含原文、可还原), 而不是可信的假名/假公司 ——
+    假名会让人以为没脱敏, 打码/盖掉又还原不回来。三套内置口径一律 anchor。"""
     from docanon_core.config import load_config
 
     for cfg_name in (None, "configs/onnx.yaml", "configs/llm.yaml"):
         cfg = load_config(cfg_name)
         for entity in ("PERSON", "ORG", "CUSTOM", "DEFAULT"):
-            assert cfg.strategy_for(entity) == "redact", (cfg_name, entity, cfg.strategy_for(entity))
+            assert cfg.strategy_for(entity) == "anchor", (cfg_name, entity, cfg.strategy_for(entity))
 
 
 

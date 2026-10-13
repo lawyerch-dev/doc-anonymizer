@@ -262,7 +262,7 @@ def test_api_configs_lists_yaml_and_marks_current(ephemeral_server):
     assert current == ["default.yaml"]
     assert all(c.get("label") for c in body["configs"])
     # label 与 hint 都取自配置开头的注释: 前者是短名, 后者是"什么时候用它" —— 都是给用户看的,
-    # 内置四套一个都不能缺(缺了界面就会露文件名给用户)。
+    # 内置三套一个都不能缺(缺了界面就会露文件名给用户)。
     assert all(c.get("hint") for c in body["configs"]), "内置配置缺少'什么时候用'的说明"
 
 
@@ -303,7 +303,7 @@ def test_api_config_get_returns_editable_data(ephemeral_server):
     body = _get(ephemeral_server, "/api/configs/onnx.yaml")
     assert body["kind"] == "builtin"
     data = body["data"]
-    assert data["strategies"]["PERSON"] == "redact"
+    assert data["strategies"]["PERSON"] == "anchor"
     assert "model_dirs" in data["onnx"]
 
 

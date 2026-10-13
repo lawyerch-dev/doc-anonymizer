@@ -121,6 +121,9 @@ class RedactionJob:
             "outputs": res.outputs,
             "counts": res.entity_counts,
         }
+        if res.anchors:
+            # 只在真有锚点时写这个键: 没有锚点的产物(mask/redact)不需要它, 老账本也没它
+            entry["anchors"] = res.anchors
         if res.converted_from:
             entry.update(
                 source_suffix=res.converted_from,

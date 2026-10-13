@@ -4,7 +4,7 @@ import {
 } from "@doc-anonymizer/ui/primitives/accordion";
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import { Input } from "@doc-anonymizer/ui/primitives/input";
-import { EFFECT, ENTITY_TYPES, RECOGNITION_MODES, STRATEGIES, STRATEGY_LABELS, detectorsFor, entityLabel, onnxModelInfo, orderSchemes, recognitionMode, shadowNameOf, shadowState, visibleSchemes } from "../lib/formats";
+import { EFFECT, ENTITY_TYPES, RECOGNITION_MODES, REVERSIBLE, STRATEGIES, STRATEGY_LABELS, detectorsFor, entityLabel, onnxModelInfo, orderSchemes, recognitionMode, shadowNameOf, shadowState, visibleSchemes } from "../lib/formats";
 import { LlmModels } from "./LlmModels";
 import { Select } from "./Select";
 import type { ConfigData, ConfigRow, LlmModelRow } from "../types";
@@ -310,7 +310,15 @@ export function ConfigPanel(props: Props) {
                                 ))}
                               </Select>
                             </td>
-                            <td className="border-b px-2 py-1.5 text-muted-foreground">{EFFECT[cur]}</td>
+                            <td className="border-b px-2 py-1.5 text-muted-foreground">
+                              {EFFECT[cur]}
+                              {/* 不可逆的策略在这里说清楚 —— 否则用户选了 mask 才想起来"回头怎么填回去" */}
+                              {REVERSIBLE[cur] === false ? (
+                                <span className="ml-1 text-destructive/80" title="替换值里已经没有原文, 事后无法还原">
+                                  不可还原
+                                </span>
+                              ) : null}
+                            </td>
                           </tr>
                         );
                       })}

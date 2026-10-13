@@ -1,6 +1,6 @@
 import type {
   AnonymizeBatchResp, AnonymizeResp, ConfigData, ConfigDetail, ConfigRow, Detection, DownloadState, Health,
-  LlmModelRow, ModelsResp, Preset, PrepareState, ProgressState, UploadResp,
+  LlmModelRow, ModelsResp, Preset, PrepareState, ProgressState, RestoreBatchResp, RestoreResp, UploadResp,
 } from "../types";
 import type { UploadPrefs } from "./uploadPrefs";
 
@@ -114,6 +114,42 @@ export const anonymizeBatch = (payload: {
 /** 跑的时候按 job id 读进度(轮询, 不占那条正在跑的请求) */
 export const runProgress = (job: string) =>
   plainJson<ProgressState>(`/api/progress/${encodeURIComponent(job)}`);
+
+/**
+ * 还原: 把 AI 改好的文件按 mapping 填回原文, 原格式原样式不动。
+ *
+ * `token` 是哪一次脱敏的产物目录(映射表在**服务端**, 不经浏览器 —— 它就是原文本身)。
+ * `expected` 是那份文件的锚点清单: 给了才能报"少了哪些", 不给就只能报"多了哪些"。
+ */
+export const restore = (file: File, token: string, expected?: Record<string, number>) =>
+  fileToBase64(file).then((content_b64) =>
+    postJson<RestoreResp>("/api/restore", {
+      token,
+      filename: file.name,
+      content_b64,
+      ...(expected && Object.keys(expected).length ? { expected } : {}),
+    }),
+  );
+
+/**
+ * 整批还原: 一次把 AI 改好的一批交回来, 逐份还原 + 打包下载。
+ *
+ * 与单份共用服务端的同一份 mapping; `anchors` 是逐份的锚点清单, key 用文件名
+ * (服务端认几种变体: 原名 / basename / 去【脱敏版】前缀)。一份失败不影响其余。
+ */
+export const restoreBatch = (
+  files: File[], token: string, anchors?: Record<string, Record<string, number>>,
+) =>
+  Promise.all(files.map(async (f) => ({
+    filename: f.name,
+    content_b64: await fileToBase64(f),
+  }))).then((items) =>
+    postJson<RestoreBatchResp>("/api/restore/batch", {
+      token,
+      items,
+      ...(anchors && Object.keys(anchors).length ? { anchors } : {}),
+    }),
+  );
 
 /** 叫停正在跑的那一份; 后端在写产物之前查信号, 所以取消 = 不留半成品 */
 export const cancelAnonymize = (job: string) =>

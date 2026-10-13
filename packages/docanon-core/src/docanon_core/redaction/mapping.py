@@ -18,6 +18,9 @@ class MappingStore:
         # 反向: replacement -> original (用于 restore); 不含空串
         self._reverse: dict[str, str] = {}
         self._counters: dict[str, int] = {}
+        # replacement -> 累计替换次数。还原时用来对账: 文档里出现的次数少于这里,
+        # 说明有一部分锚点被 AI 删掉或改坏了 —— 静默少还原等于交出一份半成品。
+        self._uses: dict[str, int] = {}
 
     def get_or_create(
         self, entity_type: str, original: str, factory: Callable[[int], str]
@@ -30,7 +33,20 @@ class MappingStore:
         table[original] = replacement
         if replacement:
             self._reverse[replacement] = original
+            self._uses.setdefault(replacement, 0)
         return replacement
+
+    def note_use(self, replacement: str) -> None:
+        """记一次"这个替换值被真的写进产物了"。"""
+        if replacement:
+            self._uses[replacement] = self._uses.get(replacement, 0) + 1
+
+    def use_counts(self) -> dict[str, int]:
+        return dict(self._uses)
+
+    def reverse_table(self) -> dict[str, str]:
+        """反向表的副本: 替换值 → 原文, 不含空串(remove 策略)。"""
+        return dict(self._reverse)
 
     def restorable_items(self) -> list[tuple[str, str]]:
         """可用于还原的 (替换值, 原文), 长的优先(避免短值先吃掉长值的一部分)。
@@ -62,6 +78,7 @@ class MappingStore:
             "by_type": self._by_type,
             "reverse": self._reverse,
             "counters": self._counters,
+            "uses": self._uses,
         }
 
     def save(self, path: str | Path) -> None:
@@ -77,4 +94,5 @@ class MappingStore:
         store._by_type = data.get("by_type", {})
         store._reverse = data.get("reverse", {})
         store._counters = data.get("counters", {})
+        store._uses = data.get("uses", {})
         return store

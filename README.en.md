@@ -35,7 +35,9 @@ emails, IPs, unified social credit codes, secrets, custom sensitive terms — de
 - **Keeps the original format**: docx rewritten run by run, xlsx/csv rewritten cell by cell, pdf/images blacked out — compare before and after side by side.
 - **Legacy Office accepted too**: `.doc`/`.xls`/`.wps` are converted to a modern format via LibreOffice before redaction (the output format therefore changes; the ledger and UI say so).
 - **Recall first**: anything uncertain is always flagged, and every hit's position and origin stay inspectable.
-- **Reversible**: `mapping.json` records original ↔ replacement, and `restore` rebuilds text outputs.
+- **Reversible**: editable office documents (docx/xlsx/csv/txt/md) are replaced with `{{TYPE_N}}` anchors, so
+  the output carries **no originals and is safe to send out**, while a locally kept `mapping.json` puts the
+  redacted values back **in place**, formatting and styling untouched — see [Redact → AI → restore](#redact--ai--restore).
 - **No silently missing layer**: if an engine cannot start it fails before the run, rather than producing a result with less detection.
 - **Resumable**: the ledger is flushed as soon as each file finishes, so `--resume` never redoes completed work.
 - **Three ways in**: CLI / browser / desktop window, all on the same engines and config.
@@ -248,6 +250,8 @@ details such as ID numbers, bank cards, phones and addresses; courts, case numbe
 names, law firms and agents, dates and amounts are all left alone) · `default.yaml` (rules + dictionary) ·
 `onnx.yaml` (+ Chinese NER, swaps names and organizations too — for talks and case write-ups) ·
 `llm.yaml` (+ a local LLM; pick one in the UI and the server is started for you before the run).
+All three built-in schemes **default to `anchor` for every entity type** — the output is `{{TYPE_N}}` anchors,
+carries no originals, is safe to send out and can be restored (see below).
 There is also `llm_models.yaml` — the **downloadable model catalogue**, not a redaction preset: each entry
 carries a name, one line of when-to-use, the repo and the filename, and the UI's "local LLM" section turns it
 into a picker (selecting installs and uses it). Add your own models by editing that file (see the
@@ -262,15 +266,65 @@ the app once, click once, and the backend prepares everything quietly; the UI on
 no longer be filed (measured). List what you want redacted; every type you do not list stays `keep` ("only
 what I name gets touched"). Hits that were identified but kept by config are listed separately in the web run log.
 
-- Strategies are configured per entity type: `redact` (**replaces the whole span with `**`** — the default, so
-  nothing believable is ever produced) / `mask` (`138****0000`) / `placeholder` (`<PHONE_1>`) /
+- Strategies are configured per entity type: `anchor` (`{{PERSON_1}}`, **addressable and restorable**,
+  **the default of all three built-in schemes**) / `redact` (**replaces the whole span with `**`**) /
+  `mask` (`138****0000`) / `placeholder` (`<PHONE_1>`, also addressable and restorable) /
   `pseudonym` (a stable fake name per entity of the same kind — **only when you ask for it**) / `remove`
   (delete outright) / `keep` (**leave it alone** — it exists so a config can say "don't touch this class").
-  Names, organizations and custom terms default to `redact` (`**`), not a believable fake company. Custom terms
-  go under `dictionary` and are tagged `CUSTOM`.
+  `mask` / `redact` / `remove` discard the original at replacement time and are **irreversible by design**
+  (`run` lists them); `pseudonym` is not an addressable anchor, so it cannot be restored either.
+  Custom terms go under `dictionary` and are tagged `CUSTOM`.
 - Relative paths in config (e.g. `onnx.model_dirs`) resolve against the **resource root** (found by walking up
   from `configs/default.yaml`; override it with `DOCANON_ROOT`) and are independent of the cwd; input/output
   paths given on the command line resolve against the cwd.
+
+## Redact → AI → restore (reversible round trip)
+
+When you need to hand a redacted document to an AI for rewriting (reformatting, rephrasing, restructuring)
+and want the original values filled back in afterwards — the three built-in schemes are already this route:
+every sensitive value becomes a `{{TYPE_N}}` **anchor** (no originals, safe to send out), so `restore` can put
+the originals back **without touching the formatting or styling**.
+
+```bash
+.venv/bin/docanon run ./cases -o var/rt -c configs/onnx.yaml
+# hand var/rt/【脱敏版】x.docx to your AI, then take its edited file back:
+.venv/bin/docanon restore AI-edited.docx \
+    --mapping var/rt/mapping.json \
+    --expected var/rt/manifest.json \        # which anchors this file should contain
+    --report var/rt/restore-report.json
+```
+
+**When it cannot be restored**: only if you switch some type back to `mask` (`138****5678`) /
+`redact` (`**`) / `remove` in L2 — they discard the original at replacement time, which is mathematically
+irreversible, and no later `restore` can recover it. `run` lists the irreversible strategies your config
+actually uses.
+
+| Capability | Detail |
+|---|---|
+| Zero style change | docx only touches `run.text`: fonts, sizes, colours, underline, paragraph styles and table structure stay exactly as they were; xlsx only touches cell values |
+| Reorder-proof | Anchors are located by **text**, never by position — correct even after the AI reorders paragraphs or merges cells |
+| Run-split proof | Restores anchors that Word/the AI split across several runs (spell check and format brushes do this) |
+| Forgiving matching | Tolerates whitespace and case changes around anchors; HTML-unescapes first (`&lt;` and friends) |
+| Never silent | Anchors the AI deleted or mangled are reported and the exit code is 2; anchors the AI invented are left untouched — **never guessed** |
+
+Exit codes: `0` fully restored · `1` bad input or unsupported format · `2` missing or unknown anchors
+(the output is still written, but a human needs to look at it)
+
+**In the web UI**: a "Restore" panel appears at the bottom of the left sidebar after the run, **marked
+"under development" and disabled for now** (`POST /api/restore/batch` and the CLI `restore` are already
+usable). Once it opens, choose the AI-edited file (multiple files, or a whole folder) and the per-file
+results, zip download and reconciliation report show up there. The entry appears **only when the output is
+actually restorable**: products made with `mask`/`redact` have no addressable anchors, and a button that can
+only fail is worse than none.
+The mapping table stays on the server and never passes through the browser (it *is* the original
+data); restored files land in their own `/restored/` directory, separate from the shareable output.
+
+**Not restorable**: pdf and images. Matching pages are rasterised during redaction and the text layer is
+physically gone — use docx for this workflow. `restore` refuses these formats with a reason rather than
+handing back a file that only looks restored.
+
+⚠ `mapping.json` **is** the original data: keep it local, never send it to the AI.
+⚠ If the AI returns markdown, the text restores but the styling does not.
 
 ## Detection engines
 

@@ -1,23 +1,24 @@
 # 最快（只用规则）
 # 只认格式固定的号码：手机号、身份证、银行卡、邮箱这类。不装任何模型也能用。
-# 各实体类型的脱敏策略: redact(整体 **) | mask(打码) | placeholder(<TYPE_n>) | pseudonym(假名) | remove | keep
-# 默认用 **: 绝不产出像真的内容("假名/假公司"只在你显式配 pseudonym 时才用)
+# 脱敏产物一律是 {{TYPE_N}} 锚点：**不含原文、可直接外发**，事后能一键还原（见 README）。
+# 锚点把原文换成一个编号，交出去看不出内容，但映射表一对照就能填回来 —— 这是默认口径。
+# 想要"打码/盖掉"那种外观（不需要还原时）：在界面 L2 逐类型策略里改成 mask / redact / remove。
 strategies:
-  PHONE: mask          # 138****0000 / 010****4321
-  ID_CARD: mask        # 保留前6后4
-  PASSPORT: mask       # 保留首尾
-  PLATE: mask          # 保留首位
-  BANK_CARD: mask      # 保留后4
-  EMAIL: mask          # a***@example.com
-  IP: redact
-  USCC: mask           # 统一社会信用代码
-  PERSON: redact       # 张三 -> **
-  ORG: redact          # XX公司 -> **
-  LOCATION: redact
-  AMOUNT: redact
-  SECRET: remove       # key/token/密码 直接删除
-  CUSTOM: redact
-  DEFAULT: redact      # 没列出的类型一律 **
+  PHONE: anchor
+  ID_CARD: anchor
+  PASSPORT: anchor
+  PLATE: anchor
+  BANK_CARD: anchor
+  EMAIL: anchor
+  IP: anchor
+  USCC: anchor
+  PERSON: anchor
+  ORG: anchor
+  LOCATION: anchor
+  AMOUNT: anchor
+  SECRET: anchor        # 不用 remove —— 删掉就没有锚点，事后连位置都找不回来
+  CUSTOM: anchor
+  DEFAULT: anchor
 
 # 自定义业务敏感词(词典检测器)。命中即标为 CUSTOM
 dictionary:

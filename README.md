@@ -33,7 +33,8 @@
 - **保留原格式**：docx 按 run 改写、xlsx/csv 改单元格、pdf/图片涂黑，前后可左右对照。
 - **旧版 Office 也收**：`.doc`/`.xls`/`.wps` 自动经 LibreOffice 转成现代格式再脱敏（产物格式随之改变，账本与界面会标明）。
 - **召回优先**：拿不准的一律标出，命中位置与来源可查。
-- **可还原**：`mapping.json` 记「原文 ↔ 替换值」，`restore` 还原文本产物。
+- **可还原**：可编辑办公文档（docx/xlsx/csv/txt/md）一律替换成 `{{TYPE_N}}` 锚点，产物**不含原文、可直接外发**，
+  `mapping.json` 留在本地就能把脱敏信息**在原格式上**填回来（见「脱敏 → 交 AI 处理 → 还原」节）。
 - **不许静默少一层**：引擎起不来就在跑前报错退出，不产出"少了识别"的结果。
 - **可续跑**：账本每处理完一个文件就落盘，`--resume` 不重做已完成部分。
 - **三种用法**：CLI / 浏览器 / 桌面窗口，同一套引擎与配置。
@@ -112,6 +113,11 @@ flowchart TB
 .venv/bin/docanon run ./案件 -o var/out -c configs/onnx.yaml --resume  # 断了接着跑
 .venv/bin/docanon engines -c configs/onnx.yaml                         # 这份配置跑了几层检测
 .venv/bin/docanon restore "var/out/【脱敏版】sample.md" --mapping var/out/mapping.json
+
+# 脱敏 → 交 AI 处理 → 还原（见下节）
+.venv/bin/docanon run ./案件 -o var/rt -c configs/onnx.yaml
+.venv/bin/docanon restore AI改好的.docx --mapping var/rt/mapping.json \
+    --expected var/rt/manifest.json --report var/rt/restore-report.json
 ```
 
 退出码：`0` 全部处理 · `1` 输入/配置/引擎有问题（一个文件都不写）· `2` 有文件没产出结果
@@ -130,14 +136,16 @@ flowchart TB
 **脱敏方案分三层**（渐进披露，普通用户只用第一层）：
 
 - **L1 方案**：在**内置的三套**（`configs/*.yaml`，只读）与**我的配置**（`var/configs/<名>.yaml`）间选一套
-  —— 通用 / 最准 / 最快。选项里只放**短名**，"什么时候用哪套"单独显示在下面 —— 这两句就是各自 yaml 开头的
+  —— 通用 / 最准 / 最快。三套**只决定识别能力**（规则 / +小模型 / +大模型），脱敏产物一律是锚点、都能还原。
+  选项里只放**短名**，"什么时候用哪套"单独显示在下面 —— 这两句就是各自 yaml 开头的
   **前两行注释**（改文案改注释，界面自动跟着变）；再往下写的是给改配置的人的细节，不会端到用户面前。
   默认停在「通用」（认得号码、人名、机构、地址，且是本机小模型、毫秒级）；**改完自动保存**，旁边给
   「恢复默认」，也可导出 / 导入。
   `configs/legal.yaml`（"只抹标识与联系方式、人名机构金额全留"）仍在仓库里、仍是 CLI 的默认 `-c`，
   但**不在界面下拉中暴露**（见 `apps/web/src/lib/formats.ts` 的 `HIDDEN_SCHEMES`）。
-- **L2 自定义脱敏**：逐类型策略（界面显示中文名，如"盖成 `**`"；对应 yaml 里的 `redact` / `mask` /
-  `placeholder` / `pseudonym` / `remove` / `keep`，每行带效果示例）+ 自定义敏感词；「用假名替代人名/机构」
+- **L2 自定义脱敏**：逐类型策略（界面显示中文名，如"盖成 `**`"；对应 yaml 里的 `anchor` / `redact` /
+  `mask` / `placeholder` / `pseudonym` / `remove` / `keep`，每行带效果示例，**不可还原的那几种会标出来**
+  —— 选了 `mask` 才想起"回头怎么填回去"是最常见的坑）+ 自定义敏感词；「用假名替代人名/机构」
   开关只把 `redact` 与 `pseudonym` 之间批量切矩阵（不引入第二种表达）。
 - **L3 检测引擎**：这一层只回答一个问题 —— **要不要用模型来认人名/机构/地址**：不用模型 / 本机小模型 /
   本地大模型（"两个都用"只在当前配置本来就是这样时才出现）。选了模型，模型清单（`configs/llm_models.yaml`）
@@ -146,8 +154,8 @@ flowchart TB
   固定写法的号码/邮箱与自定义词表**一直开着**（不靠模型，也没必要关）——"不想动某一类"请改 L2 的策略为
   「保持原样」，而不是关引擎（关引擎 = 静默漏检）。
 
-改完**自动保存并立即生效**，不用手动存：内置三套是只读的，改动落在**同名用户配置**里（改「通用」→
-`var/configs/onnx.yaml`）—— 所以方案下拉**仍然只有那三套**，只给改过的那套标一句「已改」，旁边一个
+改完**自动保存并立即生效**，不用手动存：内置的几套是只读的，改动落在**同名用户配置**里（改「通用」→
+`var/configs/onnx.yaml`）—— 所以方案下拉**仍然只有那几套**，只给改过的那套标一句「已改」，旁边一个
 「恢复默认」把改动全清掉、回到出厂（从外面导入的配置文件不会被删）。要把当前设置备份或搬到别的机器，
 用「导出 / 导入」。运行期做引擎预检：缺模型 / 连不上 LLM 返回 400 + 原因（不静默少一层）；列表接口**不**预检（不每次加载 ONNX）。
 用户配置与内置**同 schema**，落在已 gitignore 的 `var/configs/`；**内置只读**（拒改拒删）。
@@ -155,13 +163,22 @@ flowchart TB
 **可写状态**，打包后一起落在 `DOCANON_DATA`（macOS `~/Library/Application Support/docanon`），换机器不丢。
 
 接口：`/` `/assets/*` `/health` `/api/presets` `/api/configs` `/api/configs/{ref}` `/api/models`
-`/api/models/download` `/api/upload` `/api/anonymize` `/api/progress/{job}`（另 `PUT`/`DELETE /api/configs/{name}`、
+`/api/models/download` `/api/upload` `/api/anonymize` `/api/restore` `/api/progress/{job}`
+（另 `PUT`/`DELETE /api/configs/{name}`、
 `POST /api/configs/import`、`GET /api/configs/{name}/export`、`POST /api/models/download/cancel`、
 `POST /api/anonymize/cancel`、`GET`/`PUT /api/settings`）。
 `/api/configs` 列内置+用户并标当前；`/api/models` 报可选 ONNX 目录、LLM 默认与**可下载的大模型目录**；
 `/api/models/download` 起步/查询/取消界面内的模型下载（只收目录里的 `id`，**不收 URL**）；
 `/api/upload` 入参 `{filename, content_b64}`；`/api/anonymize` 入参 `{preset|token, config?, job?}`，
 `config` 可为**配置名**或**内联对象**，出参含 `counts` 与 `trace`；上传上限 50MB。
+`/api/anonymize` 的出参另带 `restorable` / `anchors` / `restore_token`（有可寻址锚点时才有值，
+界面据此决定要不要给「还原」入口）；批次结果逐份带 `restorable` 与 `anchors`。
+`/api/restore` 入参 `{token, filename, content_b64, expected?}`，`expected` 是那份文件的锚点清单
+（有了它才能报「少了哪些」）；产物落在**独立的 `/restored/` 目录**并附 `restore-report.json`，
+出参含 `total_restored` / `missing` / `unknown` / `complete`。
+`POST /api/restore/batch` 是整批版：入参 `{token, items: [{filename, content_b64}], anchors?}`，
+**一份失败不拖垮整批**（逐份给 `status` 与原因），全部成功时另给 `zip_url`（还原件整包，见
+`GET /api/restore/{rtoken}/zip`）。
 `job` 是界面自己生成的一个短 id：跑的时候用它读 `/api/progress/{job}`（在读原文件 / 识别第几段 / 写回），
 或用 `POST /api/anonymize/cancel` 叫停 —— 取消**不产出任何文件**（半截产物比没产物更危险）。
 
@@ -224,6 +241,7 @@ macOS 与 Windows 的 runner 上各打一份，传到 GitHub Release。两个平
 法院、案号、法官与书记员、当事人姓名、律所与代理人、日期、金额一律不动）·
 `default.yaml`（规则 + 词典）· `onnx.yaml`（+ 中文 NER，连人名机构一起换，适合对外讲课/写案例）·
 `llm.yaml`（+ 本地大模型；Web 里选中即用，开跑前自动起服务）。
+三套内置**默认全类型 `anchor`** —— 产物是 `{{TYPE_N}}` 锚点、不含原文，可直接外发且能还原（见下节）。
 另有 `llm_models.yaml`（**可下载的大模型目录**，不是脱敏方案）：每条给名字、一句话、仓库与文件名，
 界面里「本地大模型」那层就拿它列选项（选中即下载、即用）；自己加模型改这个文件即可（见
 [设计](docs/specs/2026-10-09-llm-model-download-design.md)）。
@@ -235,12 +253,56 @@ macOS 与 Windows 的 runner 上各打一份，传到 GitHub Release。两个平
 把判决日期当生日一起抹掉，材料就交不出去了（实测过）。要抹哪个就列哪个，没列出的类型一律
 `keep`（"我说抹哪个就抹哪个"）；识别到但按配置保留的条数，在 Web 的「运行日志」里单独列出来。
 
-- 策略按实体类型配：`redact`（**整体盖成 `**`**，默认，绝不产出像真的内容）/ `mask`（`138****0000`）/
-  `placeholder`（`<PHONE_1>`）/ `pseudonym`（同类同实体固定假名，**只用在你显式配置时**）/ `remove`（直接删）/
-  `keep`（**不动**，只为"别碰这类"而存在）。人名/机构/自定义词默认走 `redact`（`**`），不再是"像真的假公司"。
+- 策略按实体类型配：`anchor`（`{{PERSON_1}}`，**可寻址可还原**，**三套内置方案的默认**）/
+  `redact`（**整体盖成 `**`**）/ `mask`（`138****0000`）/
+  `placeholder`（`<PHONE_1>`，同样可寻址可还原）/ `pseudonym`（同类同实体固定假名，**只用在你显式配置时**）/ `remove`（直接删）/
+  `keep`（**不动**，只为"别碰这类"而存在）。`mask` / `redact` / `remove` 在替换那一步就把原文丢了，
+  **原理上不可逆**（`run` 结束会点名列出）；`pseudonym` 不是可寻址锚点，也还原不了。
   自定义词写在 `dictionary`，记为 `CUSTOM`。
 - 配置里的相对路径（如 `onnx.model_dirs`）按**资源根**解析（从 `configs/default.yaml` 逐级向上找，
   可用 `DOCANON_ROOT` 指定），与 cwd 无关；命令行上的输入/输出路径按 cwd。
+
+## 脱敏 → 交 AI 处理 → 还原（可逆链路）
+
+需要把脱敏件交给 AI 改写（改格式、换措辞、补结构），拿回来再把信息填回去时 —— 三套内置方案默认
+就是这条链：产物里所有敏感值都换成了 `{{TYPE_N}}` **锚点**（不含原文，可安全外发），`restore` 能把
+原文填回去，且**原格式原样式不动**。
+
+```bash
+.venv/bin/docanon run ./案件 -o var/rt -c configs/onnx.yaml
+# 把 var/rt/【脱敏版】x.docx 交给你选的那个 AI，拿回它改好的文件后：
+.venv/bin/docanon restore AI改好的.docx \
+    --mapping var/rt/mapping.json \
+    --expected var/rt/manifest.json \        # 对账用：这个文件该有哪些锚点
+    --report var/rt/restore-report.json
+```
+
+**什么时候还原不了**：只有当你在 L2 把某类型改回 `mask`（`138****5678`）/ `redact`（`**`）/ `remove` 时 ——
+它们在替换那一步就把原文丢了，数学上不可逆，事后拿 `mapping.json` 也变不回来。`run` 结束时会明确
+列出这份配置里哪些类型不可逆。
+
+| 能力 | 说明 |
+|---|---|
+| 格式样式零改动 | docx 只改 `run.text`，字体/字号/颜色/下划线、段落样式、表格结构原样；xlsx 只改单元格值 |
+| 抗重排 | 定位靠锚点**文本**而非位置 —— AI 重排段落、合并单元格后依然还原正确 |
+| 抗 run 切分 | 锚点被 Word/AI 拆到多个 run 也能回填（拼写检查、格式刷都会拆） |
+| 抗 AI 顺手改写 | 容忍锚点内外空白、大小写变化；匹配时先做 HTML 反转义（`&lt;` 之类） |
+| 漏还原必报警 | AI 删掉/改坏锚点 → 列进报告 + 退出码 2；AI 编出不存在的锚点 → 原样保留，**绝不猜** |
+
+退出码：`0` 全部还原 · `1` 输入/格式不支持 · `2` 有锚点缺失或未知（产物已写出，但要人看）
+
+**Web 界面**：跑完左栏底部会出现「还原」那一块（**界面入口标「开发中」、暂未开放**；`POST /api/restore/batch`
+与 CLI 的 `restore` 都已可用）。开放后把 AI 改好的文件（可多选，或整个文件夹）选回来即可 ——
+逐份结果、**打包下载**与对账报告都在面板里。入口**只在产物
+可还原时出现** —— 改成 `mask`/`redact`/`remove` 的产物没有可寻址锚点，给一个按下去必然还原不回来的
+按钮比没有更糟。映射表全程留在服务端，不经浏览器（它就是原文本身）；还原件落在独立的 `/restored/`
+目录，与可外发的脱敏件分开。
+
+**不能还原**：`pdf` 与图片。脱敏时命中页整页栅格化，原文字层已被物理删除 —— 这条链请先用 docx。
+`restore` 对这些格式直接拒绝并说明原因，不会交出一份「看起来还原了、其实原文不在里面」的文件。
+
+⚠ `mapping.json` 就是原文本身，**全程留在本地，绝不随脱敏件发给 AI**。
+⚠ AI 若只回传 markdown，文字能还原、样式回不来。
 
 ## 检测引擎
 
@@ -266,7 +328,13 @@ macOS 与 Windows 的 runner 上各打一份，传到 GitHub Release。两个平
 - docx 的**文档属性不处理**：`docProps` 里的作者名等元数据原样保留（实测过，正文脱敏了属性还在）。
 - docx 里**只存在于链接目标、正文不显示**的敏感值识别不到；正文里出现过的会连同 `mailto:`/URL
   一起抹掉，但一个纯靠 URL 传递的邮箱或口令不在覆盖范围。
-- `restore` 只支持文本产物（txt/md/csv）；`remove` 删掉的原文没有锚点，无法还原。
+- `restore` 还原 docx/xlsx 时**只认锚点**（`anchor` / `placeholder`），不认打码值与假名 ——
+  它们不是可寻址的，在 docx 里可能跨 run，按字面全局替换会打到不相干的地方。
+  纯符号替换值（`redact` 的 `**`）也一律排除：markdown 加粗同为 `**`，拿它替换等于毁掉全文加粗。
+- `remove` 删掉的原文没有锚点，无法还原（所以三套内置方案对 `SECRET` 也用 `anchor`，不用 `remove`）。
+- `mask` 打码后同形的值（两个号码都 mask 成一样）会还原成错的原文。
+- 文本变长导致换行变化（还原时不可避免，但这是原文的真实长度）。
+- AI 若只回传 markdown，文字能还原、样式回不来。
 - 打码后同形的值（两个号码都 mask 成一样）会还原成错的原文。
 - `.doc` / `.xls` / `.wps` 自动转成 `.docx`/`.xlsx` 再脱敏（需 LibreOffice）：`npm run doctor` 看 `soffice`
   一行，缺就 `./scripts/fetch_libreoffice.sh`。产物格式因此变成 `.docx`/`.xlsx`，**版式可能被重排，交付前人工对一遍**；

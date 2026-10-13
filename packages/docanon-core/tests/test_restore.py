@@ -45,12 +45,12 @@ def test_legacy_mapping_with_empty_key_is_filtered(tmp_path):
 
 def test_restore_does_not_scatter_removed_secrets(tmp_path):
     redacted = tmp_path / "sample.md.redacted.md"
-    redacted.write_text("报告: <PHONE_1> 与 林芳, 密钥已删除\n", encoding="utf-8")
+    redacted.write_text("报告: {{PHONE_1}} 与 林芳, 密钥已删除\n", encoding="utf-8")
     mapping = tmp_path / "mapping.json"
     _write_mapping(
         mapping,
-        {"": "sk-abcdef1234567890", "<PHONE_1>": "13800000000", "林芳": "张三"},
-        {"SECRET": {"sk-abcdef1234567890": ""}, "PHONE": {"13800000000": "<PHONE_1>"}, "PERSON": {"张三": "林芳"}},
+        {"": "sk-abcdef1234567890", "{{PHONE_1}}": "13800000000", "林芳": "张三"},
+        {"SECRET": {"sk-abcdef1234567890": ""}, "PHONE": {"13800000000": "{{PHONE_1}}"}, "PERSON": {"张三": "林芳"}},
     )
     out = tmp_path / "restored.md"
 
@@ -59,16 +59,40 @@ def test_restore_does_not_scatter_removed_secrets(tmp_path):
     assert out.read_text(encoding="utf-8") == "报告: 13800000000 与 张三, 密钥已删除\n"
 
 
-def test_restore_rejects_binary_output(tmp_path, capsys):
-    """docx 产物是二进制: 给原因 + 退出码 1, 不抛 UnicodeDecodeError 的栈。"""
-    redacted = tmp_path / "sample.docx.redacted.docx"
-    redacted.write_bytes(b"PK\x03\x04\xad\x00\x00binary")
+def test_restore_refuses_pdf_with_a_reason(tmp_path, capsys):
+    """pdf 命中页整页栅格化, 原文字层已被删除 —— 明确拒绝, 给出该走哪条路。"""
+    src = tmp_path / "【脱敏版】x.pdf"
+    src.write_bytes(b"%PDF-1.4\nfake")
     mapping = tmp_path / "mapping.json"
-    _write_mapping(mapping, {"林芳": "张三"})
+    _write_mapping(mapping, {"{{PERSON_1}}": "张三"})
 
-    assert main(["restore", str(redacted), "--mapping", str(mapping)]) == EXIT_INPUT
+    assert main(["restore", str(src), "--mapping", str(mapping)]) == EXIT_INPUT
     err = capsys.readouterr().err
-    assert "只支持文本产物" in err
+    assert "栅格化" in err
+    assert "docx" in err  # 告诉他可行的替代路径, 而不是只说做不到
+
+
+def test_redact_marker_is_never_used_as_a_literal_replacement(tmp_path):
+    """`redact` 的替换值是 `**`, 而 markdown 加粗也是 `**`。
+
+    拿 `**` 去全局替换等于把整篇文档的加粗标记换成某个当事人姓名 —— 纯符号替换值
+    必须排除在字面替换之外(锚点匹配不受影响)。
+    """
+    src = tmp_path / "a.md"
+    src.write_text("**加粗** 与 **另一处**，共 2 处。\n", encoding="utf-8")
+    mapping = tmp_path / "mapping.json"
+    _write_mapping(mapping, {"**": "张三"}, {"PERSON": {"张三": "**"}})
+    out = tmp_path / "out.md"
+
+    assert main(["restore", str(src), "--mapping", str(mapping), "-o", str(out)]) == EXIT_OK
+    assert out.read_text(encoding="utf-8") == "**加粗** 与 **另一处**，共 2 处。\n"
+
+
+def test_restore_reports_missing_input(tmp_path, capsys):
+    mapping = tmp_path / "mapping.json"
+    _write_mapping(mapping, {"{{PERSON_1}}": "张三"})
+    assert main(["restore", str(tmp_path / "nope.md"), "--mapping", str(mapping)]) == EXIT_INPUT
+    assert "不存在" in capsys.readouterr().err
 
 
 def test_restore_reports_unreadable_mapping(tmp_path, capsys):

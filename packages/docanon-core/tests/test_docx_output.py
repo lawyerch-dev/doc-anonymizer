@@ -15,13 +15,17 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
-from docanon_core.config import load_config
+from docanon_core.config import config_from_dict
 from docanon_core.pipeline import process_file
 from docanon_core.redaction.mapping import MappingStore
 
 PHONE = "13800001111"
 EMAIL = "a@b.com"
 ID = "11010119900307721X"
+
+# 这里验的是**回写偏移与样式**(产物里那几个替换值长什么样由策略决定), 所以固定用 mask 口径:
+# 默认口径换成 anchor 后, 这些断言不该跟着默认值一起漂。
+_MASK_CFG = {"strategies": {"DEFAULT": "mask"}, "detectors": {"rule": True}}
 
 
 def _add_hyperlink(paragraph, text: str, url: str) -> None:
@@ -37,7 +41,7 @@ def _add_hyperlink(paragraph, text: str, url: str) -> None:
 
 
 def _redact(docx: Path, tmp_path: Path):
-    cfg = load_config()
+    cfg = config_from_dict(_MASK_CFG)
     res = process_file(docx, tmp_path / "out", cfg, MappingStore())
     return res, Path(res.output_path)
 

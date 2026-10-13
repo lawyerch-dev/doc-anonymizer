@@ -56,4 +56,5 @@ L1 方案（内置那几套，只读）→ L2 逐类型策略 + 词典 → L3 �
   （`server/progress.py`）；取消走 `/api/anonymize/cancel`，只在**写产物之前**查信号 —— 取消不留半成品。
 - **两条轴别混**：L2 管"脱什么"（实体 × 策略），L3 管"靠什么认"（只给一道选择题：不用模型 / 小模型 / 大模型）；`rule`+`dictionary` 常开不给开关（关它 = 静默漏检，"不要某类"用策略 `keep` 表达）；服务地址、`--alias`、启动命令由 app 自己管（`server/llm_server.py`）。不暴露 OCR、产物命名等"静默少一层"或属契约（非偏好）的选项。
 - 为什么用户配置放 `var/`、为什么 L1 是模板：[决策记录](../notes/implemented/feature/2026-10-08-web-redaction-config.md)。
+- **还原入口只给真能还原的产物**（`restorable` 为真才渲染 `RestorePanel`），L2 同标「不可还原」（`formats.REVERSIBLE`）；理由见 `04-outputs.md`。
 - **首次使用向导**（`OnboardingWizard.tsx`）：**打开即选方案**（默认「通用」，没有单独的"欢迎"过渡页）→ 选中即 **自动"准备"**（`POST /api/prepare` 按方案在后台补齐所需资源，轮询进度并按实测速率给剩余时间）。全程不出现模型/下载/ONNX/镜像/文件数；出错给「重试 / 先跳过」。与 L1 同源、复用一个 `Dialog` 骨架、本地记 `docanon.onboarded`。设置抽屉 Footer 有「重新查看欢迎引导」。**署名与版本号放窗口标题栏**（桌面壳 `backend.rs` 设原生标题，浏览器里是 `document.title`），界面正文不重复显示。

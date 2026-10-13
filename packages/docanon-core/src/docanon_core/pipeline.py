@@ -16,6 +16,7 @@ from docanon_contract import Block, Detection, ExtractedDoc
 from .redaction.resolve import resolve_overlaps
 from .redaction.strategies import apply_spans, replacement_for
 from .redaction.writers import BlockRedaction, write_output
+from .redaction.restorers import is_anchor
 
 
 @dataclass
@@ -25,6 +26,8 @@ class ProcessResult:
     entity_counts: dict[str, int] = field(default_factory=dict)
     # 实际写盘的文件(扫描 PDF 每页一张, 故为列表)
     outputs: list[str] = field(default_factory=list)
+    # 这个文件里写出去的锚点 -> 次数。还原时按它对账(见 restorers.restore_file 的 expected)。
+    anchors: dict[str, int] = field(default_factory=dict)
     # 溯源信息
     extractor: str = ""
     converted_from: str = ""   # 旧格式转换来源(如 ".doc"), 空表示未转换
@@ -191,6 +194,8 @@ def process_file(
     detections: list[dict] = []
     det_names: list[str] = []
     written: list[str] = []
+    # 这一个文件里实际写出去的锚点 -> 次数。还原时按它对账, 少一个就报出来。
+    anchors: dict[str, int] = {}
     try:
         detectors = build_detectors(config)
         reds: list[BlockRedaction] = []
@@ -216,6 +221,9 @@ def process_file(
                 repl = replacement_for(store, det.entity_type, det.span.text, strategy)
                 repls.append((det.span.start, det.span.end, repl))
                 counts[det.entity_type] = counts.get(det.entity_type, 0) + 1
+                store.note_use(repl)
+                if is_anchor(repl):
+                    anchors[repl] = anchors.get(repl, 0) + 1
                 detections.append({
                     "entity_type": det.entity_type,
                     "source": det.source,
@@ -242,7 +250,7 @@ def process_file(
     t_write = time.perf_counter()
 
     return ProcessResult(
-        str(path), written[0] if written else str(out_path), counts, written,
+        str(path), written[0] if written else str(out_path), counts, written, anchors,
         extractor=extractor.name,
         converted_from=doc.meta.get("converted_from", ""),
         output_format=doc.meta.get("out_ext", "").lstrip("."),

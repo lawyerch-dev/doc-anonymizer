@@ -2,9 +2,10 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-// dev 期把后端的六条前缀(/api /samples /uploads /outputs /file-viewer /health)转发过去(docanon web 默认 8000); 生产不走这里(dist 由 docanon web 直发)
+// dev 期把后端的前缀转发过去(docanon web 默认 8000); 生产不走这里(dist 由 docanon web 直发)
+// `/restored/` 是还原件目录 —— 少这一条, 还原做完了却下载不到文件(实测踩过: 面板给的是 404 链接)
 const BACKEND = process.env.DOCANON_BACKEND || "http://127.0.0.1:8000";
-const PROXIED = ["/api", "/samples", "/uploads", "/outputs", "/file-viewer", "/health"];
+const PROXIED = ["/api", "/samples", "/uploads", "/outputs", "/restored", "/file-viewer", "/health"];
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],

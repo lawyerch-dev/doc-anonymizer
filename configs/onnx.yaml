@@ -1,24 +1,26 @@
 # 通用（本机小模型）
 # 讲课、写案例用：人名、机构名、地址也一起换掉。在本机跑，不用联网。
 # ONNX 路线: 规则 + 词典 + ONNX 中文 NER, 不依赖 llama.cpp
-# 默认用 ** 盖掉人名/机构(不产假名); 想要可信假名就把 PERSON/ORG 改成 pseudonym
+# 脱敏产物一律是 {{TYPE_N}} 锚点：**不含原文、可直接外发**，事后能一键还原（见 README）。
+# 想要"打码/盖掉"那种外观（不需要还原时）：在界面 L2 逐类型策略里改成 mask / redact / remove；
+# 想要可信假名就把 PERSON/ORG 改成 pseudonym（假名不可寻址，还原不了）。
 strategies:
-  PHONE: mask
-  ID_CARD: mask
-  PASSPORT: mask
-  PLATE: mask
-  BANK_CARD: mask
-  EMAIL: mask
-  IP: redact
-  USCC: mask
-  PERSON: redact
-  ORG: redact
-  LOCATION: redact
-  AMOUNT: redact
-  DOB: redact
-  SECRET: remove
-  CUSTOM: redact
-  DEFAULT: redact
+  PHONE: anchor
+  ID_CARD: anchor
+  PASSPORT: anchor
+  PLATE: anchor
+  BANK_CARD: anchor
+  EMAIL: anchor
+  IP: anchor
+  USCC: anchor
+  PERSON: anchor
+  ORG: anchor
+  LOCATION: anchor
+  AMOUNT: anchor
+  DOB: anchor
+  SECRET: anchor        # 不用 remove —— 删掉就没有锚点，事后连位置都找不回来
+  CUSTOM: anchor
+  DEFAULT: anchor
 
 dictionary:
   - 内部项目代号

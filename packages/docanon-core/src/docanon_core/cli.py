@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -9,12 +10,37 @@ from . import convert
 from .config import load_config
 from .job import RedactionJob
 from .redaction.mapping import MappingStore
+from .redaction.restorers import RestoreError, restore_file
+from .redaction.strategies import irreversible_types
 
 SUPPORTED = {".txt", ".md", ".markdown", ".text", ".docx", ".pdf", ".xlsx", ".csv",
              ".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
 
 # 退出码: 0 全部处理, 1 输入有误, 2 有文件未产出脱敏结果
 EXIT_OK, EXIT_INPUT, EXIT_PARTIAL = 0, 1, 2
+
+
+def _load_expected(value: str | None) -> dict[str, int] | None:
+    """`--expected` 接受两种写法: 直接给 JSON, 或给 manifest.json 的路径。
+
+    手工写 JSON 太啰嗦(几十个锚点), 而 manifest 里本来就记着 —— 所以给路径是主用法。
+    """
+    if not value:
+        return None
+    path = Path(value)
+    raw = path.read_text(encoding="utf-8") if path.exists() else value
+    data = json.loads(raw)
+    if isinstance(data, dict) and "files" in data:      # manifest.json
+        files = [f for f in data.get("files", []) if isinstance(f, dict) and f.get("anchors")]
+        if len(files) != 1:
+            raise argparse.ArgumentTypeError(
+                f"{path} 里有 {len(files)} 个带 anchors 的文件, 说不清是哪个。"
+                " 请改用 --expected '{\"{{TYPE_1}}\": 1}' 直接给这一个文件的锚点。"
+            )
+        return dict(files[0]["anchors"])
+    if not isinstance(data, dict):
+        raise argparse.ArgumentTypeError("--expected 要么是 {锚点: 次数} 对象, 要么是 manifest.json 路径")
+    return {str(k): int(v) for k, v in data.items()}
 
 
 def _collect(target: Path, config) -> tuple[list[Path], list[Path], Path]:
@@ -123,6 +149,19 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     summary = job.tally()
     print(f"\n命中统计: {job.totals() or '无'}")
+    # 不可逆策略要当场说清: mask/redact/remove 的替换值里已经没有原文了, 事后拿 mapping.json
+    # 也变不回来。等到用户半年后想「脱敏 → 交 AI → 还原」才发现, 就太晚了。
+    # 不阻止运行(那是既有配置的既有行为), 但必须说。
+    lossy = irreversible_types(config)
+    if lossy:
+        detail = ", ".join(f"{k}={v}" for k, v in sorted(lossy.items()))
+        print(
+            f"\n⚠ 这份配置用了不可逆策略({detail}): 这些类型的原文已不在产物里, "
+            "事后无法还原(remove 更连位置都没有)。"
+            "若要走「脱敏 → 交 AI 处理 → 还原回来」, 请把这些类型改回 anchor 策略"
+            "(内置三套默认就是 anchor, 打了码的影子里改回来即可)。",
+            file=sys.stderr,
+        )
     if job.entries:
         print(f"清单: {job.manifest_path}")
         print(f"映射表(含原文, 切勿与脱敏文件一起外发): {job.mapping_path}")
@@ -146,11 +185,22 @@ def cmd_web(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_restore(args: argparse.Namespace) -> int:
-    """按映射表还原**文本**产物。
+def _restored_name(name: str) -> str:
+    """默认产物名: 脱敏产物的 `【脱敏版】x.docx` → `【还原版】x.docx`。
 
-    docx/xlsx/pdf/图片的产物是原格式回写(替换 run/单元格, 或涂黑), 没有可按映射表替换的纯文本,
-    所以只接受 UTF-8 文本; 二进制进来时给明确原因, 而不是抛 UnicodeDecodeError 的栈。
+    替换而不是叠加 —— 否则会得到 `【还原版】【脱敏版】x.docx`, 叠加两次以上还会更长。
+    """
+    return name.replace("【脱敏版】", "【还原版】", 1) if "【脱敏版】" in name else f"【还原版】{name}"
+
+
+def cmd_restore(args: argparse.Namespace) -> int:
+    """按映射表还原脱敏产物 —— **在原格式上就地回填**。
+
+    支持 docx / xlsx / csv / txt / md: 每种格式走自己的还原器, 只改文字槽不碰样式, 所以
+    字体、字号、颜色、表格结构原样保留(见 `redaction/restorers.py`)。
+
+    pdf 与图片**明确拒绝**: 脱敏时命中页整页栅格化, 原文字层已被物理删除, 还原不了。
+    与其交出一份看起来还原了、其实原文不在里面的文件, 不如直接说做不到。
     """
     try:
         store = MappingStore.load(args.mapping)
@@ -159,24 +209,42 @@ def cmd_restore(args: argparse.Namespace) -> int:
         return EXIT_INPUT
 
     src = Path(args.input)
-    try:
-        text = src.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        print(
-            f"还原失败: {src} 不是 UTF-8 文本。restore 只支持文本产物(txt/md/csv);"
-            " docx/xlsx/pdf/图片产物是原格式回写, 没有可替换的纯文本。",
-            file=sys.stderr,
-        )
+    if not src.exists():
+        print(f"还原失败: {src} 不存在", file=sys.stderr)
         return EXIT_INPUT
-    except OSError as exc:
-        print(f"还原失败: 读不了 {src}: {exc}", file=sys.stderr)
+    out = Path(args.out) if args.out else src.with_name(_restored_name(src.name))
+    try:
+        result = restore_file(src, out, store.reverse_table(), expected=args.expected)
+    except (RestoreError, OSError, ValueError) as exc:
+        print(f"还原失败: {exc}", file=sys.stderr)
         return EXIT_INPUT
 
-    for repl, original in store.restorable_items():
-        text = text.replace(repl, original)
-    out = Path(args.out) if args.out else src.with_suffix(".restored.txt")
-    out.write_text(text, encoding="utf-8")
-    print(f"已还原 -> {out}")
+    print(f"已还原 -> {result.output}  ({result.total_restored} 处)")
+    if args.report:
+        Path(args.report).write_text(
+            json.dumps(result.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        print(f"对账报告: {args.report}")
+
+    # 漏还原/多出锚点都要说: 交出一份"看着还原了、其实少了几处"的文件, 比不还原更危险。
+    if result.missing:
+        more = " …" if len(result.missing) > 8 else ""
+        print(
+            f"⚠ 有 {len(result.missing)} 个锚点在这份文件里没找到(AI 可能删掉或改写了): "
+            f"{', '.join(sorted(result.missing)[:8])}{more}",
+            file=sys.stderr,
+        )
+    if result.unknown:
+        uniq = sorted(set(result.unknown))
+        more = " …" if len(uniq) > 8 else ""
+        print(
+            f"⚠ 有 {len(uniq)} 个锚点不在映射表里(AI 可能自己编的), 已原样保留未替换: "
+            f"{', '.join(uniq[:8])}{more}",
+            file=sys.stderr,
+        )
+    if result.unknown or result.missing:
+        return EXIT_PARTIAL
+
     skipped = store.unrestorable_count()
     if skipped:
         print(
@@ -184,7 +252,7 @@ def cmd_restore(args: argparse.Namespace) -> int:
             " 它们不会出现在还原结果里。",
             file=sys.stderr,
         )
-    return 0
+    return EXIT_OK
 
 
 def cmd_engines(args: argparse.Namespace) -> int:
@@ -229,10 +297,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run.set_defaults(func=cmd_run)
 
-    restore = sub.add_parser("restore", help="按映射表还原脱敏文本")
-    restore.add_argument("input", help="脱敏后的文件")
+    restore = sub.add_parser("restore", help="按映射表还原脱敏产物(原格式回填)")
+    restore.add_argument("input", help="脱敏后的文件(docx/xlsx/csv/txt/md)")
     restore.add_argument("--mapping", required=True, help="mapping.json 路径")
-    restore.add_argument("-o", "--out", default=None, help="输出文件")
+    restore.add_argument(
+        "-o", "--out", default=None,
+        help="输出文件(默认同目录下【还原版】<原名>)",
+    )
+    restore.add_argument(
+        "--report", default=None, help="把对账结果写成 JSON(哪些锚点还原了、哪些没了)",
+    )
+    restore.add_argument(
+        "--expected", type=_load_expected, default=None,
+        help="该文件脱敏时的锚点清单(manifest.json 里这条的 anchors 字段内容, 或直接指向 manifest.json)",
+    )
     restore.set_defaults(func=cmd_restore)
 
     engines = sub.add_parser("engines", help="列出这份配置下实际可用的引擎及其能力")
