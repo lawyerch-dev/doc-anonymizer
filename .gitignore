@@ -38,10 +38,21 @@ out*/
 *.swp
 *.swo
 .DS_Store
+# Windows(CI 双平台构建, 贡献者可能用 Windows)
+Thumbs.db
+Desktop.ini
 
 # ---- 前端工作区(npm workspaces: packages/ui + website + apps/web + apps/desktop) ----
 node_modules/
+# TS 增量编译缓存
+*.tsbuildinfo
+# JS 测试覆盖率产物
+coverage/
 # 网站构建产物与生成的内容副本由 website/.gitignore 管(dist/ .astro/ src/content/docs/)
+
+# ---- 宣传视频制作工作区(Remotion 工程, 本地生产用, 不入库) ----
+# node_modules ~400MB + 渲染成片 out/ + 截图素材 assets/; 源工程只留在本地
+video-promo/
 
 # 桌面壳(Tauri)的构建产物: 壳自己的编译输出全在 src-tauri/target 下(与仓库根的 build/ 无关)
 apps/desktop/src-tauri/target/
