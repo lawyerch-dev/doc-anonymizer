@@ -1,7 +1,7 @@
 # AGENTS.md — docs/ 本地约定
 
 这里放**面向人的说明与历史**：`quickstart.md`（跟着走到结果）、`architecture.md`（查结构与决策）、
-`benchmarks.md`、`specs/`（当时的完整设计）、`cookbook/`（带编号验证步骤的操作指引）。
+`benchmarks.md`、`specs/`（当时的完整设计）、`research/`（竞品与市场研究，服务功能规划）、`cookbook/`（带编号验证步骤的操作指引）。
 
 - **不在这里放规则**（规则在 [`.agent/rules/`](../.agent/rules/)）；**不在这里写"为什么"的长篇**
   （决策与踩坑在 [`.agent/notes/`](../.agent/notes/README.md)）。这里是"现状与怎么做"。
