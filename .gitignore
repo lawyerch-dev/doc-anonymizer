@@ -87,3 +87,5 @@ playwright-report/
 # ---- agent 执行计划的临时工作区(ledger/简报/评审包, 不入库) ----
 .superpowers/
 .workbuddy/
+# superpowers 技能会把执行计划写到 <cwd>/docs/superpowers/plans/ —— 别让它们进仓库
+docs/superpowers/

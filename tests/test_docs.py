@@ -126,6 +126,59 @@ def test_documented_repo_paths_exist():
     assert not missing, "文档点名了不存在的路径:\n" + "\n".join(missing)
 
 
+# docs/ 下"允许独立存在"的记录目录: 写的是当时的完整设计 / 研究, 不要求被别处链接 ——
+# 但文件名必须是带日期的历史记录, 免得目录本身变成新的堆积处。
+DOC_RECORD_DIRS = ("docs/specs/", "docs/research/")
+DOC_DATE_RE = re.compile(r"^docs/(?:specs|research)/\d{4}-\d{2}-\d{2}-")
+# sync-content 会把这两类目录渲染进文档站, 也算"有去处"
+DOC_RENDERED_DIRS = ("docs/cookbook/",)
+
+
+def _tracked_md() -> list[str]:
+    out = subprocess.run(
+        ["git", "-c", "core.quotePath=false", "ls-files", "*.md"],
+        cwd=REPO, capture_output=True, text=True, check=True,
+    )
+    return [line for line in out.stdout.splitlines() if line.strip()]
+
+
+def test_every_doc_is_reachable_or_a_dated_record():
+    """docs/ 下每篇都要有去处: 被链接、被网站收录、是约定文件, 或是带日期的记录。
+
+    防的是"没人引用的计划/草稿悄悄堆在 docs/" —— 实测堆到过全仓文档的一半, 而且因为它们不在
+    任何名单里(被当生成物跳过), 连守卫都不进。新增一篇说明时: 要么从别处链接它, 要么放进
+    specs/research 并按 `YYYY-MM-DD-` 命名。
+    """
+    tracked = _tracked_md()
+    targets: set[str] = set()
+    for rel in tracked:
+        text = (REPO / rel).read_text(encoding="utf-8", errors="replace")
+        for link in re.findall(r"\[[^\]]*\]\(([^)]+)\)", text):
+            tgt = link.split("#")[0].strip()
+            if not tgt or tgt.startswith(("http", "mailto:", "#")):
+                continue
+            try:
+                targets.add(str(((REPO / rel).parent / tgt).resolve().relative_to(REPO)))
+            except ValueError:
+                pass
+    manifest = json.loads((REPO / "website" / "content-manifest.json").read_text(encoding="utf-8"))
+    rendered = {p.get("source") for p in manifest.get("pages", []) if isinstance(p, dict)}
+
+    orphans: list[str] = []
+    for rel in (p for p in tracked if p.startswith("docs/")):
+        if rel.rsplit("/", 1)[-1] in ("README.md", "AGENTS.md"):
+            continue
+        if rel in targets or rel in rendered or rel.startswith(DOC_RENDERED_DIRS):
+            continue
+        if rel.startswith(DOC_RECORD_DIRS):
+            if DOC_DATE_RE.match(rel):
+                continue
+            orphans.append(f"{rel}: specs/research 下的记录要带日期前缀(YYYY-MM-DD-)")
+            continue
+        orphans.append(f"{rel}: 没人链接、也不在网站/记录目录里 —— 补个链接, 或放进 specs/research 并按日期命名")
+    assert not orphans, "docs/ 下有来路不明的文档:\n" + "\n".join(orphans)
+
+
 def test_current_docs_do_not_use_removed_names():
     bad = []
     for doc in CURRENT_DOCS:
