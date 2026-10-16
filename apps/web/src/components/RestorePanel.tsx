@@ -1,4 +1,10 @@
 import { useRef, useState } from "react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@doc-anonymizer/ui/primitives/sheet";
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import * as api from "../lib/api";
 import type { RestoreBatchResp } from "../types";
@@ -7,6 +13,8 @@ import type { RestoreBatchResp } from "../types";
 export type ExpectedFile = { name: string; anchors: Record<string, number> };
 
 type Props = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   /** 哪一次脱敏的产物目录(映射表在服务端, 不经浏览器 —— 它就是原文本身) */
   token: string;
   /** 对账时报给人看的名字(单份是文件名, 批次是文件夹名) */
@@ -51,14 +59,16 @@ function anchorMap(files: ExpectedFile[]): Record<string, Record<string, number>
 /**
  * 「脱敏 → 交 AI → 还原」的第二步: 把 AI 改好的文件交回来, 填回原文。
  *
- * 只在产物**可还原**时出现(`AnonymizeResp.restorable`): 在 L2 把某类型改成 mask/redact/remove
- * 就没有锚点, 给一个按下去必然还原不回来的按钮, 比没有更糟。
+ * 从侧栏卡片改成独立的「脱敏还原」抽屉(入口在顶栏「设置」左边): 还原是一次低频动作,
+ * 不值得常驻占一栏; 只有产物**可还原**时顶栏按钮才可用(`AnonymizeResp.restorable`) ——
+ * 在 L2 把某类型改成 mask/redact/remove 就没有锚点, 给一个按下去必然还原不回来的按钮,
+ * 比没有更糟。
  *
  * 一次可以交多份(整批还原), 逐份结果分开报; 一份失败不影响其余。
  *
  * 目前整个入口按 `RESTORE_WIP` 标「开发中」并禁用。
  */
-export function RestorePanel({ token, sourceName, expected = [], batch = false }: Props) {
+export function RestorePanel({ open, onOpenChange, token, sourceName, expected = [], batch = false }: Props) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<RestoreBatchResp | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -92,16 +102,21 @@ export function RestorePanel({ token, sourceName, expected = [], batch = false }
   const problem = result?.results.filter((r) => r.status === "ok" && (r.missing?.length || r.unknown?.length)) ?? [];
 
   return (
-    <section id="restore" className="flex-none rounded-xl border bg-card p-3.5">
-      <div className="mb-2 flex items-baseline gap-2">
-        <h3 className="text-[13px] font-semibold tracking-wide text-muted-foreground">还原</h3>
-        {RESTORE_WIP ? (
-          <span className="rounded-sm bg-muted px-1.5 py-px text-[10px] font-medium text-muted-foreground">
-            开发中
-          </span>
-        ) : null}
-        <span className="ml-auto text-xs text-muted-foreground">格式与样式原样保留</span>
-      </div>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full gap-0 sm:max-w-lg! **:data-[slot=sheet-close]:top-5">
+        <SheetHeader className="gap-1 border-b px-6 py-5">
+          <div className="flex items-center gap-2 pr-8">
+            <SheetTitle className="text-lg">脱敏还原</SheetTitle>
+            {RESTORE_WIP ? (
+              <span className="rounded-sm bg-muted px-1.5 py-px text-[10px] font-medium text-muted-foreground">
+                开发中
+              </span>
+            ) : null}
+            <span className="ml-auto text-xs text-muted-foreground">格式与样式原样保留</span>
+          </div>
+        </SheetHeader>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-6">
+          <div id="restore" className="text-sm">
 
       <p className="mb-2.5 text-xs leading-relaxed text-muted-foreground">
         {batch ? "把交给 AI 改好的那一批交回来，锚点会填回原文。" : "把交给 AI 改好的那份文件交回来，锚点会填回原文。"}
@@ -223,8 +238,11 @@ export function RestorePanel({ token, sourceName, expected = [], batch = false }
           {okCount > 0 && problem.length === 0 ? (
             <p className="mt-2 text-xs text-muted-foreground">全部锚点都对上了。</p>
           ) : null}
+          </div>
+        ) : null}
         </div>
-      ) : null}
-    </section>
+      </div>
+      </SheetContent>
+    </Sheet>
   );
 }

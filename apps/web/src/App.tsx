@@ -127,6 +127,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [logOpen, setLogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
   /** 「上传文件」那节在设置里默认展不展开: 从左栏「改」进来就展开, 从顶栏「设置」进来就收起 */
   const [uploadOpen, setUploadOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -651,40 +652,31 @@ export default function App() {
   const schemeLabel = configs.find((c) => c.name === configRef)?.label ?? configRef;
 
   /**
-   * 还原入口只在产物可还原时出现。默认三套口径都出锚点, 所以正常都有;
+   * 还原入口只在产物可还原时可用(顶栏「脱敏还原」按钮)。默认三套口径都出锚点, 所以正常都有;
    * 只有在 L2 把某类型改成了 mask/redact/remove 才没有锚点, 按下去也变不回来。
    * 批次模式带上**这一批逐份的锚点**: 一批共用一份 mapping, 逐份的锚点不同,
    * 拿批次合计去对账会把别的文件的锚点误报成缺失。
    */
-  const restorePanel = result?.restorable && result.restore_token ? (
-    <RestorePanel
-      token={result.restore_token}
-      batch={folderMode}
-      sourceName={folderMode ? batch?.folder ?? "这一批" : result.output_name}
-      expected={
-        folderMode
-          ? batchRows
-              .filter((r) => r.status === "ok" && r.anchors && Object.keys(r.anchors).length > 0)
-              .map((r) => ({ name: r.outputName ?? r.name, anchors: r.anchors! }))
-          : result.anchors
-            ? [{ name: result.output_name, anchors: result.anchors }]
-            : []
-      }
-    />
-  ) : null;
+  const restoreReady = !!(result?.restorable && result.restore_token);
+  const restoreExpected = restoreReady
+    ? folderMode
+      ? batchRows
+          .filter((r) => r.status === "ok" && r.anchors && Object.keys(r.anchors).length > 0)
+          .map((r) => ({ name: r.outputName ?? r.name, anchors: r.anchors! }))
+      : result!.anchors
+        ? [{ name: result!.output_name, anchors: result!.anchors }]
+        : []
+    : [];
 
-  /** 识别统计 + 还原: 宽屏(≥1280)进右栏, 窄屏回左栏底部 —— 同一块 DOM, 两处互斥挂载 */
+  /** 识别统计: 宽屏(≥1280)进右栏, 窄屏回左栏底部 —— 同一块 DOM, 两处互斥挂载 */
   const statsBlock = result ? (
-    <>
-      <StatsCard
-        counts={result.counts}
-        total={api.totalCounts(result.counts)}
-        totalMs={batchTimeMs}
-        convertedFrom={result.trace?.converted_from ?? null}
-        summary={folderMode ? batchSummary : null}
-      />
-      {restorePanel}
-    </>
+    <StatsCard
+      counts={result.counts}
+      total={api.totalCounts(result.counts)}
+      totalMs={batchTimeMs}
+      convertedFrom={result.trace?.converted_from ?? null}
+      summary={folderMode ? batchSummary : null}
+    />
   ) : null;
 
   return (
@@ -692,8 +684,9 @@ export default function App() {
       <TopBar
         version={version}
         configDirty={configDirty}
-        fileOutput={result?.output_url ? { name: result.output_name, url: result.output_url } : null}
         batchOutput={batch?.zipUrl ? { folder: batch.folder, zipUrl: batch.zipUrl, mappingUrl: batch.mappingUrl } : null}
+        restoreDisabled={!restoreReady}
+        onOpenRestore={() => setRestoreOpen(true)}
         onOpenSettings={() => { setUploadOpen(false); setSettingsOpen(true); }}
         onOpenLog={() => setLogOpen(true)}
         logDisabled={mode === "folder" || !result?.trace?.detections?.length}
@@ -738,7 +731,7 @@ export default function App() {
             抽屉打开时若把窗口拉宽到 md, 这些 fixed/宽度/阴影要被 md: 前缀收回常态 ——
             否则会留一个盖住半屏、又(因为按钮 md:hidden)没有出口的固定层 */}
         <aside
-          className={`flex min-h-0 w-[280px] flex-none flex-col gap-3 overflow-auto overscroll-contain md:flex ${
+          className={`flex min-h-0 w-[280px] min-w-[230px] shrink flex-col gap-3 overflow-auto overscroll-contain md:flex ${
             drawerOpen
               ? "fixed inset-y-0 left-0 z-40 w-[300px] bg-background p-4 shadow-xl md:static md:w-[280px] md:bg-transparent md:p-0 md:shadow-none"
               : "hidden"
@@ -789,9 +782,11 @@ export default function App() {
           选择文档
         </Button>
 
-        <main className="flex min-h-0 flex-1 flex-col gap-3">
-          {/* 中栏固定两栏并排对比(原先有「对比/原文/脱敏后」页签, 已去掉) */}
-          <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
+        <main className="flex min-h-0 min-w-[360px] flex-1 flex-col gap-3">
+          {/* 中栏固定两栏并排对比(原先有「对比/原文/脱敏后」页签, 已去掉)。
+              minmax(0,1fr): 列的隐式 min-width 是 auto, 长文件名/宽表格会把列撑爆布局, 必须压成 0。
+              并排断点与 wideStats 同为 xl: 1280 以下统计在左栏, 再并排两列就是三列互挤 */}
+          <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <Preview
               pane="src" title="原文" placeholder={srcPlaceholder}
               filename={selection?.filename ?? ""} url={selection?.url ?? ""}
@@ -800,19 +795,32 @@ export default function App() {
             <Preview
               pane="out" title="脱敏后" placeholder={outPlaceholder}
               filename={result?.output_name ?? ""} url={result?.output_url ?? ""}
+              action={result?.output_url ? { label: "下载脱敏件", href: result.output_url } : undefined}
             />
           </div>
         </main>
 
-        {/* 右栏(≥1280): 识别统计 + 还原, LawRedact 式的统计侧栏; 没有数据时整栏不出现(不占位) */}
+        {/* 右栏(≥1280): 识别统计 + 还原, LawRedact 式的统计侧栏; 没有数据时整栏不出现(不占位)。
+            与左栏同理允许收缩(min 230), 屏宽不足时先让中栏保住 360, 再压两侧 */}
         {wideStats && statsBlock ? (
-          <aside className="flex min-h-0 w-[280px] flex-none flex-col gap-4 overflow-auto overscroll-contain">
+          <aside className="flex min-h-0 w-[280px] min-w-[230px] shrink flex-col gap-4 overflow-auto overscroll-contain">
             {statsBlock}
           </aside>
         ) : null}
       </div>
 
       {/* 跑批/单份脱敏的进度条已搬进底部状态条中间(见 StatusBar 的 progress 插槽) */}
+
+      {restoreReady && result?.restore_token ? (
+        <RestorePanel
+          open={restoreOpen}
+          onOpenChange={setRestoreOpen}
+          token={result.restore_token}
+          batch={folderMode}
+          sourceName={folderMode ? batch?.folder ?? "这一批" : result.output_name}
+          expected={restoreExpected}
+        />
+      ) : null}
 
       <SettingsSheet
         open={settingsOpen}
