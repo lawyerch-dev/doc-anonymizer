@@ -5,7 +5,7 @@ import csv
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from docanon_contract import Block, ExtractedDoc
+from docanon_contract import Block, ExtractedDoc, keys
 
 
 @dataclass
@@ -20,14 +20,14 @@ class BlockRedaction:
 
 
 def write_output(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list[str]:
-    fmt = doc.meta.get("format")
-    if fmt == "docx":
+    fmt = doc.meta.get(keys.FORMAT)
+    if fmt == keys.FORMAT_DOCX:
         return _docx(doc, reds, out_path)
-    if fmt == "table":
+    if fmt == keys.FORMAT_TABLE:
         return _table(doc, reds, out_path)
-    if fmt == "pdf":
+    if fmt == keys.FORMAT_PDF:
         return _pdf(doc, reds, out_path)
-    if fmt == "image":
+    if fmt == keys.FORMAT_IMAGE:
         return _image(doc, reds, out_path)
     return _text(doc, reds, out_path)
 
@@ -38,7 +38,7 @@ def _text(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list
     lines = src.read_text(encoding="utf-8", errors="replace").split("\n")
     for r in reds:
         if r.changed:
-            i = r.block.locator.get("line")
+            i = r.block.locator.get(keys.LINE)
             if i is not None and 0 <= i < len(lines):
                 lines[i] = r.new_text
     out_path.write_text("\n".join(lines), encoding="utf-8")
@@ -103,7 +103,7 @@ def _docx(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list
     for r in reds:
         if not r.changed:
             continue
-        idx = r.block.locator.get("paragraph")
+        idx = r.block.locator.get(keys.PARAGRAPH)
         if idx is None or not 0 <= idx < len(paragraphs):
             # 抽取与回写走同一个遍历, 对不上就是本程序的 bug: 宁可报错也别交出没脱敏的产物。
             raise RuntimeError(
@@ -125,10 +125,10 @@ def _table(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> lis
         if not r.changed:
             continue
         loc = r.block.locator
-        if "row" in loc:
-            by_cell[("csv", loc["row"], loc["col"])] = r.new_text
-        elif "cell" in loc:
-            by_cell[(loc.get("sheet"), loc["cell"])] = r.new_text
+        if keys.ROW in loc:
+            by_cell[("csv", loc[keys.ROW], loc[keys.COL])] = r.new_text
+        elif keys.CELL in loc:
+            by_cell[(loc.get(keys.SHEET), loc[keys.CELL])] = r.new_text
 
     if out_path.suffix.lower() == ".csv":
         src = Path(doc.source_path)
@@ -212,7 +212,7 @@ def _pdf(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list[
     import pypdfium2 as pdfium
     from PIL import ImageDraw
 
-    scanned = {p["page"]: p["image"] for p in doc.meta.get("_scanned_images", [])}
+    scanned = {p["page"]: p["image"] for p in doc.meta.get(keys.SCANNED_IMAGES, [])}
     # 收集每页要涂黑的框
     text_repls: dict[int, list] = {}
     img_boxes: dict[int, list] = {}
@@ -220,10 +220,10 @@ def _pdf(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list[
         if not r.changed:
             continue
         loc = r.block.locator
-        pno = loc.get("page", 0)
-        if "bbox" in loc:
+        pno = loc.get(keys.PAGE, 0)
+        if keys.BBOX in loc:
             img_boxes.setdefault(pno, []).extend(
-                _sub_boxes(loc["bbox"], r.block.text, r.replacements)
+                _sub_boxes(loc[keys.BBOX], r.block.text, r.replacements)
             )
         else:
             text_repls.setdefault(pno, []).extend(r.replacements)
@@ -264,8 +264,8 @@ def _image(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> lis
     img = Image.open(doc.image_path).convert("RGB")
     draw = ImageDraw.Draw(img)
     for r in reds:
-        if r.changed and "bbox" in r.block.locator:
-            for box in _sub_boxes(r.block.locator["bbox"], r.block.text, r.replacements):
+        if r.changed and keys.BBOX in r.block.locator:
+            for box in _sub_boxes(r.block.locator[keys.BBOX], r.block.text, r.replacements):
                 draw.rectangle(box, fill="black")
     img.save(out_path)
     return [str(out_path)]

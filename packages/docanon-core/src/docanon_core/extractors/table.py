@@ -4,7 +4,7 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-from docanon_contract import Block, ExtractedDoc, Extractor
+from docanon_contract import Block, ExtractedDoc, Extractor, keys
 
 
 class TableExtractor(Extractor):
@@ -18,7 +18,7 @@ class TableExtractor(Extractor):
         else:
             blocks = self._xlsx(path)
         return ExtractedDoc(
-            source_path=str(path), blocks=blocks, meta={"format": "table"}
+            source_path=str(path), blocks=blocks, meta={keys.FORMAT: keys.FORMAT_TABLE}
         )
 
     @staticmethod
@@ -33,7 +33,7 @@ class TableExtractor(Extractor):
                                 block_id=f"r{r}c{c}",
                                 text=value,
                                 kind="cell",
-                                locator={"row": r, "col": c},
+                                locator={keys.ROW: r, keys.COL: c},
                             )
                         )
         return blocks
@@ -57,7 +57,7 @@ class TableExtractor(Extractor):
                             block_id=f"{ws.title}!{cell.coordinate}",
                             text=value,
                             kind="cell",
-                            locator={"sheet": ws.title, "cell": cell.coordinate},
+                            locator={keys.SHEET: ws.title, keys.CELL: cell.coordinate},
                         )
                     )
         wb.close()

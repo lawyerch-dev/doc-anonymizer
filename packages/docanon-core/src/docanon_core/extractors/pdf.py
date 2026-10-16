@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from docanon_contract import Block, ExtractedDoc, Extractor
+from docanon_contract import Block, ExtractedDoc, Extractor, keys
 
 _MIN_TEXT_CHARS = 8  # 少于此字符数视为该页无可用文字层
 
@@ -33,7 +33,7 @@ class PDFExtractor(Extractor):
                         block_id=f"page{pno}",
                         text=raw,
                         kind="page",
-                        locator={"page": pno},
+                        locator={keys.PAGE: pno},
                     )
                 )
             else:
@@ -47,14 +47,14 @@ class PDFExtractor(Extractor):
                             block_id=f"page{pno}_line{idx}",
                             text=item["text"],
                             kind="line",
-                            locator={"page": pno, "bbox": item["bbox"]},
+                            locator={keys.PAGE: pno, keys.BBOX: item["bbox"]},
                         )
                     )
                 scanned_pages.append({"page": pno, "image": pil})
 
-        meta: dict = {"format": "pdf", "scanned_pages": [p["page"] for p in scanned_pages]}
+        meta: dict = {keys.FORMAT: keys.FORMAT_PDF, keys.SCANNED_PAGES: [p["page"] for p in scanned_pages]}
         doc = ExtractedDoc(source_path=str(path), blocks=blocks, meta=meta)
         if scanned_pages:
-            doc.meta["needs_image_redaction"] = True
-            doc.meta["_scanned_images"] = scanned_pages  # 供回写使用
+            doc.meta[keys.NEEDS_IMAGE] = True
+            doc.meta[keys.SCANNED_IMAGES] = scanned_pages  # 供回写使用
         return doc

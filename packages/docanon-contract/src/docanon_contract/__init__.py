@@ -2,6 +2,7 @@
 
 只依赖标准库 —— 这是"引擎能整块搬走"的前提, 由 tests/test_architecture.py 锁死。
 """
+from . import keys
 from .contract import (
     Block,
     Detection,
@@ -12,4 +13,4 @@ from .contract import (
     Span,
 )
 
-__all__ = ["Block", "Detection", "Detector", "Engine", "ExtractedDoc", "Extractor", "Span"]
+__all__ = ["Block", "Detection", "Detector", "Engine", "ExtractedDoc", "Extractor", "Span", "keys"]

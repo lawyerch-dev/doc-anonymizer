@@ -118,6 +118,7 @@ doc-anonymizer/
 | 开发文档：`AGENTS.md` 只做索引，细则拆到 `.agent/rules/` | 160 行的「什么都塞」没人读完再动手；按主题拆开后改前端只读前端那篇 | 文档多一层跳转；靠守卫（AGENTS ≤80 行、每篇 ≤60 行、每篇都被索引）防膨胀 |
 | 前端组件抽成共享包 `packages/ui`, 网站用 Astro + Starlight（决策详情：[共享包](../.agent/notes/implemented/architecture/2026-10-07-shared-ui-package.md) · [Astro 选型](../.agent/notes/implemented/architecture/2026-10-07-astro-starlight-for-website.md)） | velora(MIT shadcn 组件)是 React/Tailwind 4 的; 组件与 token 只放一份, `website/` 与产品前端(`apps/web`)引同一个包 —— **复用靠包, 不靠复制**。网站选 Starlight 是因为 搜索/TOC/上下页/多语言内置、依赖 241MB 与构建 0.7s 都比 Next 方案小一个量级(实测对比见 website/README.md) | 前端多了 npm workspaces 与构建链(仅构建期); 网站与产品 app 是两个框架(组件仍共享) |
 | 桌面壳用 Tauri v2（决策详情：[换回 Tauri](../.agent/notes/implemented/architecture/2026-10-10-tauri-shell.md)） | 系统 WebView + 单一原生可执行（不像 Electrobun 要往用户目录自解包约 700MB）；工具链主流、CI 有官方 action、Windows 直接出安装器 | 改壳要装 Rust 工具链（跨平台自测的门槛比打包 JS 高一点） |
+| `Block.locator` / `ExtractedDoc.meta` 的键名收进契约（决策详情：[键名收口](../.agent/notes/implemented/architecture/2026-10-16-contract-key-vocabulary.md)） | 键名此前只在抽取器与 core 两侧靠约定对齐，引擎改个名 core 会静默失效，而 AST 守卫锁不住数据契约 | 键名多一层间接（`keys.LINE`）；`format`/`line` 这类泛用词不做字面量守卫 |
 
 ## 六、搬迁历史
 

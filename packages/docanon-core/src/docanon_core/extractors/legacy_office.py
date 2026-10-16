@@ -9,7 +9,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from docanon_contract import ExtractedDoc, Extractor
+from docanon_contract import ExtractedDoc, Extractor, keys
 
 from .. import convert
 
@@ -32,8 +32,8 @@ class LegacyOfficeExtractor(Extractor):
         except BaseException:
             shutil.rmtree(workdir, ignore_errors=True)
             raise
-        doc.meta["converted_from"] = path.suffix.lower()
-        doc.meta["out_ext"] = out_ext
+        doc.meta[keys.CONVERTED_FROM] = path.suffix.lower()
+        doc.meta[keys.OUT_EXT] = out_ext
         # 回写还要重开 modern, 所以临时目录留到 process_file 收尾再删
-        doc.meta["_convert_workdir"] = str(workdir)
+        doc.meta[keys.CONVERT_WORKDIR] = str(workdir)
         return doc

@@ -7,9 +7,10 @@
 > 本次先跑机械守卫拿基线，再派三路只读侦察把守卫**抓不到**的语义层问题捞出来。逐条都带证据（`文件:行号`），
 > 动手前需各自复核。
 >
-> **进展（2026-10-16 收尾）**：文档红线与口径、Python 的 P-1~P-5、前端的 F-1~F-5 均已修（见 `git log`）；
-> 只有 **P-6**（`Block.locator`/`meta` 类型化，跨包契约变更）留作未决，记为
-> [`.agent/notes/proposed/architecture/2026-10-16-typed-locator-meta.md`](../../.agent/notes/proposed/architecture/2026-10-16-typed-locator-meta.md)。
+> **进展（2026-10-16 收尾）**：文档红线与口径、Python 的 P-1~P-5、前端的 F-1~F-5、以及 **P-6**
+> 均已完成（见 `git log`）。P-6 采取安全增量"键名收口"（dict 存储不变、可搬运性不变），决策记录见
+> [`.agent/notes/implemented/architecture/2026-10-16-contract-key-vocabulary.md`](../../.agent/notes/implemented/architecture/2026-10-16-contract-key-vocabulary.md)；
+> 更彻底的结构化（`locator` 收成 dataclass）仍留作后续。
 
 
 ## 方法

@@ -12,7 +12,7 @@ from .config import Config
 from .detectors import build_detectors
 from .extractors import build_extractor
 from .redaction.mapping import MappingStore
-from docanon_contract import Block, Detection, ExtractedDoc
+from docanon_contract import Block, Detection, ExtractedDoc, keys
 from .redaction.resolve import resolve_overlaps
 from .redaction.strategies import apply_spans, replacement_for
 from .redaction.writers import BlockRedaction, write_output
@@ -169,19 +169,19 @@ def _output_path(path: Path, out_dir: Path, rel: Path | None, ext: str) -> Path:
     return out_path
 
 
-_EXT_BY_FORMAT = {"docx": ".docx", "pdf": ".pdf"}
+_EXT_BY_FORMAT = {keys.FORMAT_DOCX: ".docx", keys.FORMAT_PDF: ".pdf"}
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
 
 
 def _out_ext(doc: ExtractedDoc, path: Path) -> str:
     # 抽取器可以显式指定产物后缀(如 .xls -> .xlsx, 否则会回落成源后缀 .xls 骗人)
-    explicit = doc.meta.get("out_ext")
+    explicit = doc.meta.get(keys.OUT_EXT)
     if explicit:
         return explicit
-    fmt = doc.meta.get("format")
+    fmt = doc.meta.get(keys.FORMAT)
     if fmt in _EXT_BY_FORMAT:
         return _EXT_BY_FORMAT[fmt]
-    if fmt == "image":
+    if fmt == keys.FORMAT_IMAGE:
         suf = path.suffix.lower()
         return suf if suf in _IMAGE_EXTS else ".png"
     return path.suffix or ".txt"  # text / table 保持源扩展名
@@ -256,7 +256,7 @@ def process_file(
         written = write_output(doc, reds, out_path)
     finally:
         # 旧格式转换的临时目录在回写(要重开 modern)之后才能删
-        workdir = doc.meta.get("_convert_workdir")
+        workdir = doc.meta.get(keys.CONVERT_WORKDIR)
         if workdir:
             shutil.rmtree(workdir, ignore_errors=True)
     t_write = time.perf_counter()
@@ -264,8 +264,8 @@ def process_file(
     return ProcessResult(
         str(path), written[0] if written else str(out_path), counts, written, anchors,
         extractor=extractor.name,
-        converted_from=doc.meta.get("converted_from", ""),
-        output_format=doc.meta.get("out_ext", "").lstrip("."),
+        converted_from=doc.meta.get(keys.CONVERTED_FROM, ""),
+        output_format=doc.meta.get(keys.OUT_EXT, "").lstrip("."),
         detectors=det_names,
         detections=detections,
         timing={

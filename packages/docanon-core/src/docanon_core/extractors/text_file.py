@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from docanon_contract import Block, ExtractedDoc, Extractor
+from docanon_contract import Block, ExtractedDoc, Extractor, keys
 
 
 class TextFileExtractor(Extractor):
@@ -22,10 +22,10 @@ class TextFileExtractor(Extractor):
                     block_id=f"p{idx}",
                     text=para,
                     kind="paragraph",
-                    locator={"line": idx},
+                    locator={keys.LINE: idx},
                 )
             )
-        return ExtractedDoc(source_path=str(path), blocks=blocks, meta={"format": "text"})
+        return ExtractedDoc(source_path=str(path), blocks=blocks, meta={keys.FORMAT: keys.FORMAT_TEXT})
 
 
 class DocxExtractor(Extractor):
@@ -49,7 +49,7 @@ class DocxExtractor(Extractor):
                     block_id=f"p{idx}",
                     text=text,
                     kind="paragraph",
-                    locator={"paragraph": idx},
+                    locator={keys.PARAGRAPH: idx},
                 )
             )
-        return ExtractedDoc(source_path=str(path), blocks=blocks, meta={"format": "docx"})
+        return ExtractedDoc(source_path=str(path), blocks=blocks, meta={keys.FORMAT: keys.FORMAT_DOCX})

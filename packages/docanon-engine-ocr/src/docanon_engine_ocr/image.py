@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from docanon_contract import Block, ExtractedDoc, Extractor
+from docanon_contract import Block, ExtractedDoc, Extractor, keys
 from .ocr import run_ocr
 
 
@@ -24,12 +24,12 @@ class ImageExtractor(Extractor):
                     text=item["text"],
                     kind="line",
                     # bbox 用于图片涂黑; score 便于过滤低置信
-                    locator={"bbox": item["bbox"], "score": item["score"]},
+                    locator={keys.BBOX: item["bbox"], keys.SCORE: item["score"]},
                 )
             )
         return ExtractedDoc(
             source_path=str(path),
             blocks=blocks,
             image_path=str(path),
-            meta={"format": "image", "needs_image_redaction": True},
+            meta={keys.FORMAT: keys.FORMAT_IMAGE, keys.NEEDS_IMAGE: True},
         )
