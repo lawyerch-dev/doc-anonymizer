@@ -6,6 +6,11 @@
 > 背景：本项目由多个 AI 分头开发，怀疑存在「文档过时/重复」「同一件事实现两遍」「没按更简洁的方式实现」。
 > 本次先跑机械守卫拿基线，再派三路只读侦察把守卫**抓不到**的语义层问题捞出来。逐条都带证据（`文件:行号`），
 > 动手前需各自复核。
+>
+> **进展（2026-10-16 收尾）**：文档红线与口径、Python 的 P-1~P-5、前端的 F-1~F-5 均已修（见 `git log`）；
+> 只有 **P-6**（`Block.locator`/`meta` 类型化，跨包契约变更）留作未决，记为
+> [`.agent/notes/proposed/architecture/2026-10-16-typed-locator-meta.md`](../../.agent/notes/proposed/architecture/2026-10-16-typed-locator-meta.md)。
+
 
 ## 方法
 
