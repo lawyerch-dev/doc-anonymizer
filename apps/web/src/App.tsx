@@ -16,15 +16,16 @@ import { UploadPrefsPanel } from "./components/UploadPrefsPanel";
 import * as api from "./lib/api";
 import { HAS_FOLDER_PICKER } from "./lib/dom";
 import { planFolder } from "./lib/folderPicker";
-import { DEFAULT_SCHEME, DOC_STATUS, humanSize, progressInfo, shadowNameOf, shadowState, visibleSchemes } from "./lib/formats";
+import { DOC_STATUS, humanSize, progressInfo, shadowState } from "./lib/formats";
 import { newId } from "./lib/ids";
 import { useAnonymizeRun } from "./lib/useAnonymizeRun";
 import { useMediaQuery } from "./lib/useMediaQuery";
+import { useSchemeConfig } from "./lib/useSchemeConfig";
 import {
   defaultUploadPrefs, uploadRuleSummary, type UploadPrefs,
 } from "./lib/uploadPrefs";
 import type {
-  AnonymizeResp, BatchSummary, ConfigData, ConfigRow, DocRow, LlmModelRow, Preset,
+  AnonymizeResp, BatchSummary, ConfigData, DocRow, Preset,
   Selection, UploadResp,
 } from "./types";
 
@@ -93,17 +94,6 @@ export default function App() {
   const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
   const [activeKey, setActiveKey] = useState<string | null>(null);
 
-  const [configs, setConfigs] = useState<ConfigRow[]>([]);
-  const [configRef, setConfigRef] = useState<string | null>(null);
-  const [configData, setConfigData] = useState<ConfigData | null>(null);
-  const [configKind, setConfigKind] = useState<"builtin" | "user" | null>(null);
-  const [configDirty, setConfigDirty] = useState(false);
-  /** 自动保存的状态: 设置里给一行字看("正在保存…/已自动保存/保存失败") */
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [modelDirs, setModelDirs] = useState<string[]>([]);
-  const [llmModels, setLlmModels] = useState<LlmModelRow[]>([]);
-
   const [selection, setSelection] = useState<Selection | null>(null);
   const [result, setResult] = useState<AnonymizeResp | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -112,6 +102,13 @@ export default function App() {
   const {
     running, progress, startedAt, run: runWith, cancel: cancelRun,
   } = useAnonymizeRun(clearError);
+  // 方案配置(列表 / 当前方案 / 影子自动保存 / 模型目录)收在一个 hook 里
+  const {
+    configs, configRef, configData, configKind, configDirty, saveState, saveError,
+    modelDirs, llmModels, schemeLabel,
+    changeConfig, switchConfig, resetConfig, refreshModels, importConfig,
+    payload: configPayload,
+  } = useSchemeConfig(setError);
   const [logOpen, setLogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
@@ -144,17 +141,6 @@ export default function App() {
     localStorage.setItem("docanon.theme", theme);
   }, [theme]);
 
-  // 设置里改了还没落盘(在自动保存的防抖窗口里, 或存盘失败) → 让浏览器确认一次, 否则改动丢掉
-  useEffect(() => {
-    if (!configDirty) return;
-    const onLeave = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", onLeave);
-    return () => window.removeEventListener("beforeunload", onLeave);
-  }, [configDirty]);
-
   const refreshPresets = useCallback(async () => {
     setPresetsLoading(true);
     try {
@@ -170,135 +156,6 @@ export default function App() {
     }
   }, []);
 
-  const loadConfigData = useCallback(async (ref: string) => {
-    try {
-      const detail = await api.loadConfigData(ref);
-      setConfigRef(ref);
-      setConfigData(detail.data);
-      setConfigKind(detail.kind);
-      setConfigDirty(false);
-      localStorage.setItem("docanon.config", ref);
-      setError(null);
-    } catch (e) {
-      setConfigRef(null);
-      setConfigData(null);
-      setConfigKind(null);
-      setError(`读取配置失败: ${(e as Error).message}`);
-    }
-  }, []);
-
-  const loadConfigList = useCallback(async () => {
-    try {
-      // 展示层裁掉不暴露的方案(legal.yaml): 后端列表不变, 但界面只在三套里选,
-      // 否则默认值/下拉会出现"列表里没有这个值"的坏状态
-      const rows = visibleSchemes(await api.loadConfigs());
-      setConfigs(rows);
-      setError(null);
-      const saved = localStorage.getItem("docanon.config");
-      // 记忆 > 界面默认那套 > 后端启动时用的那套 > 列表第一项
-      const pick = rows.find((c) => c.name === saved)
-        ?? rows.find((c) => c.name === DEFAULT_SCHEME)
-        ?? rows.find((c) => c.current)
-        ?? rows[0];
-      if (pick) await loadConfigData(pick.name);
-    } catch (e) {
-      setError(`配置列表加载失败: ${(e as Error).message}`);
-    }
-  }, [loadConfigData]);
-
-  // ---- 自动保存: 设置里改完就存, 不用点保存 ----
-  // 内置三套是只读的(configs/*.yaml), 所以改动落在**同名影子**里(改 `onnx.yaml` → 存
-  // `var/configs/onnx.yaml`)。影子不进方案下拉: 界面上还是那三套, 只是标一句"已改",
-  // 并给一个「恢复默认」把影子清掉。防抖 800ms: 连打词表/拖下拉时别把 PUT 打成一串。
-  const pending = useRef<ConfigData | null>(null);
-  const saveTimer = useRef<number | null>(null);
-
-  /** 丢掉还没落盘的改动(恢复默认/换方案要重来时用) */
-  const cancelPending = () => {
-    if (saveTimer.current !== null) {
-      window.clearTimeout(saveTimer.current);
-      saveTimer.current = null;
-    }
-    pending.current = null;
-  };
-
-  const persist = useCallback(async (data: ConfigData) => {
-    // 已经在用户配置上(影子/导入的那份) → 原地覆盖; 还在内置上 → 落到它的影子
-    const target = configKind === "user" && configRef
-      ? configRef
-      : shadowNameOf(configRef ?? DEFAULT_SCHEME);
-    setSaveState("saving");
-    try {
-      await api.saveConfig(target, data);
-      localStorage.setItem("docanon.config", target);
-      setConfigDirty(false);
-      setSaveError(null);
-      setSaveState("saved");
-      // 刚立起影子: 当前口径要切到它(否则跑的仍是那份只读的内置), 列表也要重取, 影子才查得到
-      if (target !== configRef) await loadConfigList();
-    } catch (e) {
-      setSaveState("error");
-      setSaveError((e as Error).message);
-    }
-  }, [configRef, configKind, loadConfigList]);
-
-  /** 把还没落盘的改动立刻存掉(换方案前调一次, 别把刚改的那步丢掉) */
-  const flushSave = useCallback(async () => {
-    if (saveTimer.current !== null) {
-      window.clearTimeout(saveTimer.current);
-      saveTimer.current = null;
-    }
-    const data = pending.current;
-    if (!data) return;
-    pending.current = null;
-    await persist(data);
-  }, [persist]);
-
-  const changeConfig = (next: ConfigData) => {
-    setConfigData(next);
-    setConfigDirty(true);
-    cancelPending();
-    pending.current = next;
-    saveTimer.current = window.setTimeout(() => void flushSave(), 800);
-  };
-
-  /**
-   * 换方案: 先把改动落盘再换, 否则防抖窗口里那次改动会跟着旧方案一起丢掉。
-   * 选的是内置那套时若已有影子(你改过它), 就接着用影子 —— 换一圈回来改动还在。
-   */
-  const switchConfig = async (name: string) => {
-    await flushSave();
-    setSaveState("idle");
-    const shadow = shadowNameOf(name);
-    const customized = configs.some((c) => c.kind === "user" && c.name === shadow);
-    await loadConfigData(customized ? shadow : name);
-  };
-
-  /** 一键恢复默认: 清掉所有影子(你改过的方案都在里面), 回到出厂那套 */
-  const resetConfig = async () => {
-    cancelPending();
-    setSaveState("idle");
-    const { shadows } = shadowState(configs);
-    for (const name of shadows) {
-      try {
-        await api.deleteConfig(name);
-      } catch {
-        // 删不掉就留着: 下一次改动照旧能覆盖它, 不该因为清理失败挡住"继续用"
-      }
-    }
-    localStorage.setItem("docanon.config", DEFAULT_SCHEME);
-    await loadConfigList();
-  };
-
-  // 模型目录(ONNX 可选 + 可下载的大模型)。下载完成后要重取一次, "已下载"标记才会变。
-  const refreshModels = useCallback(() => {
-    api.loadModels()
-      .then((m) => { setModelDirs(m.onnx_dirs); setLlmModels(m.llm_models); })
-      .catch(() => { setModelDirs([]); setLlmModels([]); });
-  }, []);
-
-  useEffect(() => { void loadConfigList(); }, [loadConfigList]);
-  useEffect(() => { refreshModels(); }, [refreshModels]);
   // 收件规则存在后端(`/api/settings`): 打包成 .app 后换机器、清 WebView 数据都不会丢。
   // 后端没存过就没有这一段, 保持界面默认值; 拉不到也只是回到默认, 不该因此让整个界面不可用。
   useEffect(() => {
@@ -435,13 +292,6 @@ export default function App() {
     if (mode === "folder" && lastPicked.current.length) void pickFolder(lastPicked.current, next);
   };
 
-  const configPayload = (): { config?: string | ConfigData } => {
-    // 未编辑 → 发口径名(日志显示真实口径); 编辑过 → 发内联对象
-    if (configData && configDirty) return { config: configData };
-    if (configRef) return { config: configRef };
-    return {};
-  };
-
   /** 失败横幅: 用户自己按的取消不算"失败", 不该弹红条 */
   const runFailed = (e: Error) => (e.message.includes("已取消") ? null : `脱敏失败: ${e.message}`);
 
@@ -528,15 +378,6 @@ export default function App() {
     );
   };
 
-  const importConfig = async (file: File) => {
-    try {
-      await api.importConfig(file);
-      await loadConfigList();
-    } catch (e) {
-      setError(`导入失败: ${(e as Error).message}`);
-    }
-  };
-
   const runInfo = progressInfo(progress);
   const elapsed = startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0;
   const batchTimeMs = result?.trace?.timing?.total_ms ?? null;
@@ -554,8 +395,6 @@ export default function App() {
   const srcPlaceholder = !activeRow
     ? "左侧选择上传文档"
     : `未上传：${activeRow.reason ?? "这份没有可预览的原文"}`;
-
-  const schemeLabel = configs.find((c) => c.name === configRef)?.label ?? configRef;
 
   /**
    * 还原入口只在产物可还原时可用(顶栏「脱敏还原」按钮)。默认三套口径都出锚点, 所以正常都有;
