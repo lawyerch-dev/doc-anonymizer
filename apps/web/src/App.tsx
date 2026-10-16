@@ -15,7 +15,8 @@ import { TopBar } from "./components/TopBar";
 import { UploadPrefsPanel } from "./components/UploadPrefsPanel";
 import * as api from "./lib/api";
 import { HAS_FOLDER_PICKER } from "./lib/dom";
-import { DEFAULT_SCHEME, DOC_STATUS, extOf, humanSize, progressInfo, shadowNameOf, shadowState, visibleSchemes } from "./lib/formats";
+import { planFolder } from "./lib/folderPicker";
+import { DEFAULT_SCHEME, DOC_STATUS, humanSize, progressInfo, shadowNameOf, shadowState, visibleSchemes } from "./lib/formats";
 import { newId } from "./lib/ids";
 import { useAnonymizeRun } from "./lib/useAnonymizeRun";
 import { useMediaQuery } from "./lib/useMediaQuery";
@@ -40,15 +41,6 @@ const FOLDER_MAX_FILES = 300;
 const FOLDER_MAX_BYTES = 500 * 1024 * 1024;
 /** 单文件上限, 与后端 `routes._MAX_BYTES` 对齐 */
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
-
-/**
- * 选文件夹时整层跳过的目录(隐藏目录如 `.git`/`.venv` 由"隐藏项"那条规则一起挡掉)。
- * 选到代码仓库/工程目录时, 这些里面是依赖与构建产物, 不是案子材料。
- */
-const BLOCKED_DIRS = new Set([
-  "node_modules", "dist", "build", "target", "out", "vendor", "coverage",
-  "__pycache__", "site-packages", "bower_components", "Pods", "DerivedData",
-]);
 
 function presetRows(presets: Preset[]): DocRow[] {
   return presets.map((p) => ({
@@ -373,52 +365,9 @@ export default function App() {
    */
   const pickFolder = async (files: File[], prefs: UploadPrefs = uploadPrefs) => {
     lastPicked.current = files;
-    const relOf = (f: File) => (f.webkitRelativePath || f.name).split("/").slice(1).join("/") || f.name;
-    const folder = (files[0]?.webkitRelativePath || "").split("/")[0] || "文件夹";
-    // 规则可能与后端的能力清单不一致(改过配置/后端升过级): 以两边都认的为准; 清单没拿到就信规则
-    const allowed = new Set(
-      formats.length ? prefs.extensions.filter((e) => formats.includes(e)) : prefs.extensions,
-    );
-
-    let hidden = 0;
-    let nested = 0;
-    let blocked = 0;
-    const picked: { file: File; relpath: string }[] = [];
-    for (const f of files) {
-      const relpath = relOf(f);
-      const parts = relpath.split("/");
-      if (parts.some((p) => p.startsWith("."))) { hidden += 1; continue; }
-      if (parts.length > 1 && !prefs.recursive) { nested += 1; continue; }
-      if (parts.slice(0, -1).some((p) => BLOCKED_DIRS.has(p))) { blocked += 1; continue; }
-      picked.push({ file: f, relpath });
-    }
-
-    const keep: typeof picked = [];
-    const skipped: typeof picked = [];
-    for (const x of picked) {
-      (allowed.has(extOf(x.file.name)) ? keep : skipped).push(x);
-    }
-    const todo = keep.filter((x) => x.file.size <= MAX_FILE_BYTES);
-    const tooBig = keep.filter((x) => x.file.size > MAX_FILE_BYTES);
-
-    const byExt = new Map<string, number>();
-    for (const x of skipped) {
-      const e = extOf(x.file.name) || "无扩展名";
-      byExt.set(e, (byExt.get(e) ?? 0) + 1);
-    }
-    const top = [...byExt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-    const rest = skipped.length - top.reduce((n, [, c]) => n + c, 0);
-    const notes: string[] = [];
-    if (nested) notes.push(`子文件夹里 ${nested} 个未收（设置里可打开「遍历子文件夹」）`);
-    if (skipped.length) {
-      notes.push(
-        `已跳过 ${skipped.length} 个非收件类型（${top.map(([e, c]) => `${e} ${c}`).join(" · ")}` +
-        `${rest ? ` 等 ${rest} 个` : ""}）`,
-      );
-    }
-    if (blocked) notes.push(`依赖/构建目录 ${blocked} 个`);
-    if (hidden) notes.push(`隐藏项 ${hidden} 个`);
-    setSkipNote(notes.length ? notes.join(" · ") : null);
+    const plan = planFolder(files, prefs, formats, MAX_FILE_BYTES);
+    const { folder, todo, tooBig } = plan;
+    setSkipNote(plan.notes);
 
     const id = newId("b");
     const row = (x: { file: File; relpath: string }, status: DocRow["status"], reason?: string): DocRow => ({
@@ -439,7 +388,7 @@ export default function App() {
       return;
     }
 
-    // 能跑的 + 超 50MB 的(要让人看见是哪几个)进列表; 其余只在上面那行计数里露面
+    // 能跑的 + 超单文件上限的(要让人看见是哪几个)进列表; 其余只在上面那行计数里露面
     setBatchRows([...todo.map((x) => row(x, "idle")), ...tooBig.map((x) => row(x, "unsupported", `超过 ${humanSize(MAX_FILE_BYTES)} 上限`))]);
     setBatch({ id, folder, zipUrl: "", mappingUrl: "" });
     setBatchSummary(null);
@@ -449,7 +398,7 @@ export default function App() {
     setResult(null);
     setError(todo.length || tooBig.length
       ? null
-      : nested && !prefs.recursive
+      : plan.nestedCount && !prefs.recursive
         ? "这个文件夹里没有可脱敏的文档 —— 文档都在子文件夹里，设置里可打开「遍历子文件夹」"
         : "这个文件夹里没有收件规则内的文档 —— 在 设置 → 上传文件 里可改收件规则");
     if (!todo.length) return;
