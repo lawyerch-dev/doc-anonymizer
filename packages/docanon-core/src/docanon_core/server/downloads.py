@@ -10,20 +10,17 @@ HTTP 那段在 `routes.py`, 这里不认识 BaseHTTPRequestHandler。
 """
 from __future__ import annotations
 
-import os
 import threading
 import urllib.parse
-import urllib.request
 from pathlib import Path
 
 import yaml
 
 from .. import resources
+from .fetching import CancelledDownload, stream_to_file
 
 CATALOG = "llm_models.yaml"
 MIRROR = "https://www.modelscope.cn/models"
-_TIMEOUT = 30
-_CHUNK = 1 << 20  # 1MB
 
 
 class DownloadError(RuntimeError):
@@ -174,39 +171,27 @@ def _run(item: dict) -> None:
     dest = model_path(item)
     part = _part_of(item)
     try:
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        start_at = part.stat().st_size if part.is_file() else 0
+        with _JOB.lock:
+            _JOB.done_bytes = part.stat().st_size if part.is_file() else 0
+            _JOB.total_bytes = None
 
-        req = urllib.request.Request(url_for(item))
-        if start_at:
-            req.add_header("Range", f"bytes={start_at}-")
-        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # noqa: S310 - 地址只来自仓库内的目录
-            ranged = getattr(resp, "status", 200) == 206
-            if start_at and not ranged:
-                start_at = 0  # 服务端不支持续传: 老老实实从头下, 别把两段拼成坏文件
-            length = resp.headers.get("Content-Length")
-            total = int(length) + start_at if length and length.isdigit() else None
+        def on_total(total: int | None) -> None:
             with _JOB.lock:
-                _JOB.done_bytes = start_at
                 _JOB.total_bytes = total
 
-            with open(part, "ab" if ranged else "wb") as fh:
-                while True:
-                    if _JOB.cancel.is_set():
-                        with _JOB.lock:
-                            _JOB.state = "cancelled"
-                        return
-                    chunk = resp.read(_CHUNK)
-                    if not chunk:
-                        break
-                    fh.write(chunk)
-                    with _JOB.lock:
-                        _JOB.done_bytes += len(chunk)
+        def on_progress(n: int) -> None:
+            with _JOB.lock:
+                _JOB.done_bytes += n
 
-        os.replace(part, dest)  # 原子: 界面上永远不会看到一个下了一半的 .gguf
+        stream_to_file(
+            url_for(item), dest, cancel=_JOB.cancel, on_total=on_total, on_progress=on_progress
+        )
         with _JOB.lock:
             _JOB.state = "done"
             _JOB.error = None
+    except CancelledDownload:
+        with _JOB.lock:
+            _JOB.state = "cancelled"
     except Exception as exc:  # noqa: BLE001 - 网络/磁盘/404 都要变成给用户看的 reason, 不吞
         with _JOB.lock:
             _JOB.state = "error"

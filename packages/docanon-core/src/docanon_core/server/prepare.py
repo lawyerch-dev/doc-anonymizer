@@ -27,6 +27,7 @@ import yaml
 from .. import resources
 from ..config import Config
 from . import downloads
+from .fetching import size_from, stream_to_file
 
 CATALOG = "onnx_models.yaml"
 
@@ -37,7 +38,6 @@ ENDPOINTS: tuple[str, ...] = (
 )
 
 _TIMEOUT = 30
-_CHUNK = 1 << 20            # 1MB
 _SPEED_BYTES = 1 << 18      # 测速只取 256KB
 _SPEED_TIMEOUT = 20         # 镜像首字节实测能到 6s(冷启动), 给宽一点, 免得把可用的源误判成不可用
 
@@ -324,7 +324,7 @@ def _probe_total(base: str, item: dict, todo: list[str]) -> int | None:
         try:
             req = urllib.request.Request(url, headers=_headers({"Range": "bytes=0-0"}))
             with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # noqa: S310
-                size = _size_from(resp.headers)
+                size = size_from(resp.headers)
         except Exception:  # noqa: BLE001 - 拿不到总量不影响下载, 只是进度没有百分比
             size = None
         if size is None:
@@ -334,44 +334,16 @@ def _probe_total(base: str, item: dict, todo: list[str]) -> int | None:
     return total or None
 
 
-def _size_from(headers) -> int | None:
-    """从响应头取文件总大小: 优先 `Content-Range` 的尾部(带 Range 时), 退回 `Content-Length`。"""
-    cr = headers.get("Content-Range")
-    if cr and "/" in cr:
-        tail = cr.rsplit("/", 1)[1].strip()
-        if tail.isdigit():
-            return int(tail)
-    cl = headers.get("Content-Length")
-    if cl and cl.isdigit():
-        return int(cl)
-    return None
-
-
 def _fetch(base: str, repo: str, fname: str, dest: Path) -> None:
     """单文件: 先写 `.part`, 下完原子改名 —— 界面上永远看不到半截权重。"""
     url = f"{base}/{repo}/resolve/main/{urllib.parse.quote(fname)}"
-    part = dest.with_name(dest.name + ".part")
-    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    def on_progress(n: int) -> None:
+        with _JOB.lock:
+            _JOB.done_bytes += n
+
     try:
-        start_at = part.stat().st_size if part.is_file() else 0
-        req = urllib.request.Request(
-            url, headers=_headers({"Range": f"bytes={start_at}-"} if start_at else None)
-        )
-        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # noqa: S310
-            ranged = getattr(resp, "status", 200) == 206
-            if start_at and not ranged:
-                start_at = 0
-            with open(part, "ab" if ranged else "wb") as fh:
-                while True:
-                    if _JOB.cancel.is_set():
-                        raise RuntimeError("cancelled")
-                    chunk = resp.read(_CHUNK)
-                    if not chunk:
-                        break
-                    fh.write(chunk)
-                    with _JOB.lock:
-                        _JOB.done_bytes += len(chunk)
-        part.replace(dest)
+        stream_to_file(url, dest, headers=_headers(), cancel=_JOB.cancel, on_progress=on_progress)
     except urllib.error.HTTPError as exc:
         raise PrepareError(f"下载失败（{exc.code}）：请检查网络后重试", code=502) from exc
     except urllib.error.URLError as exc:

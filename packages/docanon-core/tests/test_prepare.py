@@ -11,7 +11,7 @@ import threading
 import pytest
 
 from docanon_core.config import config_from_dict
-from docanon_core.server import prepare
+from docanon_core.server import fetching, prepare
 
 
 def _reset_job() -> None:
@@ -120,9 +120,9 @@ def test_speed_probe_uses_the_weight_file_not_the_longest_name():
 
 def test_size_from_prefers_content_range():
     """带 Range 时总大小在 `Content-Range` 尾部; 不支持 Range 的服务才看 `Content-Length`。"""
-    assert prepare._size_from({"Content-Range": "bytes 0-0/407063645", "Content-Length": "1"}) == 407063645
-    assert prepare._size_from({"Content-Length": "1234"}) == 1234
-    assert prepare._size_from({}) is None
+    assert fetching.size_from({"Content-Range": "bytes 0-0/407063645", "Content-Length": "1"}) == 407063645
+    assert fetching.size_from({"Content-Length": "1234"}) == 1234
+    assert fetching.size_from({}) is None
 
 
 def test_pick_endpoint_chooses_the_faster_one(monkeypatch):
