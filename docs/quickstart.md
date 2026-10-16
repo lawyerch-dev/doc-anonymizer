@@ -42,7 +42,8 @@ npm run cli -- run ./案件 -o var/out -c configs/onnx.yaml --resume
 npm run cli -- restore "var/out/【脱敏版】sample.md" --mapping var/out/mapping.json -o restored.md
 ```
 
-`--resume` 的判定是「清单标 `ok` **且产物文件还在**」。`restore` 只吃 txt/md/csv；
+`--resume` 的判定是「清单标 `ok` **且产物文件还在**」。`restore` 支持 docx/xlsx/csv/txt/md
+（锚点还原；见 [README](../README.md) 的「脱敏 → 交 AI 处理 → 还原」节）。
 `remove` 删掉的原文没有锚点，还原不了。
 
 ## 5. 换检测路线
@@ -51,12 +52,12 @@ npm run cli -- restore "var/out/【脱敏版】sample.md" --mapping var/out/mapp
 |---|---|---|
 | 只要规则 + 词典（最快） | `configs/default.yaml`（不带 `-c` 就是它） | 无 |
 | **交出去的材料**（只抹身份证/银行卡/手机/住址，机构、人名、角色、日期、金额一律不动） | `-c configs/legal.yaml` | `npm run models`（只为了取地址） |
-| 人名/机构也一起打掉为 `**`（对外讲课、写案例） | `-c configs/onnx.yaml` | `npm run models` |
+| 人名/机构也一起换成锚点 `{{TYPE_N}}`（对外讲课、写案例，可还原） | `-c configs/onnx.yaml` | `npm run models` |
 | 更灵活的实体识别 | `-c configs/llm.yaml` | Web 里选中模型会自动下载并起服务；CLI 用 `./scripts/download_model.sh` + `./scripts/serve_llm.sh` |
 
-**选哪份取决于材料要不要能用**：`onnx.yaml` 会把法院、律所、当事人姓名、判决日期也打成 `**`，
-判决书/裁定书这类材料抹完就没法提交了；交付场景用 `configs/legal.yaml`（它把不能动的类型全设成
-`keep`，见 [README「配置」](../README.md#配置)）。
+**选哪份取决于材料要不要能用**：`onnx.yaml` 会把法院、律所、当事人姓名、判决日期也一起换成锚点
+（`{{ORG_N}}` 之类），判决书/裁定书这类材料读起来就没法用了；交付场景用 `configs/legal.yaml`（它把
+不能动的类型全设成 `keep`，见 [README「配置」](../README.md#配置)）。
 
 ## 常见问题
 

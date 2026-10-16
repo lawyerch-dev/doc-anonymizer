@@ -126,8 +126,8 @@ export function shadowState(rows: { name: string; kind: "builtin" | "user" }[]) 
 }
 
 /**
- * 界面上**不给用户选**的方案。`configs/legal.yaml` 仍留在仓库、仍是后端 CLI 的默认 `-c`
- * （以及它的测试与文档都在），只是产品界面里不再暴露 —— 三选一已经够用，多一个"法律文书交付"
+ * 界面上**不给用户选**的方案。`configs/legal.yaml` 仍留在仓库（**不是** CLI 默认 —— 不带 `-c` 走
+ * `configs/default.yaml`；它的测试与文档都在），只是产品界面里不再暴露 —— 三选一已经够用，多一个"法律文书交付"
  * 只会让人在四个名字里犹豫。要恢复：把名字从这里删掉即可。
  */
 export const HIDDEN_SCHEMES: readonly string[] = ["legal.yaml"];

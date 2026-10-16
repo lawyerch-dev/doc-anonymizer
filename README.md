@@ -141,8 +141,8 @@ flowchart TB
   **前两行注释**（改文案改注释，界面自动跟着变）；再往下写的是给改配置的人的细节，不会端到用户面前。
   默认停在「通用」（认得号码、人名、机构、地址，且是本机小模型、毫秒级）；**改完自动保存**，旁边给
   「恢复默认」，也可导出 / 导入。
-  `configs/legal.yaml`（"只抹标识与联系方式、人名机构金额全留"）仍在仓库里、仍是 CLI 的默认 `-c`，
-  但**不在界面下拉中暴露**（见 `apps/web/src/lib/formats.ts` 的 `HIDDEN_SCHEMES`）。
+  `configs/legal.yaml`（"只抹标识与联系方式、人名机构金额全留"）仍在仓库里（**不是** CLI 默认 ——
+  不带 `-c` 走 `configs/default.yaml`），但**不在界面下拉中暴露**（见 `apps/web/src/lib/formats.ts` 的 `HIDDEN_SCHEMES`）。
 - **L2 自定义脱敏**：逐类型策略（界面显示中文名，如"盖成 `**`"；对应 yaml 里的 `anchor` / `redact` /
   `mask` / `placeholder` / `pseudonym` / `remove` / `keep`，每行带效果示例，**不可还原的那几种会标出来**
   —— 选了 `mask` 才想起"回头怎么填回去"是最常见的坑）+ 自定义敏感词；「用假名替代人名/机构」
@@ -163,10 +163,11 @@ flowchart TB
 **可写状态**，打包后一起落在 `DOCANON_DATA`（macOS `~/Library/Application Support/docanon`），换机器不丢。
 
 接口：`/` `/assets/*` `/health` `/api/presets` `/api/configs` `/api/configs/{ref}` `/api/models`
-`/api/models/download` `/api/upload` `/api/anonymize` `/api/restore` `/api/progress/{job}`
+`/api/models/download` `/api/formats` `/api/upload` `/api/anonymize` `/api/prepare` `/api/restore`
+`/api/progress/{job}`
 （另 `PUT`/`DELETE /api/configs/{name}`、
 `POST /api/configs/import`、`GET /api/configs/{name}/export`、`POST /api/models/download/cancel`、
-`POST /api/anonymize/cancel`、`GET`/`PUT /api/settings`）。
+`POST /api/prepare/cancel`、`POST /api/anonymize/cancel`、`GET`/`PUT /api/settings`）。
 `/api/configs` 列内置+用户并标当前；`/api/models` 报可选 ONNX 目录、LLM 默认与**可下载的大模型目录**；
 `/api/models/download` 起步/查询/取消界面内的模型下载（只收目录里的 `id`，**不收 URL**）；
 `/api/upload` 入参 `{filename, content_b64}`；`/api/anonymize` 入参 `{preset|token, config?, job?}`，
@@ -177,7 +178,7 @@ flowchart TB
 （有了它才能报「少了哪些」）；产物落在**独立的 `/restored/` 目录**并附 `restore-report.json`，
 出参含 `total_restored` / `missing` / `unknown` / `complete`。
 `POST /api/restore/batch` 是整批版：入参 `{token, items: [{filename, content_b64}], anchors?}`，
-**一份失败不拖垮整批**（逐份给 `status` 与原因），全部成功时另给 `zip_url`（还原件整包，见
+**一份失败不拖垮整批**（逐份给 `status` 与原因），只要有至少一份成功就另给 `zip_url`（还原件整包，见
 `GET /api/restore/{rtoken}/zip`）。
 `job` 是界面自己生成的一个短 id：跑的时候用它读 `/api/progress/{job}`（在读原文件 / 识别第几段 / 写回），
 或用 `POST /api/anonymize/cancel` 叫停 —— 取消**不产出任何文件**（半截产物比没产物更危险）。
@@ -302,7 +303,6 @@ macOS 与 Windows 的 runner 上各打一份，传到 GitHub Release。两个平
 `restore` 对这些格式直接拒绝并说明原因，不会交出一份「看起来还原了、其实原文不在里面」的文件。
 
 ⚠ `mapping.json` 就是原文本身，**全程留在本地，绝不随脱敏件发给 AI**。
-⚠ AI 若只回传 markdown，文字能还原、样式回不来。
 
 ## 检测引擎
 
@@ -335,7 +335,6 @@ macOS 与 Windows 的 runner 上各打一份，传到 GitHub Release。两个平
 - `mask` 打码后同形的值（两个号码都 mask 成一样）会还原成错的原文。
 - 文本变长导致换行变化（还原时不可避免，但这是原文的真实长度）。
 - AI 若只回传 markdown，文字能还原、样式回不来。
-- 打码后同形的值（两个号码都 mask 成一样）会还原成错的原文。
 - `.doc` / `.xls` / `.wps` 自动转成 `.docx`/`.xlsx` 再脱敏（需 LibreOffice）：`npm run doctor` 看 `soffice`
   一行，缺就 `./scripts/fetch_libreoffice.sh`。产物格式因此变成 `.docx`/`.xlsx`，**版式可能被重排，交付前人工对一遍**；
   没有 LibreOffice 时记 `unsupported`（退出码 2）。要关掉自动转换：配置 `legacy_convert: false`。GBK 的 CSV 需先转 UTF-8。

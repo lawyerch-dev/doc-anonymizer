@@ -142,9 +142,9 @@ on `127.0.0.1` only, with no auth (for local, single-user use).
   edits the config and never reaches users. The default is "General" (recognises numbers, names, organizations
   and addresses, using the local small model, in milliseconds). **Edits are saved automatically**, with a
   "reset to defaults" right there; export / import also available.
-  `configs/legal.yaml` ("redact identifiers and contacts only, leave names/orgs/amounts alone") still ships and
-  is still the CLI's default `-c`, but it is **not exposed in the UI dropdown** (see `HIDDEN_SCHEMES` in
-  `apps/web/src/lib/formats.ts`).
+  `configs/legal.yaml` ("redact identifiers and contacts only, leave names/orgs/amounts alone") still ships
+  (it is **not** the CLI default — with no `-c` the CLI uses `configs/default.yaml`), but it is **not exposed
+  in the UI dropdown** (see `HIDDEN_SCHEMES` in `apps/web/src/lib/formats.ts`).
 - **L2 custom redaction**: per-type strategy (shown in plain language, e.g. "blank out with `**`"; maps to
   `redact` / `mask` / `placeholder` / `pseudonym` / `remove` / `keep`, each row with a worked example) + custom
   sensitive words; the "use pseudonyms for people/orgs" switch merely flips the matrix between `redact` and
@@ -171,14 +171,24 @@ User configs share the built-in schema and live in the gitignored `var/configs/`
 under `DOCANON_DATA` (macOS `~/Library/Application Support/docanon`) and survive a machine move.
 
 Endpoints: `/` `/assets/*` `/health` `/api/presets` `/api/configs` `/api/configs/{ref}` `/api/models`
-`/api/models/download` `/api/upload` `/api/anonymize` `/api/progress/{job}` (plus `PUT`/`DELETE /api/configs/{name}`,
+`/api/models/download` `/api/formats` `/api/upload` `/api/anonymize` `/api/prepare` `/api/restore`
+`/api/progress/{job}` (plus `PUT`/`DELETE /api/configs/{name}`,
 `POST /api/configs/import`, `GET /api/configs/{name}/export`, `POST /api/models/download/cancel`,
-`POST /api/anonymize/cancel`, `GET`/`PUT /api/settings`).
+`POST /api/prepare/cancel`, `POST /api/anonymize/cancel`, `GET`/`PUT /api/settings`).
 `/api/configs` lists built-ins and user configs and marks the current one; `/api/models` reports the ONNX
 dirs, the LLM defaults and the **downloadable model catalogue**; `/api/models/download` starts / polls /
 cancels the in-app model download (it takes a catalogue `id` only, **never a URL**); `/api/upload` takes `{filename, content_b64}`;
 `/api/anonymize` takes `{preset|token, config?, job?}`, where `config` is a **config name** or an **inline object**,
 and returns `counts` and `trace`; uploads are capped at 50MB.
+`/api/anonymize`'s response also carries `restorable` / `anchors` / `restore_token` (present only when there
+are addressable anchors; the UI uses it to decide whether to show the "Restore" entry); batch results carry
+`restorable` and `anchors` per file.
+`/api/restore` takes `{token, filename, content_b64, expected?}`, where `expected` is that file's anchor list
+(it is what lets us report "what is missing"); output lands in its **own `/restored/` directory** with a
+`restore-report.json`, and the response carries `total_restored` / `missing` / `unknown` / `complete`.
+`POST /api/restore/batch` is the batch version: `{token, items: [{filename, content_b64}], anchors?}` — **one
+failure does not sink the batch** (per-file `status` and reason), and as long as at least one succeeded a
+`zip_url` is also given (the whole restored set, at `GET /api/restore/{rtoken}/zip`).
 `job` is a short id the UI generates: poll `/api/progress/{job}` while it runs (reading the file / recognising
 segment N / writing back), or stop it with `POST /api/anonymize/cancel` — cancelling **leaves no file at all**
 (a half-written product is more dangerous than none).
@@ -356,8 +366,15 @@ treated as an amount. `rule` / `dictionary` match exactly and are exempt from bo
 - A sensitive value that exists **only in a link target and is never shown in the body** is not detected; values
   that do appear in the body are scrubbed from the `mailto:`/URL as well, but an email or token travelling purely
   inside a URL is out of scope.
-- `restore` only supports text outputs (txt/md/csv); text deleted by `remove` has no anchor left, so it cannot be restored.
-- After masking, values that look the same (two numbers masked identically) restore to the wrong original text.
+- When restoring docx/xlsx, `restore` **only recognises anchors** (`anchor` / `placeholder`), not masked
+  values or pseudonyms — they are not addressable, and in docx a value can span several runs, so a literal
+  global replace would hit unrelated text. Purely symbolic replacements (`redact`'s `**`) are excluded too,
+  because markdown bold is also `**`.
+- Text deleted by `remove` has no anchor and cannot be restored (which is why all three built-in schemes use
+  `anchor` for `SECRET`, not `remove`).
+- Masked values that look the same (two numbers masked identically) restore to the wrong original text.
+- Text getting longer shifts line breaks (unavoidable when restoring, but it is the true length of the original).
+- If the AI returns only markdown, the text restores but the styling does not.
 - `.doc` / `.xls` / `.wps` are converted to `.docx`/`.xlsx` and then redacted (LibreOffice required): check the
   `soffice` line in `npm run doctor`, and fetch it with `./scripts/fetch_libreoffice.sh` if missing. The output
   format therefore becomes `.docx`/`.xlsx`, and **the layout may be reflowed — review by hand before delivery**;

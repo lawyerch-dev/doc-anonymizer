@@ -21,5 +21,5 @@
   "准备"才下得来，这时 `docanon web` 退出就等于用户永远看不到那个按钮（实测 `.app` 启动即退）。
   所以**只对"有东西可准备"**放行启动；每次脱敏依旧预检（`routes._anonymize`），在那之前点脱敏会被
   明确拦下、不产出少了识别层的产物。配置写错、模型损坏、自备服务连不上都不算可准备，照旧当场退出。
-- 非目标：不接云端 API、不依赖 Ollama、不引入 lint/typecheck/CI
+- 非目标：不接云端 API、不依赖 Ollama、不引入 lint/typecheck
   （单人本地工具，测试即门禁，理由见 `docs/architecture.md` §七）。

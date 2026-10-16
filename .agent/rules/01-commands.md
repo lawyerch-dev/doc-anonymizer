@@ -30,5 +30,5 @@
 npm run build                                                     # 官网静态站 → website/dist/
 ```
 
-- 仓库**没有** lint / typecheck / CI / pre-commit，别顺手加（`packages/ui` 与 `website` 也刻意没装 eslint）。
+- 仓库**没有** lint / typecheck / pre-commit，也**没有跑测试的 CI**（CI 只有两个：部署文档站与打桌面包，见 [07-frontend](07-frontend.md)）。别顺手加工具链（`packages/ui` 与 `website` 也刻意没装 eslint）。
 - 各脚本干什么见 [`scripts/README.md`](../../scripts/README.md)（`dev.sh` 是实现层，npm scripts 调它）。

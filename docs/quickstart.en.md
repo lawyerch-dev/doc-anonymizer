@@ -47,8 +47,8 @@ npm run cli -- restore "var/out/【脱敏版】sample.md" --mapping var/out/mapp
 ```
 
 `--resume` decides by "the manifest marks it `ok` **and the output file is still there**".
-`restore` only accepts txt/md/csv; text deleted by `remove` has no anchor left, so it cannot be
-restored.
+`restore` supports docx/xlsx/csv/txt/md (anchor-based; see the "Redact → AI → restore" section of the
+[README](../README.md)); text deleted by `remove` has no anchor left, so it cannot be restored.
 
 ## 5. Choose a detection route
 
@@ -56,11 +56,12 @@ restored.
 |---|---|---|
 | Rules + dictionary only (fastest) | `configs/default.yaml` (this is the default when `-c` is omitted) | none |
 | **Material you hand over** (redact ID numbers/bank cards/phones/addresses only; organizations, names, roles, dates and amounts are left untouched) | `-c configs/legal.yaml` | `npm run models` (for addresses only) |
-| Names and organizations blotted to `**` too (talks, case write-ups) | `-c configs/onnx.yaml` | `npm run models` |
+| Names and organizations turned into anchors (`{{TYPE_N}}`) too (talks, case write-ups; restorable) | `-c configs/onnx.yaml` | `npm run models` |
 | More flexible entity recognition | `-c configs/llm.yaml` | in the web UI picking a model downloads it and starts the server for you; on the CLI use `./scripts/download_model.sh` + `./scripts/serve_llm.sh` |
 
-**Which one you pick decides whether the material is still usable**: `onnx.yaml` also blots out the court,
-the law firm, party names and the judgment date (to `**`), which leaves a judgment impossible to file. For delivery use
+**Which one you pick decides whether the material is still usable**: `onnx.yaml` also turns the court,
+the law firm, party names and the judgment date into anchors (such as `{{ORG_N}}`), which leaves a judgment
+unreadable for filing. For delivery use
 `configs/legal.yaml` (it sets every must-not-touch type to `keep`; see [README "Configuration"](../README.md#配置)).
 
 ## FAQ
