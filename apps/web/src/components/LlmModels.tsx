@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import * as api from "../lib/api";
-import { humanSize } from "../lib/formats";
+import { humanSize, percent } from "../lib/formats";
 import type { DownloadState, LlmModelRow } from "../types";
 
 type Props = {
@@ -55,8 +55,7 @@ export function LlmModels({ models, modelId, onChangeModelId, onModelsChanged }:
 
   const ordered = [...models].sort((a, b) => Number(b.recommended) - Number(a.recommended));
   const busy = dl?.state === "downloading";
-  const pct =
-    dl && dl.total_bytes ? Math.min(100, Math.round((dl.done_bytes / dl.total_bytes) * 100)) : null;
+  const pct = percent(dl?.done_bytes ?? 0, dl?.total_bytes);
 
   const install = async (id: string) => {
     setErr(null);

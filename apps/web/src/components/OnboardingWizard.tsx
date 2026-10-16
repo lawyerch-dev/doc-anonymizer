@@ -3,7 +3,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@doc-anonymizer/ui/primitives/dialog";
 import { Button } from "@doc-anonymizer/ui/primitives/button";
-import { humanSize } from "../lib/formats";
+import { humanSize, percent } from "../lib/formats";
 import * as api from "../lib/api";
 import type { ConfigRow, PrepareState } from "../types";
 
@@ -130,7 +130,7 @@ export function OnboardingWizard({ configs, currentConfig, onPickConfig, onModel
     try { setPrep(await api.cancelPrepare()); } catch { /* 下一次轮询会给出真实状态 */ }
   };
 
-  const pct = prep?.total_bytes ? Math.min(100, Math.round((prep.done_bytes / prep.total_bytes) * 100)) : null;
+  const pct = percent(prep?.done_bytes ?? 0, prep?.total_bytes);
 
   return (
     <Dialog open onOpenChange={onDone}>

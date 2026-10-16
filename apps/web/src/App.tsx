@@ -14,7 +14,7 @@ import { StatusBar } from "./components/StatusBar";
 import { TopBar } from "./components/TopBar";
 import { UploadPrefsPanel } from "./components/UploadPrefsPanel";
 import * as api from "./lib/api";
-import { DEFAULT_SCHEME, DOC_STATUS, progressInfo, shadowNameOf, shadowState, visibleSchemes } from "./lib/formats";
+import { DEFAULT_SCHEME, DOC_STATUS, extOf, humanSize, progressInfo, shadowNameOf, shadowState, visibleSchemes } from "./lib/formats";
 import { newId } from "./lib/ids";
 import { useAnonymizeRun } from "./lib/useAnonymizeRun";
 import { useMediaQuery } from "./lib/useMediaQuery";
@@ -55,8 +55,6 @@ const BLOCKED_DIRS = new Set([
  */
 const HAS_FOLDER_PICKER =
   typeof HTMLInputElement !== "undefined" && "webkitdirectory" in HTMLInputElement.prototype;
-
-const extOf = (name: string) => (name.includes(".") ? `.${name.split(".").pop()!.toLowerCase()}` : "");
 
 function presetRows(presets: Preset[]): DocRow[] {
   return presets.map((p) => ({
@@ -428,7 +426,7 @@ export default function App() {
     if (hidden) notes.push(`隐藏项 ${hidden} 个`);
     setSkipNote(notes.length ? notes.join(" · ") : null);
 
-    const id = `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const id = newId("b");
     const row = (x: { file: File; relpath: string }, status: DocRow["status"], reason?: string): DocRow => ({
       key: `${id}:${x.relpath}`,
       name: x.relpath,
@@ -443,12 +441,12 @@ export default function App() {
     });
 
     if (todo.length > FOLDER_MAX_FILES || todo.reduce((n, x) => n + x.file.size, 0) > FOLDER_MAX_BYTES) {
-      setError(`一次最多 ${FOLDER_MAX_FILES} 份 / 500MB（这次 ${todo.length} 份），分两批跑`);
+      setError(`一次最多 ${FOLDER_MAX_FILES} 份 / ${humanSize(FOLDER_MAX_BYTES)}（这次 ${todo.length} 份），分两批跑`);
       return;
     }
 
     // 能跑的 + 超 50MB 的(要让人看见是哪几个)进列表; 其余只在上面那行计数里露面
-    setBatchRows([...todo.map((x) => row(x, "idle")), ...tooBig.map((x) => row(x, "unsupported", "超过 50MB 上限"))]);
+    setBatchRows([...todo.map((x) => row(x, "idle")), ...tooBig.map((x) => row(x, "unsupported", `超过 ${humanSize(MAX_FILE_BYTES)} 上限`))]);
     setBatch({ id, folder, zipUrl: "", mappingUrl: "" });
     setBatchSummary(null);
     setMode("folder");

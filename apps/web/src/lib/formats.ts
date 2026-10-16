@@ -188,6 +188,16 @@ export function humanSize(bytes: number): string {
   return `${Math.round(bytes / 1024 ** 2)} MB`;
 }
 
+/** 取小写扩展名(带点), 无扩展名返回 ""。取扩展名这件事之前散在好几处、各写各的。 */
+export function extOf(name: string): string {
+  return name.includes(".") ? `.${name.split(".").pop()!.toLowerCase()}` : "";
+}
+
+/** 进度百分比(0-100 取整); `total` 为 0/空时返回 null(界面退化成不显示百分比)。 */
+export function percent(done: number, total: number | null | undefined): number | null {
+  return total ? Math.min(100, Math.round((done / total) * 100)) : null;
+}
+
 /** 每种策略的效果示例(L2 表格里给人看) */
 export const EFFECT: Record<string, string> = {
   anchor: "{{PHONE_1}}",
