@@ -23,7 +23,7 @@
 底层命令（排查时直接用）：
 
 ```bash
-.venv/bin/python -m pytest -q                                     # 全量(约 5 秒, = npm run test:py)
+.venv/bin/python -m pytest -q                                     # 全量(约 45 秒, = npm run test:py)
 .venv/bin/docanon run ./samples -o var/out -c configs/onnx.yaml   # 脱敏
 .venv/bin/docanon engines -c configs/onnx.yaml                    # 引擎自检
 .venv/bin/docanon restore "var/out/【脱敏版】x.md" --mapping var/out/mapping.json

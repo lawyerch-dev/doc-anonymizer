@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/web-ui.png" width="900" alt="Web UI: pick a document on the left, preview the original in the middle, and after clicking “One-click redaction” the right pane previews the redacted file with its formatting preserved">
+  <img src="docs/images/web-ui.png" width="900" alt="Web UI: pick a document on the left, compare the original and the redacted file side by side in the middle, and see detection stats in the right panel">
 </p>
 
 Person names, phone numbers (mobile and landline), ID cards, passports, license plates, bank cards,
@@ -310,8 +310,8 @@ actually uses.
 Exit codes: `0` fully restored · `1` bad input or unsupported format · `2` missing or unknown anchors
 (the output is still written, but a human needs to look at it)
 
-**In the web UI**: a "Restore" panel appears at the bottom of the left sidebar after the run, **marked
-"under development" and disabled for now** (`POST /api/restore/batch` and the CLI `restore` are already
+**In the web UI**: after the run a "Redact → restore" entry appears in the top bar (it opens a drawer,
+`RestorePanel`), **marked "under development" and disabled for now** (`POST /api/restore/batch` and the CLI `restore` are already
 usable). Once it opens, choose the AI-edited file (multiple files, or a whole folder) and the per-file
 results, zip download and reconciliation report show up there. The entry appears **only when the output is
 actually restorable**: products made with `mask`/`redact` have no addressable anchors, and a button that can

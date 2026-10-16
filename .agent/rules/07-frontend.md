@@ -30,7 +30,7 @@
   [打包桌面版](../../.github/workflows/build-desktop.yml)（macOS/Windows 矩阵，打 tag 时发 Release）。
   详细步骤（含子路径预览的验证方法）见 [`docs/cookbook/shipping-the-website.md`](../../docs/cookbook/shipping-the-website.md)。
 - **DOM 契约**：`tests/e2e/webkit/` 按 `#loadSamples` `.preset` `#run` `#paneSrc` `#paneOut` `#stats` 选择元素 —— 改界面时这几个钩子不许改名或挪位置。
-  `#paneSrc`/`#paneOut` 的 `firstElementChild` 是预览挂载点（中栏默认「对比」两栏并排，另有「原文/脱敏后」单栏视图页签）；示例**不自动加载**（点 `#loadSamples`）；`#run`（一键脱敏）只在有文档可选/已选时出现；`#stats`（识别统计面板）常驻 DOM：宽屏（≥1280）挂在右栏、窄屏回左栏底部（`useMediaQuery` 单实例搬移，两处互斥挂载，不存在重复 id）。批量（选文件夹）另有 `#pickFolder`（目录入口）、`.doc-row`（每行，带 `data-status`，第 1 个 span 是类型徽标、第 2 个 span 是文件名）、`#batchSummary`（批次汇总）、`#downloadZip`（整包）、`#editUploadRule`（去设置改收件规则），`.preset` 仍在示例行上。上传收件规则在「设置 → 上传文件」（`UploadPrefsPanel` + `lib/uploadPrefs.ts`，**存后端** `var/settings.json`（`/api/settings`，默认值只在前端这一处，**格式名单仍取自 `/api/formats`**））。
+  `#paneSrc`/`#paneOut` 的 `firstElementChild` 是预览挂载点（中栏固定两栏并排对比，≥1280 才并排，窄屏上下堆叠；原先的「对比/原文/脱敏后」页签已去掉）；示例**不自动加载**（点 `#loadSamples`）；`#run`（一键脱敏）只在有文档可选/已选时出现；`#stats`（识别统计面板）常驻 DOM：宽屏（≥1280）挂在右栏、窄屏回左栏底部（`useMediaQuery` 单实例搬移，两处互斥挂载，不存在重复 id）。批量（选文件夹）另有 `#pickFolder`（目录入口）、`.doc-row`（每行，带 `data-status`，第 1 个 span 是类型徽标、第 2 个 span 是文件名）、`#batchSummary`（批次汇总）、`#downloadZip`（整包）、`#editUploadRule`（去设置改收件规则），`.preset` 仍在示例行上。上传收件规则在「设置 → 上传文件」（`UploadPrefsPanel` + `lib/uploadPrefs.ts`，**存后端** `var/settings.json`（`/api/settings`，默认值只在前端这一处，**格式名单仍取自 `/api/formats`**））。
 - 加前端依赖/改构建：`npm run build:web`；dev 态 `npm run dev`（后端 + Vite 并发 + `/api /samples /uploads /outputs /file-viewer /health` 六条前缀代理），
   生产形态 `npm run build:web && npm run dev:backend`。
 
