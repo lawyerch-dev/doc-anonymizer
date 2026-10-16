@@ -16,29 +16,12 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .anchors import ANCHOR_RE as _ANCHOR_RE
+from .anchors import anchor_key, is_anchor, normalize_anchor
 from .spans import apply_spans, rewrite_runs
 
-# 锚点形状: {{TYPE_N}}。TYPE 允许下划线, N 是数字。
-# 匹配时**故意宽松**: AI 可能在锚点两侧加空格、改大小写、套上 markdown 强调号或反引号,
-# 甚至把 {{ 转义成 HTML 实体。这些都是"同一个锚点被包了一层", 不该判成还原失败。
-# 匹配出来后再用规范化形式(大写、去掉内部空白)去查表 —— 查不到就是未知锚点, 不猜。
-_ANCHOR_RE = re.compile(r"\{\{\s*([A-Za-z_]+)\s*_(\d+)\s*\}\}")
 # AI 有时把 {{ }} 转义成 HTML 实体({{ 本身不太会被转义, 但 &#123; 这类会出现)。
 _ENTITY_RE = re.compile(r"&#?\w+;")
-
-
-def normalize_anchor(entity_type: str, index: str) -> str:
-    return f"{{{{{entity_type.strip().upper()}_{int(index)}}}}}"
-
-
-def is_anchor(value: str) -> bool:
-    """这个替换值是不是可寻址锚点(能被 restore 认出来)。
-
-    pipeline 用它在账本里只记锚点 —— `mask`/`redact` 的替换值也进账本, 但它们还原不了,
-    记进去只会让对账报告把一堆注定还原不回来的东西报成「缺失」。
-    """
-    text = value.strip()
-    return bool(_ANCHOR_RE.fullmatch(text)) or bool(re.fullmatch(r"<[A-Za-z_]+_\d+>", text))
 
 
 @dataclass
@@ -130,15 +113,9 @@ def _table_from(reverse: dict[str, str]) -> dict[str, str]:
     """
     table: dict[str, str] = {}
     for repl, original in reverse.items():
-        if not repl:
-            continue  # remove 策略: 空串不是锚点, 拿去 replace 会把原文插到每个字符之间
-        m = _ANCHOR_RE.fullmatch(repl.strip())
-        if m:
-            table[normalize_anchor(m.group(1), m.group(2))] = original
-        else:
-            m2 = re.fullmatch(r"<([A-Za-z_]+)_(\d+)>", repl.strip())
-            if m2:  # 老版 placeholder 策略 `<TYPE_N>`, 历史 mapping.json 里躺着
-                table[normalize_anchor(m2.group(1), m2.group(2))] = original
+        key = anchor_key(repl)   # 空串(remove)/假名/打码值都不是锚点, 返回 None
+        if key:
+            table[key] = original
     return table
 
 
@@ -325,7 +302,7 @@ def _literals_from(reverse: dict[str, str]) -> list[tuple[str, str]]:
     """
     out: list[tuple[str, str]] = []
     for repl, original in sorted(reverse.items(), key=lambda kv: -len(kv[0])):
-        if not repl or _ANCHOR_RE.fullmatch(repl.strip()) or re.fullmatch(r"<[A-Za-z_]+_\d+>", repl.strip()):
+        if not repl or is_anchor(repl):
             continue
         if not any(ch.isalnum() for ch in repl):
             continue

@@ -9,6 +9,7 @@ from pathlib import Path
 from . import convert
 from .config import load_config
 from .job import RedactionJob
+from .pipeline import restored_name
 from .redaction.mapping import MappingStore
 from .redaction.restorers import RestoreError, restore_file
 from .redaction.strategies import irreversible_types
@@ -185,14 +186,6 @@ def cmd_web(args: argparse.Namespace) -> int:
     return 0
 
 
-def _restored_name(name: str) -> str:
-    """默认产物名: 脱敏产物的 `【脱敏版】x.docx` → `【还原版】x.docx`。
-
-    替换而不是叠加 —— 否则会得到 `【还原版】【脱敏版】x.docx`, 叠加两次以上还会更长。
-    """
-    return name.replace("【脱敏版】", "【还原版】", 1) if "【脱敏版】" in name else f"【还原版】{name}"
-
-
 def cmd_restore(args: argparse.Namespace) -> int:
     """按映射表还原脱敏产物 —— **在原格式上就地回填**。
 
@@ -212,7 +205,7 @@ def cmd_restore(args: argparse.Namespace) -> int:
     if not src.exists():
         print(f"还原失败: {src} 不存在", file=sys.stderr)
         return EXIT_INPUT
-    out = Path(args.out) if args.out else src.with_name(_restored_name(src.name))
+    out = Path(args.out) if args.out else src.with_name(restored_name(src.name))
     try:
         result = restore_file(src, out, store.reverse_table(), expected=args.expected)
     except (RestoreError, OSError, ValueError) as exc:

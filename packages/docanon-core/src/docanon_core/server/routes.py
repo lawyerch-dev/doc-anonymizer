@@ -17,7 +17,7 @@ from pathlib import Path
 from urllib.parse import quote, unquote
 
 from .. import __version__, convert, resources
-from ..pipeline import Cancelled, prepare_detectors, process_file
+from ..pipeline import Cancelled, prepare_detectors, process_file, restored_name
 from ..redaction.mapping import MappingStore
 from ..redaction.restorers import RestoreError, RestoreResult, restore_file
 from . import downloads, llm_server, prepare, profiles, progress, settings
@@ -82,14 +82,6 @@ def _make_zip(out_dir: Path, dest: Path) -> int:
                 zf.write(path, path.relative_to(out_dir))
                 count += 1
     return count
-
-
-def _restored_name(name: str) -> str:
-    """还原产物的默认名: `【脱敏版】x.docx` → `【还原版】x.docx`。
-
-    替换而不是叠加 —— 否则 `【脱敏版】x.docx` 会变成 `【还原版】【脱敏版】x.docx`。
-    """
-    return name.replace("【脱敏版】", "【还原版】", 1) if "【脱敏版】" in name else f"【还原版】{name}"
 
 
 class _RestoreItemError(Exception):
@@ -851,7 +843,7 @@ class Handler(BaseHTTPRequestHandler):
             raise _RestoreItemError(f"文件超过 {_MAX_BYTES // (1024 * 1024)}MB 上限", safe_name)
 
         src = rdir / f"in-{safe_name}"
-        out_path = rdir / _restored_name(safe_name)
+        out_path = rdir / restored_name(safe_name)
         try:
             src.write_bytes(raw)
             return restore_file(src, out_path, reverse, expected=expected)
@@ -901,7 +893,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": str(exc)})
             return
 
-        out_name = result.output.name if result.output else _restored_name(Path(str(payload.get("filename"))).name)
+        out_name = result.output.name if result.output else restored_name(Path(str(payload.get("filename"))).name)
         (rdir / "restore-report.json").write_text(
             json.dumps(result.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
         )

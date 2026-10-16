@@ -7,6 +7,7 @@ from __future__ import annotations
 import hashlib
 from typing import Callable
 
+from .anchors import format_anchor
 from .mapping import MappingStore
 from .spans import apply_spans   # 正/逆写共用的 span 工具(此处 re-export, 保持既有导入路径)
 
@@ -73,7 +74,7 @@ def _anchor(entity_type: str, n: int) -> str:
     锚点必须**可寻址**才能还原: `mask`(138****5678) 与 `redact`(**) 都把原文丢在替换那一步了,
     属于原理上不可逆, 任何还原实现都变不回来。
     """
-    return f"{{{{{entity_type}_{n}}}}}"
+    return format_anchor(entity_type, n)
 
 
 def make_replacer(entity_type: str, strategy: str) -> Callable[[int, str], str]:

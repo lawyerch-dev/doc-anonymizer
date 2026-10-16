@@ -116,6 +116,18 @@ def _drop_model_false_positives(text: str, detections: list[Detection]) -> list[
 _MAX_NAME_BYTES = 255
 _NAME_HASH_LEN = 8
 _NAME_PREFIX = "【脱敏版】"
+_RESTORED_PREFIX = "【还原版】"
+
+
+def restored_name(name: str) -> str:
+    """还原产物名: `【脱敏版】x.docx` → `【还原版】x.docx`。
+
+    替换而不是叠加 —— 否则会得到 `【还原版】【脱敏版】x.docx`, 叠加两次以上还会更长。
+    命名协议与 `_NAME_PREFIX` 同在 pipeline; cli 与 server 不再各写一份。
+    """
+    if _NAME_PREFIX in name:
+        return name.replace(_NAME_PREFIX, _RESTORED_PREFIX, 1)
+    return f"{_RESTORED_PREFIX}{name}"
 
 
 def _fit_utf8(text: str, budget: int) -> str:
