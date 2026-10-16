@@ -15,12 +15,14 @@ import { TopBar } from "./components/TopBar";
 import { UploadPrefsPanel } from "./components/UploadPrefsPanel";
 import * as api from "./lib/api";
 import { DEFAULT_SCHEME, DOC_STATUS, progressInfo, shadowNameOf, shadowState, visibleSchemes } from "./lib/formats";
+import { newId } from "./lib/ids";
+import { useAnonymizeRun } from "./lib/useAnonymizeRun";
 import { useMediaQuery } from "./lib/useMediaQuery";
 import {
   defaultUploadPrefs, uploadRuleSummary, type UploadPrefs,
 } from "./lib/uploadPrefs";
 import type {
-  AnonymizeResp, BatchSummary, ConfigData, ConfigRow, DocRow, LlmModelRow, Preset, ProgressState,
+  AnonymizeResp, BatchSummary, ConfigData, ConfigRow, DocRow, LlmModelRow, Preset,
   Selection, UploadResp,
 } from "./types";
 
@@ -120,11 +122,12 @@ export default function App() {
 
   const [selection, setSelection] = useState<Selection | null>(null);
   const [result, setResult] = useState<AnonymizeResp | null>(null);
-  const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState<ProgressState | null>(null);
-  // 跑起来的时刻: 用来显示"已用 N 秒"(轮询每 600ms 触发一次重渲染, 秒数跟着走)
-  const [startedAt, setStartedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const clearError = useCallback(() => setError(null), []);
+  // 脱敏运行的"外壳"(运行中 / 进度 / 耗时 / 取消)收在一个 hook 里 —— 单份与批量共用
+  const {
+    running, progress, startedAt, run: runWith, cancel: cancelRun,
+  } = useAnonymizeRun(clearError);
   const [logOpen, setLogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
@@ -135,8 +138,6 @@ export default function App() {
   const [showIntro, setShowIntro] = useState(() => !hasDoneOnboarding());
   // 版本号从后端 /health 读(单一真相在 pyproject/__version__): 前端写死一份迟早跟包版本漂移
   const [version, setVersion] = useState<string | null>(null);
-  // 正在跑的 job id: 取消按钮要知道叫停谁
-  const runningJob = useRef<string | null>(null);
   // 日志弹窗关掉后焦点要回到这个按钮, 否则键盘用户被扔到页面开头(组件库的默认回收依赖"点击时按钮已聚焦")
   const logBtnRef = useRef<HTMLButtonElement>(null);
   // 上次选的文件夹里的文件清单: 勾/取消"也收图片与纯文本"时按新规则重筛, 不用再选一次目录
@@ -500,123 +501,90 @@ export default function App() {
     return {};
   };
 
+  /** 失败横幅: 用户自己按的取消不算"失败", 不该弹红条 */
+  const runFailed = (e: Error) => (e.message.includes("已取消") ? null : `脱敏失败: ${e.message}`);
+
   /** 跑批次: 一个 job, 进度按"第 i/N 份"走; 取消时已完成的那几份是完整产物, 照旧给出来 */
-  const runBatch = async () => {
+  const runBatch = () => {
     if (!batch) return;
-    const t0 = Date.now();
-    const job = `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    runningJob.current = job;
-    setRunning(true);
-    setError(null);
-    setProgress(null);
-    setStartedAt(t0);
-    const poll = window.setInterval(() => {
-      api.runProgress(job).then(setProgress).catch(() => {});
-    }, 600);
-    setBatchRows((prev) => prev.map((r) => (r.status === "idle" ? { ...r, status: "running" } : r)));
-    try {
-      const resp = await api.anonymizeBatch({ batch: batch.id, job, ...configPayload() });
-      const bySource = new Map(resp.results.map((r) => [r.source, r]));
-      const nextRows = batchRows.map((r) => {
-        const hit = bySource.get(r.name);
-        // 后端没提到这一份 = 它压根没上传(预过滤掉的), 状态本来就是对的; 只有还挂着"跑中"的要放回去
-        if (!hit) return r.status === "running" ? { ...r, status: "idle" as const } : r;
-        return hit.status === "ok"
-          ? {
-              ...r, status: "ok" as const, counts: hit.counts,
-              outputName: hit.output_name, outputUrl: hit.output_url,
-              restorable: hit.restorable, anchors: hit.anchors, reason: undefined,
-            }
-          : { ...r, status: hit.status, reason: hit.reason };
-      });
-      setBatchRows(nextRows);
-      setBatch((b) => (b ? { ...b, zipUrl: resp.zip_url, mappingUrl: resp.mapping_url } : b));
-      // 汇总按**列表**算, 不用后端的 summary: 客户端预过滤掉的(类型不支持/超 50MB/没传上去的)不在后端账上,
-      // 按后端算会得出"2 份"，而用户眼前明明有 3 行 —— 那是两套数字打架。
-      setBatchSummary({
-        total: nextRows.length,
-        ok: nextRows.filter((r) => r.status === "ok").length,
-        unsupported: nextRows.filter((r) => r.status === "unsupported").length,
-        error: nextRows.filter((r) => r.status === "error").length,
-      });
-      // 批次: 还原面板用的是**选中那一行**的 anchors(一批共用一份 mapping, 逐份不同)。
-      // 所以这里只带批次 token, anchors 从 activeRow 取 —— 见下面 RestorePanel 的接线。
-      const anyRestorable = nextRows.some((r) => r.restorable);
-      setResult({
-        output_name: "",
-        output_url: "",
-        kind: "",
-        restorable: anyRestorable,
-        restore_token: resp.restore_token ?? null,
-        counts: resp.results.reduce<Record<string, number>>((acc, r) => {
-          for (const [k, v] of Object.entries(r.counts ?? {})) acc[k] = (acc[k] ?? 0) + v;
-          return acc;
-        }, {}),
-        trace: { source: batch.folder, extractor: "", detectors: [], timing: { total_ms: Date.now() - t0 }, detections: [] },
-      });
-      if (resp.batch.cancelled) {
-        setError(`已取消：这批跑完 ${resp.summary.ok + resp.summary.unsupported + resp.summary.error}/${resp.summary.total} 份，已完成的产物在上面。`);
-      }
-    } catch (e) {
-      const msg = (e as Error).message;
-      setBatchRows((prev) => prev.map((r) => (r.status === "running" ? { ...r, status: "idle" } : r)));
-      setError(msg.includes("已取消") ? null : `脱敏失败: ${msg}`);
-    } finally {
-      window.clearInterval(poll);
-      setProgress(null);
-      setStartedAt(null);
-      runningJob.current = null;
-      setRunning(false);
-    }
+    const b = batch;
+    return runWith(
+      async (job) => {
+        const t0 = Date.now();
+        setBatchRows((prev) => prev.map((r) => (r.status === "idle" ? { ...r, status: "running" } : r)));
+        const resp = await api.anonymizeBatch({ batch: b.id, job, ...configPayload() });
+        const bySource = new Map(resp.results.map((r) => [r.source, r]));
+        const nextRows = batchRows.map((r) => {
+          const hit = bySource.get(r.name);
+          // 后端没提到这一份 = 它压根没上传(预过滤掉的), 状态本来就是对的; 只有还挂着"跑中"的要放回去
+          if (!hit) return r.status === "running" ? { ...r, status: "idle" as const } : r;
+          return hit.status === "ok"
+            ? {
+                ...r, status: "ok" as const, counts: hit.counts,
+                outputName: hit.output_name, outputUrl: hit.output_url,
+                restorable: hit.restorable, anchors: hit.anchors, reason: undefined,
+              }
+            : { ...r, status: hit.status, reason: hit.reason };
+        });
+        setBatchRows(nextRows);
+        setBatch((prev) => (prev ? { ...prev, zipUrl: resp.zip_url, mappingUrl: resp.mapping_url } : prev));
+        // 汇总按**列表**算, 不用后端的 summary: 客户端预过滤掉的(类型不支持/超 50MB/没传上去的)不在后端账上,
+        // 按后端算会得出"2 份"，而用户眼前明明有 3 行 —— 那是两套数字打架。
+        setBatchSummary({
+          total: nextRows.length,
+          ok: nextRows.filter((r) => r.status === "ok").length,
+          unsupported: nextRows.filter((r) => r.status === "unsupported").length,
+          error: nextRows.filter((r) => r.status === "error").length,
+        });
+        // 批次: 还原面板用的是**选中那一行**的 anchors(一批共用一份 mapping, 逐份不同)。
+        // 所以这里只带批次 token, anchors 从 activeRow 取 —— 见下面 RestorePanel 的接线。
+        const anyRestorable = nextRows.some((r) => r.restorable);
+        setResult({
+          output_name: "",
+          output_url: "",
+          kind: "",
+          restorable: anyRestorable,
+          restore_token: resp.restore_token ?? null,
+          counts: resp.results.reduce<Record<string, number>>((acc, r) => {
+            for (const [k, v] of Object.entries(r.counts ?? {})) acc[k] = (acc[k] ?? 0) + v;
+            return acc;
+          }, {}),
+          trace: { source: b.folder, extractor: "", detectors: [], timing: { total_ms: Date.now() - t0 }, detections: [] },
+        });
+        if (resp.batch.cancelled) {
+          setError(`已取消：这批跑完 ${resp.summary.ok + resp.summary.unsupported + resp.summary.error}/${resp.summary.total} 份，已完成的产物在上面。`);
+        }
+      },
+      (e) => {
+        setBatchRows((prev) => prev.map((r) => (r.status === "running" ? { ...r, status: "idle" } : r)));
+        setError(runFailed(e));
+      },
+    );
   };
 
-  const run = async () => {
+  const run = () => {
     if (!selection) return;
-    setRunning(true);
-    setError(null);
-    setProgress(null);
-    setStartedAt(Date.now());
-    // job id 只用来读进度/叫停(不带鉴权含义); 生成得够随机就行
-    const job = `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    runningJob.current = job;
-    const poll = window.setInterval(() => {
-      api.runProgress(job).then(setProgress).catch(() => {});
-    }, 600);
-    try {
-      const payload: { preset?: string; token?: string; config?: string | ConfigData; job?: string } = { job };
-      if (selection.preset) payload.preset = selection.preset;
-      else if (selection.token) payload.token = selection.token;
-      Object.assign(payload, configPayload());
+    const sel = selection;
+    return runWith(
+      async (job) => {
+        const payload: { preset?: string; token?: string; config?: string | ConfigData; job?: string } = { job };
+        if (sel.preset) payload.preset = sel.preset;
+        else if (sel.token) payload.token = sel.token;
+        Object.assign(payload, configPayload());
 
-      const resp = await api.anonymize(payload);
-      setResult(resp);
-      // 这一行标记成"已处理", 与批次里的行同一套状态(点回去才有对比看)
-      setRows((prev) => prev.map((r) => (r.key === activeKey
-        ? { ...r, status: "ok", counts: resp.counts, outputName: resp.output_name, outputUrl: resp.output_url, reason: undefined }
-        : r)));
-      setLogOpen(false);
-    } catch (e) {
-      const msg = (e as Error).message;
-      setRows((prev) => prev.map((r) => (r.key === activeKey ? { ...r, status: "error", reason: msg } : r)));
-      // 用户自己按的取消: 不该当成"脱敏失败"弹红条
-      setError(msg.includes("已取消") ? null : `脱敏失败: ${msg}`);
-    } finally {
-      window.clearInterval(poll);
-      setProgress(null);
-      setStartedAt(null);
-      runningJob.current = null;
-      setRunning(false);
-    }
-  };
-
-  const cancelRun = async () => {
-    const job = runningJob.current;
-    if (!job) return;
-    try {
-      await api.cancelAnonymize(job);
-    } catch {
-      // 取消失败不提示: 请求跑完了就会自己收尾
-    }
+        const resp = await api.anonymize(payload);
+        setResult(resp);
+        // 这一行标记成"已处理", 与批次里的行同一套状态(点回去才有对比看)
+        setRows((prev) => prev.map((r) => (r.key === activeKey
+          ? { ...r, status: "ok", counts: resp.counts, outputName: resp.output_name, outputUrl: resp.output_url, reason: undefined }
+          : r)));
+        setLogOpen(false);
+      },
+      (e) => {
+        setRows((prev) => prev.map((r) => (r.key === activeKey ? { ...r, status: "error", reason: e.message } : r)));
+        setError(runFailed(e));
+      },
+    );
   };
 
   const importConfig = async (file: File) => {
