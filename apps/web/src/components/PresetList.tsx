@@ -1,10 +1,32 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import type { DocRow, DocStatus } from "../types";
 import { totalCounts } from "../lib/api";
 
 /** 还没选文件时的三步引导(窄栏里放不下长文案, 只给动作词) */
 const STEPS = ["上传文件", "点击一键脱敏", "检查效果"];
+
+/** 状态筛选: 与文件行的状态徽标同一套词 */
+const FILTERS: { id: "all" | DocStatus; label: string }[] = [
+  { id: "all", label: "全部" },
+  { id: "idle", label: "待跑" },
+  { id: "ok", label: "已脱敏" },
+  { id: "unsupported", label: "未处理" },
+  { id: "error", label: "失败" },
+];
+
+/** 扩展名 → 行首的小类型徽标(LawRedact 式): 认不出的显示扩展名本身 */
+const TYPE_BADGE: Record<string, string> = {
+  pdf: "PDF", doc: "DOC", docx: "DOC", xls: "XLS", xlsx: "XLS",
+  ppt: "PPT", pptx: "PPT", txt: "TXT", md: "MD", markdown: "MD", csv: "CSV",
+  png: "PNG", jpg: "JPG", jpeg: "JPG", webp: "WEBP", bmp: "BMP", tif: "TIF", tiff: "TIF",
+};
+
+function badgeOf(name: string): string {
+  const ext = (name.split(".").pop() ?? "").toLowerCase();
+  if (!ext || ext === name.toLowerCase()) return "文件";
+  return TYPE_BADGE[ext] ?? ext.slice(0, 4).toUpperCase();
+}
 
 /**
  * 状态徽标: 已处理好的显示"✓ 抹了多少处", 没处理好的显示它的状态。
@@ -43,19 +65,38 @@ type Props = {
   onExitFolder: () => void;
   onRefresh: () => void;
   onUpload: (files: File[]) => void;
+  /** 一键脱敏: 固定在面板底部(原先在顶栏)。#run 是 E2E 契约钩子, 只在有东西可跑时出现 */
+  canRun: boolean;
+  runLabel: string;
+  runDisabled: boolean;
+  onRun: () => void;
 };
 
 export function PresetList({
   rows, activeKey, loading, loaded, uploading, uploadProgress, folderName, hasFolderPicker,
   ruleSummary, onEditRule, skipNote, onPick, onPickFolder, onExitFolder, onRefresh, onUpload,
+  canRun, runLabel, runDisabled, onRun,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | DocStatus>("all");
+
+  const filtered = rows.filter((r) =>
+    (statusFilter === "all" || r.status === statusFilter)
+    && r.name.toLowerCase().includes(query.trim().toLowerCase()));
+  const okCount = rows.filter((r) => r.status === "ok").length;
+  const hitTotal = rows.reduce((n, r) => n + (r.status === "ok" ? totalCounts(r.counts) : 0), 0);
 
   return (
     <div className="flex min-h-56 flex-1 flex-col rounded-xl border bg-card p-3.5">
       <div className="mb-2.5 flex flex-none items-center justify-between">
-        <h3 className="text-[13px] font-semibold tracking-wide text-muted-foreground">选择文档</h3>
+        <h3 className="flex items-center gap-1.5 text-[13px] font-semibold tracking-wide text-muted-foreground">
+          文件列表
+          <span className="rounded bg-muted px-1.5 py-px text-[10px] font-medium tabular-nums">
+            {rows.length}
+          </span>
+        </h3>
         <Button
           id="loadSamples"
           variant="ghost"
@@ -66,6 +107,33 @@ export function PresetList({
         >
           加载示例
         </Button>
+      </div>
+
+      {/* 搜索与状态筛选: 文件一多, 靠名字与状态各收一道 */}
+      <input
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="搜索文件名…"
+        aria-label="搜索文件名"
+        className="mb-2 w-full flex-none rounded-lg border bg-background px-2.5 py-1.5 text-[13px] outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring"
+      />
+      <div className="mb-2.5 flex flex-none flex-wrap gap-1">
+        {FILTERS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            aria-pressed={statusFilter === f.id}
+            onClick={() => setStatusFilter(f.id)}
+            className={`rounded-full px-2 py-0.5 text-[11px] transition-colors ${
+              statusFilter === f.id
+                ? "bg-foreground font-medium text-background"
+                : "border text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
       {folderName ? (
@@ -124,7 +192,7 @@ export function PresetList({
           <Button
             id="pickFolder"
             variant={folderName ? "outline" : "default"}
-            className="mb-2.5 w-full flex-none"
+            className="mb-2 w-full flex-none"
             disabled={uploading}
             onClick={() => folderRef.current?.click()}
           >
@@ -147,7 +215,7 @@ export function PresetList({
         }}
       />
       <Button
-        variant={folderName ? "ghost" : "default"}
+        variant={folderName ? "ghost" : "outline"}
         className="mb-2.5 w-full flex-none"
         disabled={uploading}
         onClick={() => fileRef.current?.click()}
@@ -157,9 +225,9 @@ export function PresetList({
 
       {loading ? (
         <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">加载中…</div>
-      ) : rows.length ? (
+      ) : filtered.length ? (
         <div className="scroll-thin min-h-0 flex-1 overflow-auto overscroll-contain">
-          {rows.map((row) => {
+          {filtered.map((row) => {
             const active = row.key === activeKey;
             const badge = BADGE[row.status];
             return (
@@ -179,7 +247,15 @@ export function PresetList({
                 title={row.reason ? `${row.name} —— ${row.reason}` : row.name}
                 onClick={() => onPick(row)}
               >
-                <span aria-hidden>📄</span>
+                {/* 类型徽标是第 1 个 span, 文件名必须是第 2 个 span(E2E 按位置取名字) */}
+                <span
+                  aria-hidden
+                  className={`flex-none rounded px-1 py-0.5 text-center text-[9px] font-semibold tracking-wide ${
+                    active ? "bg-selected-foreground/15 text-selected-foreground" : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {badgeOf(row.name)}
+                </span>
                 <span className="min-w-0 flex-1 truncate">{row.name}</span>
                 {/* 批次里每行都来自同一个文件夹, 来源标签就省了(上面已经写明是哪个文件夹) */}
                 {row.kind !== "batch" ? (
@@ -193,6 +269,10 @@ export function PresetList({
               </button>
             );
           })}
+        </div>
+      ) : rows.length ? (
+        <div className="flex flex-1 items-center justify-center px-3 text-center text-xs text-muted-foreground">
+          没有匹配的文件
         </div>
       ) : folderName ? (
         <div className="flex flex-1 items-center justify-center px-3 text-center text-xs text-muted-foreground">
@@ -222,6 +302,26 @@ export function PresetList({
           ))}
         </ol>
       )}
+
+      {/* 底部汇总: 这批一共多少、成了多少、抹了多少处(与 LawRedact 列表底栏同一排法) */}
+      {rows.length ? (
+        <p className="mt-2 flex-none border-t pt-2 text-[11px] tabular-nums text-muted-foreground">
+          共 {rows.length} 份 · 已完成 {okCount}
+          {hitTotal ? ` · 命中 ${hitTotal} 处` : ""}
+        </p>
+      ) : null}
+
+      {/* 一键脱敏: 固定在面板最底部, 列表多长都不挪位(原先在顶栏, 收进来离文件清单更近) */}
+      {canRun ? (
+        <Button
+          id="run"
+          className="mt-2 w-full flex-none"
+          disabled={runDisabled}
+          onClick={onRun}
+        >
+          {runLabel}
+        </Button>
+      ) : null}
     </div>
   );
 }

@@ -60,3 +60,19 @@ input[type="radio"] {
 .scroll-thin::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* 无百分比阶段(起模型/读文件/写回)的进度条: 一小段来回走, 证明"还在跑"没卡死。
+   1/4 宽的滑块从 -100% 平移到 400%, 正好在容器内走一个来回。 */
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+.animate-indeterminate {
+  animation: indeterminate 1.4s ease-in-out infinite;
+}

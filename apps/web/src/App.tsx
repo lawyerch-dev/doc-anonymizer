@@ -6,12 +6,16 @@ import { Logo } from "./components/Logo";
 import { OnboardingWizard, clearOnboarding, hasDoneOnboarding } from "./components/OnboardingWizard";
 import { PresetList } from "./components/PresetList";
 import { Preview } from "./components/Preview";
+import { ProgressBar } from "./components/ProgressBar";
 import { RestorePanel } from "./components/RestorePanel";
 import { SettingsSheet } from "./components/SettingsSheet";
 import { StatsCard } from "./components/StatsCard";
+import { StatusBar } from "./components/StatusBar";
+import { TopBar } from "./components/TopBar";
 import { UploadPrefsPanel } from "./components/UploadPrefsPanel";
 import * as api from "./lib/api";
 import { DEFAULT_SCHEME, progressInfo, shadowNameOf, shadowState, visibleSchemes } from "./lib/formats";
+import { useMediaQuery } from "./lib/useMediaQuery";
 import {
   defaultUploadPrefs, uploadRuleSummary, type UploadPrefs,
 } from "./lib/uploadPrefs";
@@ -145,6 +149,8 @@ export default function App() {
   const canRun = folderMode
     ? batchRows.some((r) => r.status !== "unsupported")
     : rows.length > 0 || selection !== null;
+  // 宽屏(≥1280)时识别统计走右栏(LawRedact 式三栏); 窄屏回左栏底部 —— 单实例, 靠 JS 断点搬
+  const wideStats = useMediaQuery("(min-width: 1280px)");
 
   // 暗色: 顶层加 .dark(theme.css 的 dark 变体就挂在这个 class 上)
   useEffect(() => {
@@ -642,39 +648,59 @@ export default function App() {
     ? "左侧选择上传文档"
     : `未上传：${activeRow.reason ?? "这份没有可预览的原文"}`;
 
+  const schemeLabel = configs.find((c) => c.name === configRef)?.label ?? configRef;
+
+  /**
+   * 还原入口只在产物可还原时出现。默认三套口径都出锚点, 所以正常都有;
+   * 只有在 L2 把某类型改成了 mask/redact/remove 才没有锚点, 按下去也变不回来。
+   * 批次模式带上**这一批逐份的锚点**: 一批共用一份 mapping, 逐份的锚点不同,
+   * 拿批次合计去对账会把别的文件的锚点误报成缺失。
+   */
+  const restorePanel = result?.restorable && result.restore_token ? (
+    <RestorePanel
+      token={result.restore_token}
+      batch={folderMode}
+      sourceName={folderMode ? batch?.folder ?? "这一批" : result.output_name}
+      expected={
+        folderMode
+          ? batchRows
+              .filter((r) => r.status === "ok" && r.anchors && Object.keys(r.anchors).length > 0)
+              .map((r) => ({ name: r.outputName ?? r.name, anchors: r.anchors! }))
+          : result.anchors
+            ? [{ name: result.output_name, anchors: result.anchors }]
+            : []
+      }
+    />
+  ) : null;
+
+  /** 识别统计 + 还原: 宽屏(≥1280)进右栏, 窄屏回左栏底部 —— 同一块 DOM, 两处互斥挂载 */
+  const statsBlock = result ? (
+    <>
+      <StatsCard
+        counts={result.counts}
+        total={api.totalCounts(result.counts)}
+        totalMs={batchTimeMs}
+        convertedFrom={result.trace?.converted_from ?? null}
+        summary={folderMode ? batchSummary : null}
+      />
+      {restorePanel}
+    </>
+  ) : null;
+
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
-      <header className="flex flex-none items-baseline gap-3 border-b bg-card px-6 py-3">
-        <Logo className="size-6 flex-none self-center" />
-        <h1 className="text-lg font-semibold">文档脱敏工具</h1>
-        <span className="text-[13px] tabular-nums text-muted-foreground">
-          {version ? `v${version} · ` : ""}@陈恒律师自研自用
-        </span>
-        <div className="ml-auto flex items-center gap-1.5">
-          <Button
-            variant="ghost" size="xs"
-            onClick={() => { setUploadOpen(false); setSettingsOpen(true); }}
-            title={`设置：上传收件规则与脱敏方案（方案 / 脱敏规则 / 识别方式）（当前口径：${configRef ?? "未加载"}）`}
-          >
-            ⚙ 设置{configDirty ? " •" : ""}
-          </Button>
-          <Button
-            ref={logBtnRef}
-            variant="ghost" size="xs"
-            disabled={mode === "folder" || !result?.trace?.detections?.length}
-            onClick={() => setLogOpen(true)}
-          >
-            运行日志
-          </Button>
-          <Button
-            variant="ghost" size="xs"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            title="切换明暗"
-          >
-            {theme === "dark" ? "☀ 浅色" : "🌙 深色"}
-          </Button>
-        </div>
-      </header>
+    <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      <TopBar
+        version={version}
+        configDirty={configDirty}
+        fileOutput={result?.output_url ? { name: result.output_name, url: result.output_url } : null}
+        batchOutput={batch?.zipUrl ? { folder: batch.folder, zipUrl: batch.zipUrl, mappingUrl: batch.mappingUrl } : null}
+        onOpenSettings={() => { setUploadOpen(false); setSettingsOpen(true); }}
+        onOpenLog={() => setLogOpen(true)}
+        logDisabled={mode === "folder" || !result?.trace?.detections?.length}
+        logBtnRef={logBtnRef}
+        theme={theme}
+        onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+      />
 
       {showIntro ? (
         /* 首次使用向导: 选个方案就能用(本地记"看过了"不再弹); 选中即切到当前配置 */
@@ -741,76 +767,12 @@ export default function App() {
             }}
             onRefresh={() => void refreshPresets()}
             onUpload={(files) => void upload(files)}
+            canRun={canRun}
+            runLabel={running ? "脱敏中…" : folderMode ? `一键脱敏（${batchRows.length} 份）` : "一键脱敏"}
+            runDisabled={running || (!folderMode && !selection)}
+            onRun={() => void (folderMode ? runBatch() : run())}
           />
-          {canRun ? (
-            <Button
-              id="run"
-              className="w-full"
-              disabled={running || (!folderMode && !selection)}
-              onClick={() => void (folderMode ? runBatch() : run())}
-            >
-              {running ? "脱敏中…" : folderMode ? `一键脱敏（${batchRows.length} 份）` : "一键脱敏"}
-            </Button>
-          ) : null}
-          {/* 整包取走: 只含脱敏件; 映射表含原文, 单独一个口子并说明风险。
-              用 outline 而不是再来一个实心主按钮 —— 与「一键脱敏」并排时两个黑块看着像一对开关 */}
-          {batch?.zipUrl ? (
-            <a
-              id="downloadZip"
-              href={`${batch.zipUrl}?name=${encodeURIComponent(batch.folder)}`}
-              download
-              className="inline-flex w-full flex-none items-center justify-center rounded-lg border px-2.5 py-2 text-sm font-medium hover:bg-muted"
-            >
-              打包下载（zip）
-            </a>
-          ) : null}
-          {batch?.mappingUrl ? (
-            <a
-              href={batch.mappingUrl}
-              download
-              title="映射表含原文, 切勿与脱敏件一起外发"
-              className="flex-none text-center text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
-            >
-              下载映射表（含原文，勿外发）
-            </a>
-          ) : null}
-          {/* 最准档跑一份合同要 30+ 秒: 只说"脱敏中…"用户会以为卡死了 —— 给出阶段、进度、已用秒数, 并允许取消 */}
-          {running ? (
-            <div className="space-y-1.5" id="progress">
-              <p className="text-xs leading-snug text-foreground/80">{runInfo.label}</p>
-              {progress?.file ? (
-                <p className="truncate text-[11px] leading-snug text-muted-foreground" title={progress.file}>
-                  {progress.file}
-                </p>
-              ) : null}
-              {runInfo.pct !== null ? (
-                <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
-                  <div
-                    className="h-full bg-selected transition-[width] duration-300"
-                    style={{ width: `${runInfo.pct}%` }}
-                  />
-                </div>
-              ) : null}
-              <p className="text-[11px] tabular-nums leading-snug text-muted-foreground">
-                已用 {elapsed}s
-              </p>
-              {/* 8 秒还没完才解释 —— 快的档不该看到这句废话 */}
-              {elapsed >= 8 ? (
-                <p className="text-[11px] leading-snug text-muted-foreground">
-                  还在跑（本地大模型档跑长文档通常 30-60 秒），不想等可以取消。
-                </p>
-              ) : null}
-              <Button
-                id="cancelRun"
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => void cancelRun()}
-              >
-                取消
-              </Button>
-            </div>
-          ) : null}
+          {/* 打包下载 / 映射表在 TopBar; 一键脱敏固定在文件列表底部; 进度条在底部状态条中间 */}
           {/* 这个按钮只可能在抽屉打开时可见(关着时 aside 整体 hidden), 所以只会有"收起"一个态 */}
           <Button
             variant="outline" size="sm" className="w-full md:hidden"
@@ -818,35 +780,8 @@ export default function App() {
           >
             收起面板
           </Button>
-          {result ? (
-            <StatsCard
-              counts={result.counts}
-              total={api.totalCounts(result.counts)}
-              totalMs={batchTimeMs}
-              convertedFrom={result.trace?.converted_from ?? null}
-              summary={mode === "folder" ? batchSummary : null}
-            />
-          ) : null}
-          {/* 还原入口只在产物可还原时出现。默认三套口径都出锚点, 所以正常都有;
-              只有在 L2 把某类型改成了 mask/redact/remove 才没有锚点, 按下去也变不回来。
-              批次模式带上**这一批逐份的锚点**: 一批共用一份 mapping, 逐份的锚点不同,
-              拿批次合计去对账会把别的文件的锚点误报成缺失。 */}
-          {result?.restorable && result.restore_token ? (
-            <RestorePanel
-              token={result.restore_token}
-              batch={folderMode}
-              sourceName={folderMode ? batch?.folder ?? "这一批" : result.output_name}
-              expected={
-                folderMode
-                  ? batchRows
-                      .filter((r) => r.status === "ok" && r.anchors && Object.keys(r.anchors).length > 0)
-                      .map((r) => ({ name: r.outputName ?? r.name, anchors: r.anchors! }))
-                  : result.anchors
-                    ? [{ name: result.output_name, anchors: result.anchors }]
-                    : []
-              }
-            />
-          ) : null}
+          {/* 窄屏(<1280): 识别统计与还原回到左栏底部; 宽屏它们在右栏(见后面的 aside) */}
+          {!wideStats ? statsBlock : null}
         </aside>
 
         {/* 窄屏唤起抽屉的按钮(抽屉里只有选文档) */}
@@ -854,19 +789,30 @@ export default function App() {
           选择文档
         </Button>
 
-        <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
-          <Preview
-            pane="src" title="原文" placeholder={srcPlaceholder}
-            filename={selection?.filename ?? ""} url={selection?.url ?? ""}
-            action={selection?.url ? { label: "下载原件", href: selection.url } : undefined}
-          />
-          <Preview
-            pane="out" title="脱敏后" placeholder={outPlaceholder}
-            filename={result?.output_name ?? ""} url={result?.output_url ?? ""}
-            action={result?.output_url ? { label: "下载脱敏件", href: result.output_url } : undefined}
-          />
+        <main className="flex min-h-0 flex-1 flex-col gap-3">
+          {/* 中栏固定两栏并排对比(原先有「对比/原文/脱敏后」页签, 已去掉) */}
+          <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
+            <Preview
+              pane="src" title="原文" placeholder={srcPlaceholder}
+              filename={selection?.filename ?? ""} url={selection?.url ?? ""}
+              action={selection?.url ? { label: "下载原件", href: selection.url } : undefined}
+            />
+            <Preview
+              pane="out" title="脱敏后" placeholder={outPlaceholder}
+              filename={result?.output_name ?? ""} url={result?.output_url ?? ""}
+            />
+          </div>
         </main>
+
+        {/* 右栏(≥1280): 识别统计 + 还原, LawRedact 式的统计侧栏; 没有数据时整栏不出现(不占位) */}
+        {wideStats && statsBlock ? (
+          <aside className="flex min-h-0 w-[280px] flex-none flex-col gap-4 overflow-auto overscroll-contain">
+            {statsBlock}
+          </aside>
+        ) : null}
       </div>
+
+      {/* 跑批/单份脱敏的进度条已搬进底部状态条中间(见 StatusBar 的 progress 插槽) */}
 
       <SettingsSheet
         open={settingsOpen}
@@ -909,6 +855,13 @@ export default function App() {
         trace={result?.trace ?? null}
         onClose={() => setLogOpen(false)}
         returnFocusTo={logBtnRef}
+      />
+
+      <StatusBar
+        schemeLabel={schemeLabel} version={version}
+        progress={running ? (
+          <ProgressBar runInfo={runInfo} elapsed={elapsed} onCancel={() => void cancelRun()} />
+        ) : undefined}
       />
     </div>
   );
