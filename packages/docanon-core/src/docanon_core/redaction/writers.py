@@ -47,41 +47,16 @@ def _text(doc: ExtractedDoc, reds: list[BlockRedaction], out_path: Path) -> list
 
 # ---------------- DOCX ----------------
 def _redact_paragraph(paragraph, repls: list[tuple[int, int, str]]) -> None:
-    """按字符偏移改写段落文字。
+    """按字符偏移改写段落文字(偏移→run 的映射在 `spans.rewrite_runs`, 与还原共用一处)。
 
     `repls` 的偏移来自 `docx_walk.paragraph_text` 拼出来的文字, 所以这里的 run 序列也必须
     来自 `docx_walk.text_runs` —— 换成 `paragraph.runs` 就会漏掉超链接/修订插入里的 run,
     偏移整体错位(实测: 目标原样留着, 替换值插到别的字上)。
     """
     from ..docx_walk import text_runs
+    from .spans import rewrite_runs
 
-    runs = text_runs(paragraph)
-    if not runs:
-        return
-    ranges: list[tuple[int, int]] = []
-    pos = 0
-    for run in runs:
-        ranges.append((pos, pos + len(run.text)))
-        pos += len(run.text)
-    ordered = sorted(repls)
-    for i, (a, b) in enumerate(ranges):
-        rt = runs[i].text
-        out: list[str] = []
-        cursor = 0
-        for s, e, rep in ordered:
-            if e <= a or s >= b:
-                continue
-            ls = max(s, a) - a
-            le = min(e, b) - a
-            if ls > cursor:
-                out.append(rt[cursor:ls])
-            if a <= s < b:  # 替换文本落在本 run 起点
-                out.append(rep)
-            cursor = max(cursor, le)
-        out.append(rt[cursor:])
-        new = "".join(out)
-        if new != rt:
-            runs[i].text = new
+    rewrite_runs(text_runs(paragraph), repls)
 
 
 def _scrub_link_plumbing(paragraph, pairs: list[tuple[str, str]]) -> None:

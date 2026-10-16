@@ -8,6 +8,7 @@ import hashlib
 from typing import Callable
 
 from .mapping import MappingStore
+from .spans import apply_spans   # 正/逆写共用的 span 工具(此处 re-export, 保持既有导入路径)
 
 # ---- 假名素材池(可替换为 LLM 生成) ----
 _SURNAMES = ["林", "沈", "顾", "苏", "程", "陆", "许", "江", "叶", "秦", "温", "崔"]
@@ -124,10 +125,3 @@ def replacement_for(
 ) -> str:
     factory = make_replacer(entity_type, strategy)
     return store.get_or_create(entity_type, original, lambda n: factory(n, original))
-
-
-def apply_spans(text: str, replacements: list[tuple[int, int, str]]) -> str:
-    """replacements: [(start, end, replacement)], 按位置从后往前替换。"""
-    for start, end, repl in sorted(replacements, key=lambda x: x[0], reverse=True):
-        text = text[:start] + repl + text[end:]
-    return text

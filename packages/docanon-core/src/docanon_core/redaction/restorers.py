@@ -16,6 +16,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .spans import apply_spans, rewrite_runs
+
 # 锚点形状: {{TYPE_N}}。TYPE 允许下划线, N 是数字。
 # 匹配时**故意宽松**: AI 可能在锚点两侧加空格、改大小写、套上 markdown 强调号或反引号,
 # 甚至把 {{ 转义成 HTML 实体。这些都是"同一个锚点被包了一层", 不该判成还原失败。
@@ -148,7 +150,7 @@ def _restore_text(src: Path, out: Path, table: dict[str, str], literals: list[tu
     except UnicodeDecodeError as exc:
         raise RestoreError(f"读不了 {src.name}: 不是 UTF-8 文本") from exc
     repls, unknown, counts = _collect(text, table)
-    out.write_text(_apply_literals(_apply(text, repls), literals), encoding="utf-8")
+    out.write_text(_apply_literals(apply_spans(text, repls), literals), encoding="utf-8")
     return _finish(out, unknown, counts, units=1)
 
 
@@ -163,7 +165,7 @@ def _restore_csv(src: Path, out: Path, table: dict[str, str], literals: list[tup
             unknown.extend(unk)
             if not repls and not unk:
                 continue
-            rows[r][c] = _apply_literals(_apply(value, repls), literals)
+            rows[r][c] = _apply_literals(apply_spans(value, repls), literals)
             for key, n in hits.items():
                 counts[key] = counts.get(key, 0) + n
     with out.open("w", encoding="utf-8-sig", newline="") as fh:
@@ -178,8 +180,8 @@ def _restore_docx(src: Path, out: Path, table: dict[str, str], _literals) -> Res
 
     锚点被 Word/AI 拆到多个 run 里是常态(拼写检查、格式刷、往返转换都会拆), 所以不能
     "每个 run 各自替换" —— 那会一个都匹配不上。做法是: 先把整段的文字拼出来找锚点, 拿到
-    全段坐标系里的 span, 再把 span 映射回各 run 的区间改写。这与 `writers._redact_paragraph`
-    是同一套偏移算法的逆运算(那边是原文→锚点, 这边是锚点→原文)。
+    全段坐标系里的 span, 再把 span 映射回各 run 的区间改写。这一步与 `writers._redact_paragraph`
+    共用同一个 `spans.rewrite_runs`(那边是原文→锚点, 这边是锚点→原文)。
     """
     from docx import Document
 
@@ -202,7 +204,7 @@ def _restore_docx(src: Path, out: Path, table: dict[str, str], _literals) -> Res
         for key, n in hits.items():
             counts[key] = counts.get(key, 0) + n
         n_para += 1
-        n_repl += _rewrite_runs(runs, repls)
+        n_repl += rewrite_runs(runs, repls)
     if not n_para:
         # 一个锚点都没有: 别让 python-docx 重写一遍文件(会顺手丢掉它不认识的部件),
         # 原样复制字节。
@@ -210,42 +212,6 @@ def _restore_docx(src: Path, out: Path, table: dict[str, str], _literals) -> Res
     else:
         d.save(str(out))
     return _finish(out, unknown, counts, units=n_para)
-
-
-def _rewrite_runs(runs, repls: list[tuple[int, int, str]]) -> int:
-    """把 (start, end, 原文) 这些 span 写回 runs, 返回实际替换次数。
-
-    替换值落在**起点所在的那个 run** 上, 后续被覆盖到的 run 只清掉重叠部分 —— 它们的字体
-    属于被替换掉的那段文字, 留着会串味。起点 run 的属性(字体/字号/颜色)完整保留, 那是
-    还原出来的原文该继承的样式。
-    """
-    ranges: list[tuple[int, int]] = []
-    pos = 0
-    for r in runs:
-        ranges.append((pos, pos + len(r.text)))
-        pos += len(r.text)
-    ordered = sorted(repls)
-    done = 0
-    for i, (a, b) in enumerate(ranges):
-        rt = runs[i].text
-        out: list[str] = []
-        cursor = 0
-        for s, e, rep in ordered:
-            if e <= a or s >= b:
-                continue
-            ls = max(s, a) - a
-            le = min(e, b) - a
-            if ls > cursor:
-                out.append(rt[cursor:ls])
-            if a <= s < b:  # 替换文本落在本 run 起点
-                out.append(rep)
-                done += 1
-            cursor = max(cursor, le)
-        out.append(rt[cursor:])
-        new = "".join(out)
-        if new != rt:
-            runs[i].text = new
-    return done
 
 
 # ---------------------------------------------------------------- xlsx
@@ -267,7 +233,7 @@ def _restore_xlsx(src: Path, out: Path, table: dict[str, str], _literals) -> Res
                 unknown.extend(unk)
                 if not repls:
                     continue
-                cell.value = _apply(cell.value, repls)
+                cell.value = apply_spans(cell.value, repls)
                 n_cell += 1
                 for key, n in hits.items():
                     counts[key] = counts.get(key, 0) + n
@@ -279,12 +245,6 @@ def _restore_xlsx(src: Path, out: Path, table: dict[str, str], _literals) -> Res
 
 
 # ---------------------------------------------------------------- 公共
-
-def _apply(text: str, repls: list[tuple[int, int, str]]) -> str:
-    for start, end, rep in sorted(repls, key=lambda x: x[0], reverse=True):
-        text = text[:start] + rep + text[end:]
-    return text
-
 
 def _apply_literals(text: str, literals: list[tuple[str, str]]) -> str:
     for repl, original in literals:
