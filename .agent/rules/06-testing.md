@@ -11,7 +11,7 @@
   推送前手册见 [`../skills/before-you-push/SKILL.md`](../skills/before-you-push/SKILL.md)。
 
 **必须用 `.venv/bin/python -m pytest`**：PATH 上的 `pytest` 可能跑在别的 Python 上（缺 `rapidocr`），
-那样扫描件测试会被静默 skip —— OCR 回归等于没测。全量约 5 秒。
+那样扫描件测试会被静默 skip —— OCR 回归等于没测。全量约 45 秒。
 
 守卫测试分工（改代码前知道谁在盯你）：
 

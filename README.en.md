@@ -44,13 +44,13 @@ emails, IPs, unified social credit codes, secrets, custom sensitive terms — de
 
 ## Quick start
 
-Prerequisites: Apple Silicon macOS + Python 3.11/3.12.
+Prerequisites: Apple Silicon macOS + Python 3.10–3.13.
 
 ```bash
 git clone https://github.com/lawyerch-dev/doc-anonymizer && cd doc-anonymizer
 npm run setup          # one-shot setup: Python venv + five packages + preview assets + npm install
 npm run dev            # product UI: backend + Vite dev (hot reload) → http://127.0.0.1:5173
-npm run dev:website    # website/docs site → http://127.0.0.1:4321
+npm run dev:website    # website/docs site → http://localhost:4321
 npm test               # one-shot full test run (all Python + component library checks + docs site build)
 ```
 
@@ -196,7 +196,7 @@ segment N / writing back), or stop it with `POST /api/anonymize/cancel` — canc
 ### Website & docs site (optional)
 
 ```bash
-npm run dev:website        # → http://127.0.0.1:4321 (runs npm install automatically on first use)
+npm run dev:website        # → http://localhost:4321 (runs npm install automatically on first use)
 npm run build              # static output into website/dist/, servable by any static host
 ```
 
@@ -241,7 +241,7 @@ See [apps/desktop/README.md](apps/desktop/README.md).
 | `.doc` / `.xls` / `.wps` (legacy Office) | `【脱敏版】x.doc.docx` | converted to `.docx`/`.xlsx` by LibreOffice first, then redacted; **the output format changes and the layout may be reflowed** |
 | `.pdf` (text layer) | `【脱敏版】x.pdf` | hit pages blacked out (**the page becomes a bitmap**) |
 | `.pdf` (scan) / `.png` `.jpg` `.tiff` … | same as above / `【脱敏版】x.png` | OCR locates the text, then black boxes are drawn proportionally to character width |
-| `.txt` / `.md` | `【脱敏版】x.txt` | line-by-line plain-text replacement |
+| `.txt` / `.md` | `【脱敏版】x.txt` / `x.md` | line-by-line plain-text replacement |
 
 Files are named `【脱敏版】<full name>` (the target extension is appended only when the format changed, e.g.
 `【脱敏版】x.doc.docx`, so that `x.doc` and `x.docx` in one directory do not collide), keeping relative

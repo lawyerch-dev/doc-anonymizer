@@ -63,7 +63,7 @@ Windows `%LOCALAPPDATA%\docanon`、Linux `$XDG_DATA_HOME/docanon`。
 
 **为什么资源与可写状态要分家**：打包后资源根在安装目录内部，首次运行还可能被 macOS 的
 App Translocation 挂到只读随机路径 —— 模型写到那儿不是失败就是被清掉。分家由
-`resources.WRITABLE` 定义（`models` / `user_configs`），壳只负责把 `DOCANON_DATA` 指对地方。
+`resources.WRITABLE` 定义（`models` / `user_configs` / `settings`），壳只负责把 `DOCANON_DATA` 指对地方。
 
 ## 图标
 

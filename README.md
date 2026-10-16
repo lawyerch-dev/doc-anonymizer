@@ -41,13 +41,13 @@
 
 ## 快速上手
 
-前置：Apple Silicon macOS + Python 3.11/3.12。
+前置：Apple Silicon macOS + Python 3.10–3.13。
 
 ```bash
 git clone https://github.com/lawyerch-dev/doc-anonymizer && cd doc-anonymizer
 npm run setup          # 一键装齐: Python venv + 五个包 + 预览资源 + npm install
 npm run dev            # 产品界面: 后端 + Vite dev（热更）→ http://127.0.0.1:5173
-npm run dev:website    # 官网/文档站 → http://127.0.0.1:4321
+npm run dev:website    # 官网/文档站 → http://localhost:4321
 npm test               # 一键全测（Python 全量 + 组件库检查 + 文档站构建）
 ```
 
@@ -186,7 +186,7 @@ flowchart TB
 ### 官网与文档站（可选）
 
 ```bash
-npm run dev:website        # → http://127.0.0.1:4321（首次自动 npm install）
+npm run dev:website        # → http://localhost:4321（首次自动 npm install）
 npm run build              # 静态输出到 website/dist/，任意静态服务器都能发
 ```
 
@@ -227,7 +227,7 @@ macOS 与 Windows 的 runner 上各打一份，传到 GitHub Release。两个平
 | `.doc` / `.xls` / `.wps`（旧版 Office） | `【脱敏版】x.doc.docx` | 先由 LibreOffice 自动转成 `.docx`/`.xlsx` 再脱敏；**产物格式变了、版式可能被重排** |
 | `.pdf`（文字层） | `【脱敏版】x.pdf` | 命中页涂黑（**该页变位图**） |
 | `.pdf`（扫描件）/ `.png` `.jpg` `.tiff` … | 同上 / `【脱敏版】x.png` | OCR 定位后按字符宽度比例涂黑 |
-| `.txt` / `.md` | `【脱敏版】x.txt` | 按行替换纯文本 |
+| `.txt` / `.md` | `【脱敏版】x.txt` / `x.md` | 按行替换纯文本 |
 
 命名 `【脱敏版】<源文件全名>`（格式变了才在后面补目标扩展名，如 `【脱敏版】x.doc.docx` ——
 同目录里 `x.doc` 与 `x.docx` 才不会撞名），保留相对子目录。名字超过文件系统 255 字节上限时

@@ -2,7 +2,7 @@
 
 # 快速上手
 
-前置：Apple Silicon macOS + Python 3.11/3.12；命令都在仓库根执行。
+前置：Apple Silicon macOS + Python 3.10–3.13；命令都在仓库根执行。
 一键入口与完整用法见 [README](../README.md#快速上手)。
 
 ## 1. 装

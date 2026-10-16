@@ -8,7 +8,7 @@
   `apps/desktop/src-tauri/icons/` 是**提交**的，因为生成它们要 `rsvg-convert`（不是每台机器都有）。
 - **字节码缓存只有一处**：`var/pycache`（`scripts/setup_dev.sh` 往 venv 装 sitecustomize 重定向）。
   源码树里不该出现 `__pycache__`，`tests/test_dev_env.py` 盯着。
-  **不要改成一概不写字节码**：实测那样每次要重编译所有导入，整套测试 5.12s → 6.24s。
+  **不要改成一概不写字节码**：实测那样每次要重编译所有导入，整套测试明显变慢。
 - `samples/` 由 `scripts/make_samples.py` 生成，不要手改。重新生成的 PDF 必须内嵌中文 TTF 子集
   （脚本取 macOS 的 `Arial Unicode.ttf`）；非嵌入 CID 字体会让 file-viewer 中文预览乱码（commit `094b863`）。
 - 干净环境起 Web 前先 `./scripts/fetch_file_viewer.sh`；`var/vendor/`（232MB）缺了时预览区

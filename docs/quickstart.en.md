@@ -2,7 +2,7 @@ English | [中文](quickstart.md)
 
 # Quickstart
 
-Prerequisites: Apple Silicon macOS + Python 3.11/3.12; all commands run from the repository root.
+Prerequisites: Apple Silicon macOS + Python 3.10–3.13; all commands run from the repository root.
 For the one-shot entry point and full usage, see [README](../README.md#快速上手).
 
 ## 1. Install
