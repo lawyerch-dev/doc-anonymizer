@@ -7,6 +7,7 @@ import {
 } from "@doc-anonymizer/ui/primitives/sheet";
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import * as api from "../lib/api";
+import { DIRECTORY_INPUT_PROPS, HAS_FOLDER_PICKER } from "../lib/dom";
 import type { RestoreBatchResp } from "../types";
 
 /** 一份"该有哪些锚点": `name` 是脱敏产物的名字 —— 还原时靠它把锚点清单对回这一份。 */
@@ -27,10 +28,6 @@ type Props = {
 
 /** 后端能还原的格式(与 `restorers._ROUTES` 对齐); pdf/图片原理上还原不了 */
 const RESTORABLE_EXT = ["docx", "xlsx", "csv", "txt", "md", "markdown"];
-
-/** 环境支不支持选文件夹(webkitdirectory) —— 不支持就不显示入口, 不装作能用 */
-const HAS_FOLDER_PICKER =
-  typeof HTMLInputElement !== "undefined" && "webkitdirectory" in HTMLInputElement.prototype;
 
 /**
  * 这个入口还没验收完, 先在界面上标「开发中」并禁用 —— 免得用户以为点了没反应。
@@ -139,7 +136,7 @@ export function RestorePanel({ open, onOpenChange, token, sourceName, expected =
           className="hidden"
           multiple
           // webkitdirectory 是 webkit 前缀属性, React 的 JSX 类型里没有 —— 只能这样塞
-          {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+          {...DIRECTORY_INPUT_PROPS}
           onChange={(e) => pick(e.target.files)}
         />
       ) : null}

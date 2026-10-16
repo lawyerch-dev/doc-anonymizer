@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import type { DocRow, DocStatus } from "../types";
 import { totalCounts } from "../lib/api";
+import { DIRECTORY_INPUT_PROPS } from "../lib/dom";
 import { DOC_STATUS } from "../lib/formats";
 
 /** 还没选文件时的三步引导(窄栏里放不下长文案, 只给动作词) */
@@ -172,7 +173,7 @@ export function PresetList({
             hidden
             multiple
             // webkitdirectory 是 webkit 前缀属性, React 的 JSX 类型里没有 —— 只能这样塞
-            {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+            {...DIRECTORY_INPUT_PROPS}
             onChange={(e) => {
               const files = [...(e.target.files ?? [])];
               if (files.length) onPickFolder(files);

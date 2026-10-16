@@ -14,6 +14,7 @@ import { StatusBar } from "./components/StatusBar";
 import { TopBar } from "./components/TopBar";
 import { UploadPrefsPanel } from "./components/UploadPrefsPanel";
 import * as api from "./lib/api";
+import { HAS_FOLDER_PICKER } from "./lib/dom";
 import { DEFAULT_SCHEME, DOC_STATUS, extOf, humanSize, progressInfo, shadowNameOf, shadowState, visibleSchemes } from "./lib/formats";
 import { newId } from "./lib/ids";
 import { useAnonymizeRun } from "./lib/useAnonymizeRun";
@@ -48,13 +49,6 @@ const BLOCKED_DIRS = new Set([
   "node_modules", "dist", "build", "target", "out", "vendor", "coverage",
   "__pycache__", "site-packages", "bower_components", "Pods", "DerivedData",
 ]);
-
-/**
- * 选文件夹靠 `<input webkitdirectory>`。它在 Safari/Chromium 上都有, 但**WKWebView(桌面壳)未必放行** --
- * 探测一次: 没有这个属性就不显示入口, 而不是点了一下什么都不发生。
- */
-const HAS_FOLDER_PICKER =
-  typeof HTMLInputElement !== "undefined" && "webkitdirectory" in HTMLInputElement.prototype;
 
 function presetRows(presets: Preset[]): DocRow[] {
   return presets.map((p) => ({
