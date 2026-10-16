@@ -19,6 +19,9 @@ export default defineConfig({
     // 绑 IPv4: 默认的 `localhost` 在 macOS + Node 上常常只监听 [::1], 而 README/quickstart/dev.sh
     // 让我们开 http://127.0.0.1:5173 —— 不显式绑就会"照文档打不开"
     host: "127.0.0.1",
+    // HMR 的 ws 也显式走 IPv4: 页面按 localhost 打开时, @vite/client 默认按页面 origin 连 ws,
+    // 会先试 [::1] 而服务只绑了 127.0.0.1 —— 于是控制台刷 "failed to connect to websocket"
+    hmr: { host: "127.0.0.1", protocol: "ws" },
     proxy: Object.fromEntries(PROXIED.map((p) => [p, { target: BACKEND }])),
   },
 });
