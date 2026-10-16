@@ -2,17 +2,15 @@ import { useRef, useState } from "react";
 import { Button } from "@doc-anonymizer/ui/primitives/button";
 import type { DocRow, DocStatus } from "../types";
 import { totalCounts } from "../lib/api";
+import { DOC_STATUS } from "../lib/formats";
 
 /** 还没选文件时的三步引导(窄栏里放不下长文案, 只给动作词) */
 const STEPS = ["上传文件", "点击一键脱敏", "检查效果"];
 
-/** 状态筛选: 与文件行的状态徽标同一套词 */
+/** 状态筛选: 标签取自唯一的 DOC_STATUS, 与行尾徽标同一套词(不含 running —— 跑中不必单独筛) */
 const FILTERS: { id: "all" | DocStatus; label: string }[] = [
   { id: "all", label: "全部" },
-  { id: "idle", label: "待跑" },
-  { id: "ok", label: "已脱敏" },
-  { id: "unsupported", label: "未处理" },
-  { id: "error", label: "失败" },
+  ...(["idle", "ok", "unsupported", "error"] as const).map((s) => ({ id: s, label: DOC_STATUS[s].label })),
 ];
 
 /** 扩展名 → 行首的小类型徽标(LawRedact 式): 认不出的显示扩展名本身 */
@@ -30,16 +28,8 @@ function badgeOf(name: string): string {
 
 /**
  * 状态徽标: 已处理好的显示"✓ 抹了多少处", 没处理好的显示它的状态。
- * 颜色只用既有的三系(selected / destructive / muted), 不引入新色。
+ * 文案与颜色取自唯一的 DOC_STATUS(与筛选栏共用), 不再各写一份。
  */
-const BADGE: Record<DocStatus, { text: string; cls: string }> = {
-  idle: { text: "待跑", cls: "text-muted-foreground" },
-  running: { text: "跑中…", cls: "text-foreground" },
-  ok: { text: "", cls: "text-selected" },
-  unsupported: { text: "未处理", cls: "text-muted-foreground" },
-  error: { text: "失败", cls: "text-destructive" },
-};
-
 type Props = {
   rows: DocRow[];
   /** 当前选中的行(键), 与列表同一套键 */
@@ -229,7 +219,7 @@ export function PresetList({
         <div className="scroll-thin min-h-0 flex-1 overflow-auto overscroll-contain">
           {filtered.map((row) => {
             const active = row.key === activeKey;
-            const badge = BADGE[row.status];
+            const badge = DOC_STATUS[row.status];
             return (
               // 真 <button>: 之前是 `div role="button"` —— 键盘 Enter/Space、焦点环、
               // 屏幕阅读器都的"能按"语义都得自己补, 用原生元素则自带
@@ -264,7 +254,7 @@ export function PresetList({
                   </span>
                 ) : null}
                 <span className={`flex-none text-[11px] tabular-nums ${active ? "text-selected-foreground" : badge.cls}`}>
-                  {row.status === "ok" ? `✓ ${totalCounts(row.counts)} 处` : badge.text}
+                  {row.status === "ok" ? `✓ ${totalCounts(row.counts)} 处` : badge.badge}
                 </span>
               </button>
             );

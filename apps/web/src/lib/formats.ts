@@ -1,4 +1,19 @@
+import type { DocStatus } from "../types";
+
 export const TEXT_EXT = ["txt", "md", "markdown", "csv"];
+
+/**
+ * 文件行的状态词汇表 —— **唯一一处**。筛选栏标签、行尾徽标与颜色、右栏占位文案都从这里取，
+ * 三处不许各写一遍（改一句措辞要同时改三处，是之前踩过的坑）。
+ * `badge` 留空的状态（ok）由消费方换成"✓ N 处"。
+ */
+export const DOC_STATUS: Record<DocStatus, { label: string; badge: string; cls: string; hint: string }> = {
+  idle: { label: "待跑", badge: "待跑", cls: "text-muted-foreground", hint: "还没跑 —— 点「一键脱敏」" },
+  running: { label: "跑中", badge: "跑中…", cls: "text-foreground", hint: "正在处理" },
+  ok: { label: "已脱敏", badge: "", cls: "text-selected", hint: "正在加载脱敏件…" },
+  unsupported: { label: "未处理", badge: "未处理", cls: "text-muted-foreground", hint: "未处理" },
+  error: { label: "失败", badge: "失败", cls: "text-destructive", hint: "失败" },
+};
 
 export const ENTITY_TYPES = [
   "PHONE", "ID_CARD", "PASSPORT", "PLATE", "BANK_CARD", "EMAIL", "IP", "USCC",

@@ -14,7 +14,7 @@ import { StatusBar } from "./components/StatusBar";
 import { TopBar } from "./components/TopBar";
 import { UploadPrefsPanel } from "./components/UploadPrefsPanel";
 import * as api from "./lib/api";
-import { DEFAULT_SCHEME, progressInfo, shadowNameOf, shadowState, visibleSchemes } from "./lib/formats";
+import { DEFAULT_SCHEME, DOC_STATUS, progressInfo, shadowNameOf, shadowState, visibleSchemes } from "./lib/formats";
 import { useMediaQuery } from "./lib/useMediaQuery";
 import {
   defaultUploadPrefs, uploadRuleSummary, type UploadPrefs,
@@ -632,18 +632,15 @@ export default function App() {
   const elapsed = startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0;
   const batchTimeMs = result?.trace?.timing?.total_ms ?? null;
 
-  /** 右栏(脱敏后)该显示什么: 已处理好的给对比, 没处理好的给它的状态 */
+  /** 右栏(脱敏后)该显示什么: 已处理好的给对比, 没处理好的给它的状态(措辞取自唯一的 DOC_STATUS) */
   const outPlaceholder = !activeRow
     ? (mode === "folder" ? "点一份看它的前后对比，或先点「一键脱敏」跑完这批" : "点击「一键脱敏」查看结果")
-    : activeRow.status === "ok"
-      ? "正在加载脱敏件…"
-      : activeRow.status === "running"
-        ? `正在处理：${runInfo.label}`
-        : activeRow.status === "unsupported"
-          ? `未处理：${activeRow.reason ?? "该类型暂不支持"}`
-          : activeRow.status === "error"
-            ? `失败：${activeRow.reason ?? "未知原因"}`
-            : "还没跑 —— 点「一键脱敏」";
+    : activeRow.status === "running"
+      ? `${DOC_STATUS.running.hint}：${runInfo.label}`
+      : activeRow.status === "unsupported" || activeRow.status === "error"
+        ? `${DOC_STATUS[activeRow.status].hint}：${activeRow.reason
+            ?? (activeRow.status === "unsupported" ? "该类型暂不支持" : "未知原因")}`
+        : DOC_STATUS[activeRow.status].hint;
   /** 左栏(原文)同理: 没传上去的那份没有原文可看, 原因写在原地 */
   const srcPlaceholder = !activeRow
     ? "左侧选择上传文档"
