@@ -19,7 +19,7 @@ from urllib.parse import quote, unquote
 from .. import __version__, convert, resources
 from ..pipeline import Cancelled, prepare_detectors, process_file
 from ..redaction.mapping import MappingStore
-from ..redaction.restorers import RestoreError, restore_file
+from ..redaction.restorers import RestoreError, RestoreResult, restore_file
 from . import downloads, llm_server, prepare, profiles, progress, settings
 from docanon_engine_ner_llm import LLMConfig
 
@@ -92,12 +92,27 @@ def _restored_name(name: str) -> str:
     return name.replace("【脱敏版】", "【还原版】", 1) if "【脱敏版】" in name else f"【还原版】{name}"
 
 
-def _expected_for(anchors: dict, filename: str) -> dict | None:
+class _RestoreItemError(Exception):
+    """一份还原在过安全闸(文件名/base64/大小)时被拦下。
+
+    带上能报给用户的原因, 与(可能已净化的)文件名 —— 批量时据此给逐份结果, 单份时当成 400 的 error。
+    """
+
+    def __init__(self, reason: str, safe_name: str = "") -> None:
+        super().__init__(reason)
+        self.reason = reason
+        self.safe_name = safe_name
+
+
+def _expected_for(anchors: dict, filename: object) -> dict | None:
     """按文件名找回"这份该有哪些锚点"。
 
     AI 未必原样交回 `【脱敏版】x.docx` —— 常被存成 `x.docx`, 甚至只剩相对路径。
     所以几种变体都试一遍; 都对不上就返回 None(退化成只报"多了哪些")。
+    文件名不是字符串(缺字段)时同样返回 None —— 交给 `_restore_one` 去报"缺少 filename"。
     """
+    if not isinstance(filename, str):
+        return None
     base = Path(filename).name
     for key in (filename, base, base.replace("【脱敏版】", "", 1), f"【脱敏版】{base}"):
         value = anchors.get(key)
@@ -792,8 +807,62 @@ class Handler(BaseHTTPRequestHandler):
             "restore_token": token,
         })
 
+    def _resolve_restore_mapping(self, payload: dict) -> Path | None:
+        """还原端点的公共前置: 校验 token 并找回那一次的 `mapping.json`。
+
+        这个端点接受外部输入, 三道闸都收在这一处(单份与批量共用): token 只认服务端自己发过的那串
+        (不含分隔符/`..`) → `_safe_join` 复核 → 目录与 `mapping.json` 必须真的在。
+        任一不过就地回错误并返回 None; 调用方拿到路径即可继续。
+        """
+        token = payload.get("token")
+        if not isinstance(token, str) or not token or "/" in token or "\\" in token or ".." in token:
+            self._json(400, {"error": "缺少或非法的 token"})
+            return None
+        work = _safe_join(self.out_root / "outputs", token)
+        if work is None or not work.is_dir():
+            self._json(404, {"error": "找不到那次脱敏的映射表(可能已清理), 请重新脱敏"})
+            return None
+        mapping_path = work / "mapping.json"
+        if not mapping_path.is_file():
+            self._json(404, {"error": "那次脱敏没有留下映射表, 还原不了"})
+            return None
+        return mapping_path
+
+    def _restore_one(
+        self, rdir: Path, reverse: dict, filename: object, content_b64: object, expected: dict | None,
+    ) -> RestoreResult:
+        """还原**一份**: 过文件名/解码/大小三道闸 → 写中间文件 → `restore_file` → 清中间文件。
+
+        单份与批量共用这一处 —— 它守的正是"接受外部输入"的三道闸(文件名只取 basename、base64 必须合法、
+        不超过上限), 不许在两个端点各写一份。过闸失败抛 `_RestoreItemError`(带原因与可能已净化的文件名);
+        `restore_file` 自己不支持的格式仍原样抛 `RestoreError`。
+        """
+        if not isinstance(filename, str) or not filename or not isinstance(content_b64, str):
+            raise _RestoreItemError("缺少 filename 或 content_b64")
+        # 文件名只取 basename: 它决定还原路线, 不是用来拼路径的(路径由 token 决定)
+        safe_name = Path(filename).name
+        if not safe_name or safe_name.startswith("."):
+            raise _RestoreItemError(f"不能还原 {safe_name or '(空文件名)'} 这类文件", safe_name)
+        try:
+            raw = base64.b64decode(content_b64, validate=True)
+        except (ValueError, binascii.Error) as exc:
+            raise _RestoreItemError(f"文件内容解不开(不是合法的 base64): {exc}", safe_name) from exc
+        if len(raw) > _MAX_BYTES:
+            raise _RestoreItemError(f"文件超过 {_MAX_BYTES // (1024 * 1024)}MB 上限", safe_name)
+
+        src = rdir / f"in-{safe_name}"
+        out_path = rdir / _restored_name(safe_name)
+        try:
+            src.write_bytes(raw)
+            return restore_file(src, out_path, reverse, expected=expected)
+        except Exception:
+            out_path.unlink(missing_ok=True)   # 这一份失败不留半个文件
+            raise
+        finally:
+            src.unlink(missing_ok=True)        # 中间文件(含原文)不留
+
     def _restore(self, payload: dict) -> None:
-        """还原: 把 AI 改好的文件按 mapping 填回原文, **原格式原样式不动**。
+        """还原一份: 把 AI 改好的文件按 mapping 填回原文, **原格式原样式不动**。
 
         入参 `{token, filename, content_b64, expected?}`:
           token       —— 哪一次脱敏的产物目录(mapping.json 在那儿)。**只认服务端自己发过的 token**,
@@ -804,63 +873,35 @@ class Handler(BaseHTTPRequestHandler):
                          不给就只报"多了哪些" —— 后者靠猜不得。
 
         产物落在**独立的还原目录**, 不覆盖脱敏件: 还原件是未脱敏的原始信息, 与脱敏件混在
-        一起迟早误发出去(见 zip 打包时特意排除 mapping.json 的同一个理由)。
+        一起迟早误发出去(见 zip 打包时特意排除 mapping.json 的同一个理由)。三道闸与还原动作
+        都在 `_resolve_restore_mapping` / `_restore_one`(与批量共用一处)。
         """
-        token = payload.get("token")
-        if not isinstance(token, str) or not token or "/" in token or "\\" in token or ".." in token:
-            self._json(400, {"error": "缺少或非法的 token"})
+        mapping_path = self._resolve_restore_mapping(payload)
+        if mapping_path is None:
             return
-        work = _safe_join(self.out_root / "outputs", token)
-        if work is None or not work.is_dir():
-            self._json(404, {"error": "找不到那次脱敏的映射表(可能已清理), 请重新脱敏"})
-            return
-        mapping_path = work / "mapping.json"
-        if not mapping_path.is_file():
-            self._json(404, {"error": "那次脱敏没有留下映射表, 还原不了"})
-            return
-
-        filename = payload.get("filename")
-        content_b64 = payload.get("content_b64")
-        if not isinstance(filename, str) or not filename or not isinstance(content_b64, str):
-            self._json(400, {"error": "缺少 filename 或 content_b64"})
-            return
-        # 文件名只取 basename: 它决定还原路线, 不是用来拼路径的(路径由 token 决定)
-        safe_name = Path(filename).name
-        if not safe_name or safe_name.startswith("."):
-            self._json(400, {"error": f"不能还原 {safe_name or '(空文件名)'} 这类文件"})
-            return
+        expected = payload.get("expected")
+        if not isinstance(expected, dict) or not all(isinstance(v, int) for v in expected.values()):
+            expected = None
 
         # 还原件与脱敏件分目录: 一个是未脱敏的原始信息, 一个是可以外发的
         rtoken = uuid.uuid4().hex[:12]
         rdir = self.out_root / "restored" / rtoken
         rdir.mkdir(parents=True, exist_ok=True)
-        src = rdir / f"in-{safe_name}"
         try:
-            src.write_bytes(base64.b64decode(content_b64, validate=True))
-        except (ValueError, binascii.Error) as exc:
-            shutil.rmtree(rdir, ignore_errors=True)
-            self._json(400, {"error": f"文件内容解不开(不是合法的 base64): {exc}"})
-            return
-        if src.stat().st_size > _MAX_BYTES:
-            shutil.rmtree(rdir, ignore_errors=True)
-            self._json(400, {"error": f"文件超过 {_MAX_BYTES // (1024 * 1024)}MB 上限"})
-            return
-
-        expected = payload.get("expected")
-        if not isinstance(expected, dict) or not all(
-            isinstance(v, int) for v in expected.values()
-        ):
-            expected = None
-        out_name = _restored_name(safe_name)
-        out_path = rdir / out_name
-        try:
-            store = MappingStore.load(mapping_path)
-            result = restore_file(src, out_path, store.reverse_table(), expected=expected)
-        except (RestoreError, OSError, ValueError) as exc:
+            reverse = MappingStore.load(mapping_path).reverse_table()
+            result = self._restore_one(
+                rdir, reverse, payload.get("filename"), payload.get("content_b64"), expected
+            )
+        except _RestoreItemError as exc:
             shutil.rmtree(rdir, ignore_errors=True)   # 失败不留半个文件
+            self._json(400, {"error": exc.reason})
+            return
+        except (RestoreError, OSError, ValueError) as exc:
+            shutil.rmtree(rdir, ignore_errors=True)
             self._json(400, {"error": str(exc)})
             return
-        src.unlink(missing_ok=True)   # 中间文件(含原文)不留
+
+        out_name = result.output.name if result.output else _restored_name(Path(str(payload.get("filename"))).name)
         (rdir / "restore-report.json").write_text(
             json.dumps(result.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
         )
@@ -879,26 +920,17 @@ class Handler(BaseHTTPRequestHandler):
         """批量还原: 一次收多份(AI 改好的一批), 逐份还原到**同一个** `/restored/<rtoken>/`。
 
         入参 `{token, items: [{filename, content_b64}], anchors?}`:
-          token   —— 哪一次脱敏的产物目录(与单份同一套校验: 只认服务端发过的 token + `_safe_join`)
+          token   —— 哪一次脱敏的产物目录(与单份同一套校验, 见 `_resolve_restore_mapping`)
           items   —— 逐份要还原的文件
           anchors —— 可选: 逐份的锚点清单, key 用文件名(几种变体都认, 见 `_expected_for`)
 
         与单份的两点不同: (1) **一份失败不拖垮整批** —— 逐份记结果, 失败的只记原因、不留残留;
-        (2) 全部成功时另给一个 `zip_url`(整包下载), 一次取走。
+        (2) 只要**至少一份成功**就给一个 `zip_url`(整包下载), 一次取走。
+        逐份的校验与还原走与单份同一个 `_restore_one`, 不在两个端点各写一份。
         """
-        token = payload.get("token")
-        if not isinstance(token, str) or not token or "/" in token or "\\" in token or ".." in token:
-            self._json(400, {"error": "缺少或非法的 token"})
+        mapping_path = self._resolve_restore_mapping(payload)
+        if mapping_path is None:
             return
-        work = _safe_join(self.out_root / "outputs", token)
-        if work is None or not work.is_dir():
-            self._json(404, {"error": "找不到那次脱敏的映射表(可能已清理), 请重新脱敏"})
-            return
-        mapping_path = work / "mapping.json"
-        if not mapping_path.is_file():
-            self._json(404, {"error": "那次脱敏没有留下映射表, 还原不了"})
-            return
-
         items = payload.get("items")
         if not isinstance(items, list) or not items:
             self._json(400, {"error": "没有要还原的文件"})
@@ -928,38 +960,19 @@ class Handler(BaseHTTPRequestHandler):
                 results.append({"filename": "", "status": "error", "reason": "每一项要是 {filename, content_b64}"})
                 continue
             filename = item.get("filename")
-            content_b64 = item.get("content_b64")
-            if not isinstance(filename, str) or not filename or not isinstance(content_b64, str):
-                results.append({"filename": str(filename or ""), "status": "error", "reason": "缺少 filename 或 content_b64"})
+            expected = _expected_for(anchors, filename)
+            try:
+                result = self._restore_one(rdir, reverse, filename, item.get("content_b64"), expected)
+            except _RestoreItemError as exc:
+                results.append({"filename": exc.safe_name, "status": "error", "reason": exc.reason})
+                continue
+            except Exception as exc:  # noqa: BLE001
+                # 这一份失败不留半个文件, 也不影响其余
+                nm = Path(filename).name if isinstance(filename, str) else ""
+                results.append({"filename": nm, "status": "error", "reason": str(exc)})
                 continue
             safe_name = Path(filename).name
-            if not safe_name or safe_name.startswith("."):
-                results.append({"filename": safe_name, "status": "error",
-                                "reason": f"不能还原 {safe_name or '(空文件名)'} 这类文件"})
-                continue
-            try:
-                raw = base64.b64decode(content_b64, validate=True)
-            except (ValueError, binascii.Error) as exc:
-                results.append({"filename": safe_name, "status": "error",
-                                "reason": f"文件内容解不开(不是合法的 base64): {exc}"})
-                continue
-            if len(raw) > _MAX_BYTES:
-                results.append({"filename": safe_name, "status": "error",
-                                "reason": f"文件超过 {_MAX_BYTES // (1024 * 1024)}MB 上限"})
-                continue
-
-            src = rdir / f"in-{safe_name}"
-            out_name = _restored_name(safe_name)
-            out_path = rdir / out_name
-            try:
-                src.write_bytes(raw)
-                result = restore_file(src, out_path, reverse, expected=_expected_for(anchors, safe_name))
-            except Exception as exc:  # noqa: BLE001
-                out_path.unlink(missing_ok=True)   # 这一份失败不留半个文件, 但不影响其余
-                results.append({"filename": safe_name, "status": "error", "reason": str(exc)})
-                continue
-            finally:
-                src.unlink(missing_ok=True)        # 中间文件(含原文)不留
+            out_name = result.output.name if result.output else safe_name
             results.append({
                 "filename": safe_name,
                 "status": "ok",
