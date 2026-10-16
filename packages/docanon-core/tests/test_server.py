@@ -580,6 +580,20 @@ def test_built_assets_are_served(ephemeral_server):
         assert "javascript" in resp.headers.get("Content-Type", "")
 
 
+def test_web_static_off_serves_a_hint_not_stale_dist(ephemeral_server, monkeypatch):
+    """开发态(DOCANON_WEB_STATIC=0): 8000 不再发 dist 快照 —— 界面只在 Vite(5173)。
+
+    生产/桌面包不设这个变量, test_root_serves_the_built_index 锁住原行为不变。
+    """
+    monkeypatch.setenv("DOCANON_WEB_STATIC", "0")
+    with urllib.request.urlopen(ephemeral_server + "/", timeout=5) as resp:
+        body = resp.read().decode("utf-8")
+    assert "5173" in body, "关掉静态前端后, 根路径应明确指向 Vite"
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        urllib.request.urlopen(ephemeral_server + "/assets/whatever.js", timeout=5)
+    assert excinfo.value.code == 404, "关掉静态前端后, /assets/ 也不该再发 dist 静态件"
+
+
 def test_bad_job_id_is_rejected(ephemeral_server):
     """job id 会被当字典键 —— 不能随便收(路径穿越 / 撑爆内存)。"""
     up = _upload_text(ephemeral_server)

@@ -6,7 +6,7 @@
 | 命令 | 做什么 |
 |---|---|
 | `npm run setup` | 一键装齐：Python venv + 五个包 + 预览资源 + 字节码缓存重定向 + `npm install` |
-| `npm run dev` | 起产品界面开发态：Vite dev server → **:5173**（热更）+ 后端（默认 `-p 8000`，只作 Vite 的代理目标） |
+| `npm run dev` | 起产品界面开发态：Vite dev server → **:5173**（热更）+ 后端（默认 `-p 8000`，以 `DOCANON_WEB_STATIC=0` 只发 API 不发 dist，是 Vite 的代理目标） |
 | `npm run dev:backend` | 只起后端（`docanon web`，发已构建的 `apps/web/dist`）；生产形态 = `npm run build:web` 后用它 |
 | `npm run dev:website` | 起官网/文档站 → :4321 |
 | `npm run dev:desktop` | 起桌面壳（Tauri；首次自动装 Tauri CLI，需 Rust 工具链） |

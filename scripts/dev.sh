@@ -175,19 +175,18 @@ cmd_webui() {
   [ -d node_modules ] || { say "首次: 根目录 npm install(npm workspaces: ui + website + apps/web)…"; npm install --no-audit --no-fund; }
 
   local port="$DEFAULT_PORT"
-  # 后端 docanon web 只发 apps/web/dist; 缺它后端会 SystemExit(1), Vite 代理随之静默 404 ——
-  # 这是"少一层必须报错, 不许静默"那条硬边界, 所以在起后端之前先拦下来。
-  [ -f apps/web/dist/index.html ] || die "缺 apps/web/dist/index.html —— 后端 docanon web 会因此起不来, Vite 代理会静默 404。先构建: npm run build:web（或 npm run setup）"
+  # 后端以 DOCANON_WEB_STATIC=0 起(见 routes.py): 只发 API 不发 dist —— 开发态界面只在 Vite(5173),
+  # 8000 上不再挂一份过期的构建快照, 也就不需要先 build 才能开发
   warn_if_no_onnx_models
   # 后端口(默认 8000)与 Vite 口(5173, 见 apps/web/vite.config.ts)都先收干净:
   # 上次残留的话, 后端会裸栈退出, Vite 会默认换到 5174 —— 而下面还提示你开 5173, 那就开到了旧进程上
   reclaim_port "$port"
   reclaim_port 5173
-  say "→ 开发请开 http://127.0.0.1:5173 (Vite 热更, 别开 :$port —— 那是后端, 且是旧构建产物)   (Ctrl+C 停止)"
+  say "→ 开发请开 http://127.0.0.1:5173 (Vite 热更; :$port 只是 API, 打开会看到提示)   (Ctrl+C 停止)"
   say "  (后端 :$port 是 Vite 的代理目标, 不弹浏览器 —— 由 Vite 转发 /api 等)"
 
-  # --no-browser: 别自动弹标签页; 开发看的是 :5173 的 Vite 实时页, 弹 :$port 的旧构建只会误导
-  .venv/bin/docanon web -p "$port" -c "$DEFAULT_CONFIG" --no-browser &
+  # --no-browser: 别自动弹标签页; 开发看的是 :5173 的 Vite 实时页
+  DOCANON_WEB_STATIC=0 .venv/bin/docanon web -p "$port" -c "$DEFAULT_CONFIG" --no-browser &
   # 故意不是 local: EXIT trap 在函数返回之后才跑, 那时局部变量已出栈 —— set -u 下会报
   # "未绑定的变量"并跳过 kill, 后端就孤儿化占住 8000。做成全局变量才能在任何退出路径收走它。
   backend_pid=$!

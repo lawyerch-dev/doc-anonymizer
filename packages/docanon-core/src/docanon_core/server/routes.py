@@ -148,6 +148,15 @@ _PREVIEWABLE = {".docx", ".xlsx", ".pdf", ".png", ".jpg", ".jpeg", ".txt", ".md"
 # 前端是构建产物(Vite → apps/web/dist): / 发 index.html, 其余静态件都带哈希落在 /assets/ 下
 _DIST_PREFIX = "/assets/"
 
+# 开发态可关掉静态前端(DOCANON_WEB_STATIC=0, `./scripts/dev.sh webui` 会设):
+# 后端只发 API, 界面一律走 Vite(5173) —— 免得 8000 上挂着一份过期的 dist 快照, 看着像"第二个前端"。
+# 生产/桌面包不设这个变量, 行为不变: docanon web 仍然发 dist。
+_DEV_HINT = "开发态: 界面在 http://localhost:5173 (Vite), 本端口只提供 API —— 静态前端已由 DOCANON_WEB_STATIC=0 关闭"
+
+
+def _web_static_on() -> bool:
+    return os.environ.get("DOCANON_WEB_STATIC", "1") != "0"
+
 
 def _ctype(path: Path) -> str:
     suf = path.suffix.lower()
@@ -233,9 +242,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         p = self._path()
         if p in ("/", "/index.html"):
-            # _index() 走 resources.LAYOUT["web"], 现在指 apps/web/dist/index.html。
-            # 走 _send_file 是为了带上缓存头: 入口 HTML 必须 no-cache(见 _cache_control)
-            self._send_file(_index())
+            if _web_static_on():
+                # _index() 走 resources.LAYOUT["web"], 现在指 apps/web/dist/index.html。
+                # 走 _send_file 是为了带上缓存头: 入口 HTML 必须 no-cache(见 _cache_control)
+                self._send_file(_index())
+            else:
+                self._send(200, _DEV_HINT.encode("utf-8"), "text/plain; charset=utf-8")
         elif p == "/health":
             # 带上 pid: 桌面壳用它确认"答话的是我自己拉起的那个后端", 而不是占着端口的旧孤儿
             # 带上 version: 界面底部显示的版本号取自这里 —— 只有一处真相(pyproject/__version__),
@@ -278,7 +290,10 @@ class Handler(BaseHTTPRequestHandler):
         elif p.startswith("/api/configs/"):
             self._get_config(p[len("/api/configs/"):])
         elif p.startswith(_DIST_PREFIX):
-            self._serve_static(_web(), p.lstrip("/"))
+            if _web_static_on():
+                self._serve_static(_web(), p.lstrip("/"))
+            else:
+                self._send(404, b"not found", "text/plain")
         elif p.startswith("/samples/"):
             self._serve_static(_samples(), p[len("/samples/"):])
         elif p.startswith("/file-viewer/"):

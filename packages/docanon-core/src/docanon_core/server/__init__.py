@@ -17,7 +17,7 @@ from ..config import load_config
 from ..pipeline import prepare_detectors
 from . import llm_server, prepare
 from .lifecycle import ENV_EXIT_WITH_PARENT, _start_parent_watch, _watch_parent
-from .routes import Handler, _apply_managed_llm, _index, _vendor
+from .routes import Handler, _apply_managed_llm, _index, _vendor, _web_static_on
 
 __all__ = [
     "Handler",
@@ -45,8 +45,9 @@ def _preparable(config) -> bool:
 
 
 def serve(port: int = 8000, config_path: str | None = None, open_browser: bool = True) -> None:
-    # 前端页面是资源根下的静态文件: 先确认它在, 否则起个只能返回 404 的服务等于骗人
-    if not _index().is_file():
+    # 前端页面是资源根下的静态文件: 先确认它在, 否则起个只能返回 404 的服务等于骗人。
+    # 开发态(DOCANON_WEB_STATIC=0)界面走 Vite, 这里不要求 dist 在 —— webui 因此不再强迫先构建
+    if _web_static_on() and not _index().is_file():
         print(
             f"Web 未启动: 缺前端页面 {_index()}(资源根解析错了? 可用 DOCANON_ROOT 指定)",
             file=sys.stderr,
