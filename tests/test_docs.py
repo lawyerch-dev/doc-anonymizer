@@ -554,6 +554,53 @@ AGENTS_MAX_LINES = 80
 RULE_MAX_LINES = 60
 
 
+def test_readme_lists_every_api_endpoint():
+    """README 的接口清单必须覆盖 `routes.py` 注册的每个 `/api/...`。
+
+    踩过: 加了 `/api/formats`、`/api/prepare` 却没写进接口表, 读的人以为不存在。
+    端点清单以 `routes.py` 的分发(`p == "..."` / `p.startswith("...")`)为唯一来源, 不手抄 ——
+    分发写法若变了, 这里会因解析不出端点而报红, 提示同步守卫。
+    """
+    src = (REPO / "packages" / "docanon-core" / "src" / "docanon_core" / "server" / "routes.py").read_text(
+        encoding="utf-8"
+    )
+    endpoints = {
+        *re.findall(r'p\s*==\s*"(/[^"]+)"', src),
+        *re.findall(r'p\.startswith\("(/[^"]+)"\)', src),
+    }
+    api = sorted({e.rstrip("/") for e in endpoints if e.startswith("/api/")})
+    assert api, "routes.py 里没解析出任何 /api 端点 —— 分发写法变了? 请同步这条守卫"
+
+    bad = []
+    for doc in ("README.md", "README.en.md"):
+        text = (REPO / doc).read_text(encoding="utf-8")
+        missing = [e for e in api if e not in text]
+        if missing:
+            bad.append(f"{doc} 的接口清单少了: {missing}")
+    assert not bad, "\n".join(bad)
+
+
+def test_documented_python_range_matches_packaging():
+    """文档里的 Python 版本范围必须与各包 `requires-python` 一致 —— 数字/默认值最易漂移。"""
+    specs = {
+        m.group(1)
+        for pkg in (REPO / "packages").glob("docanon-*/pyproject.toml")
+        if (m := re.search(r'requires-python\s*=\s*"([^"]+)"', pkg.read_text(encoding="utf-8")))
+    }
+    assert len(specs) == 1, f"各包 requires-python 不一致: {specs}"
+    spec = specs.pop()
+    m = re.fullmatch(r">=(\d+)\.(\d+),<(\d+)\.(\d+)", spec)
+    assert m, f"requires-python 写法变了({spec!r}), 请同步这条守卫"
+    lo_major, lo_minor, hi_major, hi_minor = (int(g) for g in m.groups())
+    human = f"{lo_major}.{lo_minor}–{hi_major}.{hi_minor - 1}"   # <3.14 ⇒ 上限 3.13
+
+    bad = []
+    for doc in ("README.md", "README.en.md", "docs/quickstart.md", "docs/quickstart.en.md"):
+        if human not in (REPO / doc).read_text(encoding="utf-8"):
+            bad.append(f"{doc}: 应写 {human}(与 requires-python {spec!r} 一致)")
+    assert not bad, "\n".join(bad)
+
+
 def test_agent_rules_stay_small_and_indexed():
     """规范按主题拆开才有人读: AGENTS.md 只做索引, 细则在 .agent/rules/, 两边都不许膨胀。"""
     agents = (REPO / "AGENTS.md").read_text(encoding="utf-8")

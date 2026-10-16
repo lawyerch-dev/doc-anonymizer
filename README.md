@@ -166,8 +166,9 @@ flowchart TB
 `/api/models/download` `/api/formats` `/api/upload` `/api/anonymize` `/api/prepare` `/api/restore`
 `/api/progress/{job}`
 （另 `PUT`/`DELETE /api/configs/{name}`、
-`POST /api/configs/import`、`GET /api/configs/{name}/export`、`POST /api/models/download/cancel`、
-`POST /api/prepare/cancel`、`POST /api/anonymize/cancel`、`GET`/`PUT /api/settings`）。
+`POST /api/configs/import`、`GET /api/configs/{name}/export`、`GET /api/batch/{token}/zip`、
+`POST /api/models/download/cancel`、`POST /api/prepare/cancel`、`POST /api/anonymize/cancel`、
+`GET`/`PUT /api/settings`）。
 `/api/configs` 列内置+用户并标当前；`/api/models` 报可选 ONNX 目录、LLM 默认与**可下载的大模型目录**；
 `/api/models/download` 起步/查询/取消界面内的模型下载（只收目录里的 `id`，**不收 URL**）；
 `/api/upload` 入参 `{filename, content_b64}`；`/api/anonymize` 入参 `{preset|token, config?, job?}`，

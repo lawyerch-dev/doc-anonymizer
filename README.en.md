@@ -173,8 +173,9 @@ under `DOCANON_DATA` (macOS `~/Library/Application Support/docanon`) and survive
 Endpoints: `/` `/assets/*` `/health` `/api/presets` `/api/configs` `/api/configs/{ref}` `/api/models`
 `/api/models/download` `/api/formats` `/api/upload` `/api/anonymize` `/api/prepare` `/api/restore`
 `/api/progress/{job}` (plus `PUT`/`DELETE /api/configs/{name}`,
-`POST /api/configs/import`, `GET /api/configs/{name}/export`, `POST /api/models/download/cancel`,
-`POST /api/prepare/cancel`, `POST /api/anonymize/cancel`, `GET`/`PUT /api/settings`).
+`POST /api/configs/import`, `GET /api/configs/{name}/export`, `GET /api/batch/{token}/zip`,
+`POST /api/models/download/cancel`, `POST /api/prepare/cancel`, `POST /api/anonymize/cancel`,
+`GET`/`PUT /api/settings`).
 `/api/configs` lists built-ins and user configs and marks the current one; `/api/models` reports the ONNX
 dirs, the LLM defaults and the **downloadable model catalogue**; `/api/models/download` starts / polls /
 cancels the in-app model download (it takes a catalogue `id` only, **never a URL**); `/api/upload` takes `{filename, content_b64}`;
