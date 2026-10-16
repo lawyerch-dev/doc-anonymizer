@@ -13,7 +13,12 @@ dist/
 .mypy_cache/
 .ruff_cache/
 .coverage
+.coverage.*
 htmlcov/
+# hypothesis 属性测试的示例数据库
+.hypothesis/
+# 散落在仓库根的 wheel(主路径 dist/ build/ 上面已挡, 这条兜底 uv build 的临时产物)
+*.whl
 
 # ---- 下载/构建得到的资产(体积大, 不入库) ----
 # var/ 是"可再生资产"的唯一入口: var/models(权重) / var/vendor(file-viewer 预览包)
@@ -37,6 +42,11 @@ out*/
 .vscode/
 *.swp
 *.swo
+*~
+# 合并冲突手工解决后的残留 / 手工备份与临时件
+*.orig
+*.bak
+*.tmp
 .DS_Store
 # Windows(CI 双平台构建, 贡献者可能用 Windows)
 Thumbs.db
@@ -62,6 +72,17 @@ apps/desktop/src-tauri/gen/schemas/
 # 先把 configs/web/samples/vendor/sidecar 摆到这里, 再由 tauri.dist.conf.json 整体收进包内 docanon/
 # (见 apps/desktop/README.md)
 apps/desktop/stage/
+# 安装包散落兜底(target/ build/ stage/ 是主路径, 已逐条登记; 这条防手动拷出的包)
+*.dmg
+*.exe
+*.AppImage
+*.blockmap
+
+# ---- Playwright e2e(tests/e2e) 的跑测产物 ----
+test-results/
+playwright-report/
+/blob-report/
+/playwright/.cache/
 
 # ---- agent 执行计划的临时工作区(ledger/简报/评审包, 不入库) ----
 .superpowers/
