@@ -10,6 +10,8 @@ import json
 from pathlib import Path
 from typing import Callable
 
+from ..atomic import write_json
+
 
 class MappingStore:
     def __init__(self) -> None:
@@ -82,10 +84,7 @@ class MappingStore:
         }
 
     def save(self, path: str | Path) -> None:
-        Path(path).write_text(
-            json.dumps(self.to_dict(), ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        write_json(path, self.to_dict())   # 原子写: 半截映射表比没映射表更危险
 
     @classmethod
     def load(cls, path: str | Path) -> "MappingStore":

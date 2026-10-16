@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 
 from .. import resources
+from ..atomic import write_json
 
 
 class SettingsError(ValueError):
@@ -38,13 +39,11 @@ def load() -> dict:
 
 
 def save(data: dict) -> dict:
-    """结构校验 + 原子写(与 `profiles.save_profile` 同一套做法: 不留半个文件)。"""
+    """结构校验 + 原子写(统一走 `docanon_core.atomic`: 不留半个文件)。"""
     clean = validate(data)
     p = path()
     p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_name(p.name + ".tmp")
-    tmp.write_text(json.dumps(clean, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    tmp.replace(p)
+    write_json(p, clean, trailing_newline=True)
     return clean
 
 

@@ -9,19 +9,12 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
-from typing import Any
 
+from .atomic import write_json
 from .config import Config
 from .redaction.mapping import MappingStore
 from .pipeline import prepare_detectors, process_file
-
-
-def _write_json_atomic(path: Path, payload: Any) -> None:
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    os.replace(tmp, path)
 
 
 class RedactionJob:
@@ -84,7 +77,7 @@ class RedactionJob:
     def save(self) -> None:
         self.store.save(self.mapping_path)
         entries = list(self.entries.values())
-        _write_json_atomic(self.manifest_path, {
+        write_json(self.manifest_path, {
             "inputs": self.inputs,
             "files": entries,
             "totals": self.totals(),

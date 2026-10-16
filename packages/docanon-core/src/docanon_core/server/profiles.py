@@ -11,6 +11,7 @@ from pathlib import Path
 import yaml
 
 from .. import resources
+from ..atomic import write_text
 from ..config import Config, config_from_dict
 
 # 用户配置名: 无点、无路径分隔符 —— 天然不与内置(带 .yaml)撞名, 也杜绝路径穿越
@@ -179,9 +180,7 @@ def save_profile(name: str, data: dict) -> None:
     validate(data)
     path = _user_path(name)  # 顺带校验名字
     user_dir().mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
-    tmp.replace(path)
+    write_text(path, yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
 
 
 def delete_profile(name: str) -> None:
