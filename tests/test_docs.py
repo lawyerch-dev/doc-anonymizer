@@ -30,6 +30,7 @@ RECORDS = [
     REPO / "docs" / "specs" / "2026-10-08-redaction-config-design.md",
     REPO / "docs" / "specs" / "2026-10-09-web-ui-vite-migration-design.md",
     REPO / "docs" / "specs" / "2026-10-09-llm-model-download-design.md",
+    REPO / "docs" / "specs" / "2026-10-18-bundled-vs-on-demand-init-design.md",
     REPO / "CHANGELOG.md",
 ]
 
