@@ -21,10 +21,16 @@ Under `packages/` there is also `ui` (the shared JS component library); it is no
 
 The dependency direction is a one-way street, **locked down jointly by the packages and pyproject** (`tests/test_architecture.py`):
 
-```
-core ──► engine-ocr ──┐
-     ├─► engine-ner-onnx ──┼──► contract
-     └─► engine-ner-llm ───┘
+```mermaid
+flowchart BT
+  CT["docanon-contract (contract layer)<br/>Block / Span / Detection / keys · stdlib only"]
+  CORE["docanon-core (app)<br/>format conversion · extraction · detection · redact + restore"]
+  CORE --> OCR["docanon-engine-ocr<br/>rapidocr · Pillow"]
+  CORE --> ONX["docanon-engine-ner-onnx<br/>onnxruntime · tokenizers"]
+  CORE --> LLM["docanon-engine-ner-llm<br/>llama-server · stdlib only"]
+  OCR --> CT
+  ONX --> CT
+  LLM --> CT
 ```
 
 - Engine packages **do not depend on one another**; each depends only on the contract. Moving one out wholesale = copying "the contract + that one engine package"
@@ -45,6 +51,21 @@ docanon_core/
 ├── redaction/                   replacement and write-back: strategies mapping resolve writers
 ├── pipeline.py job.py           orchestration / ledger (manifest+mapping, atomic writes)
 └── server/                      local Web: routes (answers requests) lifecycle (sidecar self-termination)
+```
+
+The runtime chain: **which stage each of the four mechanisms lands on** (for `run`'s exit codes and the ledger, see [README](../README.en.md#run-flow-and-structure)).
+
+```mermaid
+flowchart TD
+  SRC["source file"] --> EX["extract<br/>format conversion .doc/.xls → docx/xlsx · OCR for pages and images without a text layer"]
+  EX --> DT["detect<br/>rule / dictionary / onnx_ner / llm_ner"]
+  DT --> MR["merge + replace<br/>de-overlap · strategy · consistent document-wide"]
+  MR --> WB["write back<br/>docx run by run · xlsx cell by cell · PDF hit pages rasterized"]
+  WB --> OUT["redacted artifact"]
+  OUT --> AI["hand to an AI for rewriting"]
+  AI --> RS["restore<br/>anchors filled back in place"]
+  RS --> OUT2["restored artifact"]
+  MR -.->|"mapping.json reverse table"| RS
 ```
 
 ## 2. Repository Root (Why Only These Remain)

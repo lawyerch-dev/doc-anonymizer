@@ -21,10 +21,16 @@ packages/
 
 依赖方向是单行道，**由包与 pyproject 共同锁死**（`tests/test_architecture.py`）：
 
-```
-core ──► engine-ocr ──┐
-     ├─► engine-ner-onnx ──┼──► contract
-     └─► engine-ner-llm ───┘
+```mermaid
+flowchart BT
+  CT["docanon-contract（契约层）<br/>Block / Span / Detection / keys · 只准标准库"]
+  CORE["docanon-core（app）<br/>格式转换 · 抽取 · 检测 · 脱敏 + 还原"]
+  CORE --> OCR["docanon-engine-ocr<br/>rapidocr · Pillow"]
+  CORE --> ONX["docanon-engine-ner-onnx<br/>onnxruntime · tokenizers"]
+  CORE --> LLM["docanon-engine-ner-llm<br/>llama-server · 只用标准库"]
+  OCR --> CT
+  ONX --> CT
+  LLM --> CT
 ```
 
 - 引擎包之间**互不依赖**，各自只依赖契约；整块搬走 = 拷"契约 + 那一个引擎包"
@@ -45,6 +51,21 @@ docanon_core/
 ├── redaction/                   替换与回写: strategies mapping resolve writers
 ├── pipeline.py job.py           编排 / 账本(manifest+mapping, 原子落盘)
 └── server/                      本地 Web: routes(答请求) lifecycle(sidecar 自杀)
+```
+
+运行期的链条：**四个机制各自落在哪一环**（`run` 的退出码与账本见 [README](../README.md#运行流程与结构)）。
+
+```mermaid
+flowchart TD
+  SRC["源文件"] --> EX["抽取<br/>格式转化 .doc/.xls → docx/xlsx · OCR 无文字层的页与图片"]
+  EX --> DT["检测<br/>rule / dictionary / onnx_ner / llm_ner"]
+  DT --> MR["合并 + 替换<br/>去重叠 · 策略 · 同实体全篇一致"]
+  MR --> WB["回写<br/>docx 逐 run · xlsx 逐单元格 · PDF 命中页栅格化"]
+  WB --> OUT["【脱敏版】产物"]
+  OUT --> AI["交 AI 改写"]
+  AI --> RS["还原<br/>锚点就地回填"]
+  RS --> OUT2["【还原版】产物"]
+  MR -.->|"mapping.json 反向表"| RS
 ```
 
 ## 二、仓库根（为什么只剩这些）
