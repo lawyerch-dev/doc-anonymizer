@@ -381,20 +381,22 @@ PY
   fi
 
   say "== 旧格式转换(LibreOffice) =="
-  local soffice_hit=""
-  if [ -n "${DOCANON_SOFFICE:-}" ] && [ -x "${DOCANON_SOFFICE}" ]; then
-    soffice_hit="DOCANON_SOFFICE=$DOCANON_SOFFICE"
-  elif command -v soffice >/dev/null 2>&1; then
-    soffice_hit="系统: $(command -v soffice)"
-  elif [ -x "/Applications/LibreOffice.app/Contents/MacOS/soffice" ]; then
-    soffice_hit="/Applications/LibreOffice.app"
-  elif [ -n "$(find var/libreoffice -name soffice -type f 2>/dev/null | head -n1)" ]; then
-    soffice_hit="var/libreoffice(下载)"
-  fi
-  if [ -n "$soffice_hit" ]; then
-    say "  $ok soffice            $soffice_hit"
+  # 以前这一行在 shell 里又把 find_soffice 实现了一遍(只认 macOS 路径、find -name soffice 漏掉
+  # Windows 的 .com/.exe), 与 convert.py 那份迟早对不上。改成问 Python 要答案: 一处真相,
+  # Windows 的修复与"坏掉的显式覆盖要点名"都自动跟着生效。
+  local soffice_path="" soffice_reason=""
+  if [ -x .venv/bin/python ]; then
+    soffice_path="$(.venv/bin/python -c 'from docanon_core import convert; print(convert.find_soffice() or "")' 2>/dev/null)"
+    if [ -z "$soffice_path" ]; then
+      soffice_reason="$(.venv/bin/python -c 'from docanon_core import convert; print(convert.unavailable_reason() or "")' 2>/dev/null)"
+    fi
   else
-    say "  $no soffice            缺 —— .doc/.xls/.wps 将记 unsupported; 取: ./scripts/fetch_libreoffice.sh"
+    soffice_reason="还没装 docanon —— 跑 ./scripts/setup_dev.sh"
+  fi
+  if [ -n "$soffice_path" ]; then
+    say "  $ok soffice            $soffice_path"
+  else
+    say "  $no soffice            ${soffice_reason:-缺 LibreOffice; 取: ./scripts/fetch_libreoffice.sh}"
   fi
 
   say "== 引擎(configs/onnx.yaml 实际加载了什么) =="
