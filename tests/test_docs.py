@@ -135,11 +135,16 @@ DOC_RENDERED_DIRS = ("docs/cookbook/",)
 
 
 def _tracked_md() -> list[str]:
+    """已入库的 markdown。
+
+    跳过"索引里还在、磁盘上已删"的中间态(删了文档还没 `git add`): 否则下面读文件的守卫会崩在
+    `FileNotFoundError` 上, 而看不出是哪一步出的问题。
+    """
     out = subprocess.run(
         ["git", "-c", "core.quotePath=false", "ls-files", "*.md"],
         cwd=REPO, capture_output=True, text=True, check=True,
     )
-    return [line for line in out.stdout.splitlines() if line.strip()]
+    return [line for line in out.stdout.splitlines() if line.strip() and (REPO / line).is_file()]
 
 
 def test_every_doc_is_reachable_or_a_dated_record():
