@@ -383,20 +383,20 @@ PY
   say "== 旧格式转换(LibreOffice) =="
   # 以前这一行在 shell 里又把 find_soffice 实现了一遍(只认 macOS 路径、find -name soffice 漏掉
   # Windows 的 .com/.exe), 与 convert.py 那份迟早对不上。改成问 Python 要答案: 一处真相,
-  # Windows 的修复与"坏掉的显式覆盖要点名"都自动跟着生效。
-  local soffice_path="" soffice_reason=""
+  # 跨根查找与"坏掉的显式覆盖要点名"都自动跟着生效。一次调用里连**来源**一起打出来 ——
+  # `var/libreoffice` 在下载形态与随包形态下落在不同的根上, 只报路径不够排查。
   if [ -x .venv/bin/python ]; then
-    soffice_path="$(.venv/bin/python -c 'from docanon_core import convert; print(convert.find_soffice() or "")' 2>/dev/null)"
-    if [ -z "$soffice_path" ]; then
-      soffice_reason="$(.venv/bin/python -c 'from docanon_core import convert; print(convert.unavailable_reason() or "")' 2>/dev/null)"
-    fi
+    .venv/bin/python - <<'PY'
+from docanon_core import convert
+
+path, source = convert.describe_soffice()
+if path:
+    print(f"  ✓ soffice            {path}" + (f"    (来源: {source})" if source else ""))
+else:
+    print(f"  ✗ soffice            {convert.unavailable_reason() or '缺 LibreOffice; 取: ./scripts/fetch_libreoffice.sh'}")
+PY
   else
-    soffice_reason="还没装 docanon —— 跑 ./scripts/setup_dev.sh"
-  fi
-  if [ -n "$soffice_path" ]; then
-    say "  $ok soffice            $soffice_path"
-  else
-    say "  $no soffice            ${soffice_reason:-缺 LibreOffice; 取: ./scripts/fetch_libreoffice.sh}"
+    say "  $no soffice            还没装 docanon —— 跑 ./scripts/setup_dev.sh"
   fi
 
   say "== 引擎(configs/onnx.yaml 实际加载了什么) =="

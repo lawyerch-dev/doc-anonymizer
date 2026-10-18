@@ -1,7 +1,7 @@
 """旧版二进制 Office(.doc/.xls/.wps) -> 现代格式(.docx/.xlsx), 借 LibreOffice headless。
 
 这不是"引擎": 它不产出 Block, 只把文件换个格式; 抽取由被委托的抽取器完成。
-soffice 走"系统优先 -> var/libreoffice(下载)"，不进包。
+soffice 走"系统优先 -> 各根下的 var/libreoffice", 不进包。
 """
 from __future__ import annotations
 
@@ -66,9 +66,11 @@ def _system_soffice() -> Path | None:
     return _MAC_SOFFICE if _usable(_MAC_SOFFICE) else None
 
 
-def _bundled_soffice() -> Path | None:
-    """`var/libreoffice` 里解出来的那份。按候选名逐个找(Windows 上带扩展名, 直接 rglob("soffice") 一个都找不到)。"""
-    base = resources.path("libreoffice")
+def _bundled_soffice(base: Path) -> Path | None:
+    """在某个根下的 `var/libreoffice` 里找解出来的那份。
+
+    按候选名逐个找: Windows 上二进制带扩展名(`.com`/`.exe`), 直接 `rglob("soffice")` 一个都找不到。
+    """
     if not base.is_dir():
         return None
     for name in _SOFFICE_NAMES:
@@ -78,17 +80,38 @@ def _bundled_soffice() -> Path | None:
     return None
 
 
-def find_soffice() -> Path | None:
-    """按 环境变量 > 系统安装 > var/libreoffice(下载) 的顺序找 soffice。
+def _locate() -> tuple[Path | None, str]:
+    """找 soffice, 连同**它是从哪儿来的**。
 
-    显式设了 `DOCANON_SOFFICE` 就以它为准: 是坏路径也**不**回退系统安装 ——
+    顺序: `DOCANON_SOFFICE` > 系统安装 > 各根下的 `var/libreoffice`(数据根优先)。
+
+    来源必须一起给出来 —— 只报"有/没有"是不够的: `var/libreoffice` 在两种形态下落在不同的根上
+    (在线形态下载到**数据根**、`full` 形态**随包**在资源根), 报不出来源就没法排查
+    "明明带了却读不到"。显式设了 `DOCANON_SOFFICE` 就以它为准: 是坏路径也**不**回退系统安装 ——
     悄悄换一个二进制比直接报错更难排查。
     """
     override = os.environ.get("DOCANON_SOFFICE")
     if override:
         p = Path(override).expanduser()
-        return p if _usable(p) else None
-    return _system_soffice() or _bundled_soffice()
+        return (p, "DOCANON_SOFFICE") if _usable(p) else (None, "")
+    system = _system_soffice()
+    if system is not None:
+        return system, "系统安装"
+    for label, base in resources.root_candidates("libreoffice"):
+        hit = _bundled_soffice(base)
+        if hit is not None:
+            return hit, label
+    return None, ""
+
+
+def find_soffice() -> Path | None:
+    """可用的 soffice; 找不到返回 None。顺序与来源见 `_locate`。"""
+    return _locate()[0]
+
+
+def describe_soffice() -> tuple[Path | None, str]:
+    """给诊断用(`doctor` / `engines`): (可执行文件, 来源标签)。"""
+    return _locate()
 
 
 def unavailable_reason() -> str | None:

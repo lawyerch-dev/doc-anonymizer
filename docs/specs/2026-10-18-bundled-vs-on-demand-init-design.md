@@ -199,6 +199,7 @@ macOS 的 `.app` 是自包含 bundle，所以我们解 `.dmg` 就能跑。Window
 
 1. **先修 Windows 侧的 4 处必坏点**（§5.3）—— 与本次双模设计独立，是修 bug 不是加功能。
 2. **跨根查找**（§4）：`resources` 提供跨根候选 + `find_soffice` 迭代 + `doctor` 报来源。
+   **（已落地）**
 3. **Windows 真机验证**（§5.1、§5.2）—— 不通过则 `full` 的 Windows 版先不做，别的平台不受影响。
 4. **接进 prepare 流程**（懒触发）+ 前端那一项（文案纪律：**不出现 "LibreOffice" 等技术词**，
    见 `apps/web/src/components/OnboardingWizard.tsx` 既有约定）。

@@ -93,14 +93,37 @@ def data_root() -> Path:
     return Path(override).expanduser().resolve() if override else root()
 
 
+def _rel(key: str) -> str:
+    """取 LAYOUT 里的相对路径; 键名写错就报错, 并把已登记的键列出来。"""
+    try:
+        return LAYOUT[key]
+    except KeyError:
+        raise KeyError(f"LAYOUT 里没有 {key!r}; 已登记: {', '.join(sorted(LAYOUT))}") from None
+
+
 def path(key: str) -> Path:
     """布局表里的某一项。可写状态键按数据根解析, 其余按资源根解析(见 WRITABLE)。"""
-    try:
-        rel = LAYOUT[key]
-    except KeyError:  # pragma: no cover - 只在写错键名时触发
-        raise KeyError(f"LAYOUT 里没有 {key!r}; 已登记: {', '.join(sorted(LAYOUT))}") from None
     base = data_root() if key in WRITABLE else root()
-    return base / rel
+    return base / _rel(key)
+
+
+def root_candidates(key: str) -> tuple[tuple[str, Path], ...]:
+    """同一项资源在**所有根**上的候选: `[(来源标签, 路径), …]`, 按优先级排。
+
+    只对"会在两种形态下落不同根"的项才有意义 —— 现状是 `libreoffice`: 在线形态下载到**数据根**,
+    `full` 形态**随包**在资源根(见 docs/specs/2026-10-18-bundled-vs-on-demand-init-design.md §4)。
+    普通项用 `path()` 就够, 别为了统一而统一。
+
+    相对路径仍只从 LAYOUT 取: 调用方**不许**自己拼 `var/libreoffice`, 否则布局知识就有第二份了。
+    源码树形态下两个根是同一处, 这里只报一条 —— 免得查找方把同一份东西找两遍还报出两个来源。
+    """
+    rel = _rel(key)
+    out: list[tuple[str, Path]] = []
+    for label, base in (("数据根(下载来的)", data_root()), ("资源根(随包自带的)", root())):
+        candidate = base / rel
+        if all(candidate != seen for _, seen in out):
+            out.append((label, candidate))
+    return tuple(out)
 
 
 def resolve(path: str | Path) -> Path:

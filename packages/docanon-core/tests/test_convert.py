@@ -26,7 +26,8 @@ def test_find_soffice_none_when_nothing(tmp_path, monkeypatch):
     monkeypatch.delenv("DOCANON_SOFFICE", raising=False)
     monkeypatch.setattr("shutil.which", lambda name: None)
     monkeypatch.setattr(convert, "_MAC_SOFFICE", tmp_path / "no.app")
-    monkeypatch.setattr("docanon_core.resources.path", lambda key: tmp_path / "absent")
+    monkeypatch.setattr("docanon_core.resources.data_root", lambda: tmp_path / "data")
+    monkeypatch.setattr("docanon_core.resources.root", lambda: tmp_path / "res")
     assert convert.find_soffice() is None
     assert "LibreOffice" in convert.unavailable_reason()
 
@@ -126,9 +127,13 @@ def test_multiple_products_prefer_the_one_named_after_the_source(tmp_path, monke
 
 # ---- Windows 分支: 在 mac 上靠 _IS_WINDOWS 开关与假目录验(与 _MAC_SOFFICE 的 monkeypatch 同一手法) ----
 
-def _bundled_tree(tmp_path, monkeypatch, *names: str) -> Path:
-    """造一棵 var/libreoffice/program, 并把 PATH 与固定安装位都挡掉 —— 让 find_soffice 只看这棵树。"""
-    program = tmp_path / "libreoffice" / "program"
+def _bundled_tree(tmp_path, monkeypatch, *names: str, root: str = "data") -> Path:
+    """造一棵「<根>/var/libreoffice/program」, 并把 PATH 与固定安装位都挡掉 —— 让查找只看这棵树。
+
+    `root="data"` = 在线形态(下载到数据根); `root="res"` = full 形态(随包, 在资源根)。
+    """
+    base = tmp_path / ("data" if root == "data" else "res")
+    program = base / "var" / "libreoffice" / "program"
     program.mkdir(parents=True)
     for name in names:
         p = program / name
@@ -138,8 +143,8 @@ def _bundled_tree(tmp_path, monkeypatch, *names: str) -> Path:
     monkeypatch.setattr("shutil.which", lambda name: None)
     monkeypatch.setattr(convert, "_MAC_SOFFICE", tmp_path / "no.app")
     monkeypatch.setattr(convert, "_WIN_PROGRAM_DIRS", ())
-    monkeypatch.setattr(convert, "_IS_WINDOWS", True)
-    monkeypatch.setattr("docanon_core.resources.path", lambda key: tmp_path / "libreoffice")
+    monkeypatch.setattr("docanon_core.resources.data_root", lambda: tmp_path / "data")
+    monkeypatch.setattr("docanon_core.resources.root", lambda: tmp_path / "res")
     return program
 
 
@@ -192,3 +197,38 @@ def test_exec_bit_is_not_checked_on_windows(tmp_path, monkeypatch):
     assert convert._usable(plain) is False, "mac/Linux 上没执行位就是不可用"
     monkeypatch.setattr(convert, "_IS_WINDOWS", True)
     assert convert._usable(plain) is True, "Windows 上看不出执行位, 只能退到「文件存在」"
+
+
+# ---- 跨根查找: 同一项资源在两种形态下落在不同的根上 ----
+
+def test_bundled_soffice_is_found_in_the_data_root(tmp_path, monkeypatch):
+    """在线形态: 下载来的那份落在**数据根**。"""
+    program = _bundled_tree(tmp_path, monkeypatch, "soffice")
+
+    assert convert.find_soffice() == program / "soffice"
+    assert convert.describe_soffice() == (program / "soffice", "数据根(下载来的)")
+
+
+def test_bundled_soffice_is_found_in_the_resource_root(tmp_path, monkeypatch):
+    """full 形态: 随包自带的那份落在**资源根** —— 只查数据根就会「明明带了却读不到」。"""
+    program = _bundled_tree(tmp_path, monkeypatch, "soffice", root="res")
+
+    assert convert.find_soffice() == program / "soffice"
+    assert convert.describe_soffice()[1] == "资源根(随包自带的)"
+
+
+def test_data_root_wins_over_the_resource_root(tmp_path, monkeypatch):
+    """两个根都有时以数据根为准 —— 用户自己下载/替换的那份该压过随包的。"""
+    data = _bundled_tree(tmp_path, monkeypatch, "soffice", root="data")
+    _bundled_tree(tmp_path, monkeypatch, "soffice", root="res")
+
+    assert convert.find_soffice() == data / "soffice"
+
+
+def test_describe_soffice_names_the_source(tmp_path, monkeypatch):
+    """来源必须能报出来: 「明明带了 / 下了却读不到」只有知道它从哪个根读的才排查得动。"""
+    install_fake_soffice(tmp_path, monkeypatch, real_documents=False)
+
+    assert convert.describe_soffice() == (tmp_path / "soffice", "DOCANON_SOFFICE")
+    monkeypatch.setenv("DOCANON_SOFFICE", "/no/such/soffice")
+    assert convert.describe_soffice() == (None, "")

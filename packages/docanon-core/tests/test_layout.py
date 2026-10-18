@@ -54,6 +54,29 @@ def test_unknown_layout_key_is_a_loud_error():
         raise AssertionError("拼错的布局键必须报错")
 
 
+def test_root_candidates_stay_on_the_layout_table():
+    """跨根候选只是把 LAYOUT 那一条贴到不同的根上 —— 不许在别处再拼一遍 `var/libreoffice`。
+
+    这是「布局只有一处真相」在跨根查找(见 docs/specs/2026-10-18-… §4)下的延伸:
+    调用方拿到的是「根 + LAYOUT 那一条」, 而不是自己拼出来的路径。
+    """
+    rel = pathlib.PurePosixPath(resources.LAYOUT["libreoffice"])
+    bases = {resources.data_root(), resources.root()}
+    candidates = resources.root_candidates("libreoffice")
+
+    assert candidates, "至少要把数据根那一条列出来"
+    for source, path in candidates:
+        assert any(path == base / rel for base in bases), f"{source}: {path} 不是「根 + LAYOUT」拼出来的"
+
+
+def test_root_candidates_dedupe_when_both_roots_are_the_same(tmp_path, monkeypatch):
+    """源码树形态下两个根是同一处 —— 只报一条, 免得同一份东西被找两遍还报出两个来源。"""
+    monkeypatch.delenv(resources.ENV_DATA, raising=False)   # 调用者环境里可能设了它, 别让测试看运气
+    assert len(resources.root_candidates("libreoffice")) == 1
+    monkeypatch.setenv(resources.ENV_DATA, str(tmp_path))
+    assert len(resources.root_candidates("libreoffice")) == 2
+
+
 def test_marker_still_points_at_a_real_file():
     """资源根靠 MARKER 认, 它必须真的存在且住在 LAYOUT 的 configs 下。"""
     assert resources.MARKER == pathlib.Path(resources.LAYOUT["configs"]) / "default.yaml"
